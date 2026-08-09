@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: card_02_border_report
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: card_02_border_report
+  speaker: "[GE\xC7\u0130C\u0130] Mare\u015Fal"
+  bodyText: "Atl\u0131 g\xF6zc\xFCler do\u011Fu ge\xE7itlerinin \xF6tesinde hareketlilik
+    bildirdi. Hen\xFCz kesinle\u015Fen bir \u015Fey yok."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "Ge\xE7itleri g\xFC\xE7lendir"
+    deltas:
+      authority: 0
+      people: 0
+      security: 10
+      wealth: -10
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  rightChoice:
+    previewText: Hazineyi koru
+    deltas:
+      authority: 0
+      people: 0
+      security: -10
+      wealth: 10
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+  selectionWeight: 1
+  oncePerRun: 0
+  cooldownTurns: 0
+  forcedNextCardId: 

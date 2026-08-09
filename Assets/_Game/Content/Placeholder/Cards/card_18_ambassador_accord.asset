@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: card_18_ambassador_accord
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: card_18_ambassador_accord
+  speaker: "[GE\xC7\u0130C\u0130] B\xFCy\xFCkel\xE7i"
+  bodyText: "Anla\u015Fma imzaland\u0131. Saray\u0131m bunun kar\u015F\u0131l\u0131\u011F\u0131nda
+    ne kazand\u0131\u011F\u0131n\u0131 bilmek isteyecek."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "T\xFCm ko\u015Fullar\u0131 yerine getir"
+    deltas:
+      authority: 0
+      people: 10
+      security: 5
+      wealth: -10
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  rightChoice:
+    previewText: "Yaln\u0131z metne ba\u011Fl\u0131 kal"
+    deltas:
+      authority: 5
+      people: -5
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+  selectionWeight: 1
+  oncePerRun: 0
+  cooldownTurns: 0
+  forcedNextCardId: 

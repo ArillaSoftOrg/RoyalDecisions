@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: card_17_ambassador
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: card_17_ambassador
+  speaker: "[GE\xC7\u0130C\u0130] B\xFCy\xFCkel\xE7i"
+  bodyText: "Bir elimde antla\u015Fma, di\u011Ferinde veda mektubum var. Se\xE7iminizi
+    yap\u0131n."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "Antla\u015Fmay\u0131 sun"
+    deltas:
+      authority: 0
+      people: 0
+      security: 5
+      wealth: -5
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: card_18_ambassador_accord
+    audioEventId: 
+  rightChoice:
+    previewText: "El\xE7ili\u011Fi geri g\xF6nder"
+    deltas:
+      authority: 5
+      people: 0
+      security: -5
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+  selectionWeight: 1
+  oncePerRun: 0
+  cooldownTurns: 0
+  forcedNextCardId: card_19_ambassador_refusal

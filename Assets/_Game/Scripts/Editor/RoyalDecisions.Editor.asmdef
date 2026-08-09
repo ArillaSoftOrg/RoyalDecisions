@@ -1,0 +1,25 @@
+{
+    "name": "RoyalDecisions.Editor",
+    "rootNamespace": "RoyalDecisions.Editor",
+    "references": [
+        "RoyalDecisions.Data",
+        "RoyalDecisions.Domain",
+        "RoyalDecisions.Application",
+        "RoyalDecisions.Presentation",
+        "RoyalDecisions.Composition",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

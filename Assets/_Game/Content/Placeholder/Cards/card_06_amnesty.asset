@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: card_06_amnesty
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: card_06_amnesty
+  speaker: "[GE\xC7\u0130C\u0130] Ba\u015Fkad\u0131"
+  bodyText: "Zindanlar a\u011Fz\u0131na kadar dolu. Bir af ilan\u0131 haftaya kalmadan
+    hepsini bo\u015Falt\u0131r."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: Af ilan et
+    deltas:
+      authority: -5
+      people: 10
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove:
+    - taxes_raised
+    forcedNextCardId: 
+    audioEventId: 
+  rightChoice:
+    previewText: "Kesin bi\xE7imde reddet"
+    deltas:
+      authority: 5
+      people: -5
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+  selectionWeight: 1
+  oncePerRun: 0
+  cooldownTurns: 0
+  forcedNextCardId: 

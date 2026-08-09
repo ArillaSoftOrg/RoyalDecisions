@@ -1,0 +1,19 @@
+{
+    "name": "RoyalDecisions.Presentation",
+    "rootNamespace": "RoyalDecisions.Presentation",
+    "references": [
+        "RoyalDecisions.Data",
+        "RoyalDecisions.Domain",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

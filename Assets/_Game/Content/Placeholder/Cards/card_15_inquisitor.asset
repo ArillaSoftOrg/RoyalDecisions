@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: card_15_inquisitor
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: card_15_inquisitor
+  speaker: "[GE\xC7\u0130C\u0130] Sorgucu"
+  bodyText: "Yaln\u0131zca bir soru\u015Fturma a\xE7mak i\xE7in izin istiyorum. Bulgular
+    ard\u0131ndan gelecektir."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "Soru\u015Fturmaya izin ver"
+    deltas:
+      authority: 5
+      people: -10
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  rightChoice:
+    previewText: "Soru\u015Fturmay\u0131 reddet"
+    deltas:
+      authority: -5
+      people: 5
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+  selectionWeight: 1
+  oncePerRun: 0
+  cooldownTurns: 0
+  forcedNextCardId: card_16_inquisitor_verdict

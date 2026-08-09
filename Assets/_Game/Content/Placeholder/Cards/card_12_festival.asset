@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: card_12_festival
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: card_12_festival
+  speaker: "[GE\xC7\u0130C\u0130] \u015Eenlik Naz\u0131r\u0131"
+  bodyText: "Bir \u015Fenlik \u015Fehrin ne\u015Fesini yerine getirir. Hazinenin
+    bir kanad\u0131n\u0131 da bo\u015Falt\u0131r."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "\u015Eenli\u011Fi d\xFCzenle"
+    deltas:
+      authority: 0
+      people: 10
+      security: 0
+      wealth: -10
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  rightChoice:
+    previewText: "\u015Eenli\u011Fi iptal et"
+    deltas:
+      authority: 0
+      people: -10
+      security: 0
+      wealth: 5
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+  selectionWeight: 1
+  oncePerRun: 0
+  cooldownTurns: 5
+  forcedNextCardId: 

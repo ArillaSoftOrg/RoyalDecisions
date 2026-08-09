@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: card_10_empty_vault
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: card_10_empty_vault
+  speaker: "[GE\xC7\u0130C\u0130] Hazinedar"
+  bodyText: "Hazinede yaln\u0131z yank\u0131 var. Duymak yerine g\xF6rmek isterseniz
+    sizi i\xE7eri g\xF6t\xFCrebilirim."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "M\xFCcevherleri erit"
+    deltas:
+      authority: -10
+      people: 0
+      security: 0
+      wealth: 15
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  rightChoice:
+    previewText: "D\u0131\u015Far\u0131dan bor\xE7 al"
+    deltas:
+      authority: 0
+      people: 0
+      security: -10
+      wealth: 10
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges:
+    - stat: 3
+      min: 0
+      max: 25
+  selectionWeight: 1
+  oncePerRun: 0
+  cooldownTurns: 0
+  forcedNextCardId: 

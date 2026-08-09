@@ -1,0 +1,219 @@
+using RoyalDecisions.Application;
+using RoyalDecisions.Domain;
+using RoyalDecisions.Presentation;
+using RoyalDecisions.Infrastructure;
+using UnityEngine;
+
+namespace RoyalDecisions.Composition
+{
+    /// <summary>Owns staged settings edits and applies them only on explicit confirmation.</summary>
+    public sealed class SettingsController : MonoBehaviour
+    {
+        private const int HighFrameRate = 60;
+        private const int LowFrameRate = 30;
+
+        [SerializeField] private SettingsPanelView view;
+        [SerializeField] private AudioService audioService;
+        [SerializeField] private AccessibilityPresentationController accessibility;
+        [SerializeField] private AboutPanelView aboutPanel;
+
+        /// <summary>
+        /// Deactivated for real while Settings (or About, reached from within it) is open, rather
+        /// than merely covered by an opaque overlay — so the menu behind can neither be seen nor
+        /// receive input regardless of layering.
+        /// </summary>
+        [SerializeField] private GameObject mainMenuRoot;
+
+        private ISettingsStore store;
+        private IHapticService haptics;
+        private GameSettings current;
+
+        public GameSettings Current => current;
+
+        private void Awake()
+        {
+            if (store == null)
+            {
+                SavePaths paths = SavePaths.ForPersistentData();
+                store = new SettingsServiceStore(
+                    new SettingsSaveService(new SystemFileSystem(), paths));
+            }
+            haptics ??= new UnityHapticService();
+            LoadAndApply();
+        }
+
+        private void OnEnable()
+        {
+            if (view == null)
+            {
+                return;
+            }
+            view.ApplyRequested += ApplyFromView;
+            view.CancelRequested += Cancel;
+            view.ResetRequested += ResetToDefaults;
+            view.ResetTutorialRequested += HandleResetTutorialRequested;
+            view.AboutRequested += HandleAboutRequested;
+            if (aboutPanel != null) aboutPanel.CloseRequested += HandleAboutClosed;
+        }
+
+        private void OnDisable()
+        {
+            if (view != null)
+            {
+                view.ApplyRequested -= ApplyFromView;
+                view.CancelRequested -= Cancel;
+                view.ResetRequested -= ResetToDefaults;
+                view.ResetTutorialRequested -= HandleResetTutorialRequested;
+                view.AboutRequested -= HandleAboutRequested;
+            }
+            if (aboutPanel != null) aboutPanel.CloseRequested -= HandleAboutClosed;
+        }
+
+        public void Configure(ISettingsStore settingsStore, IHapticService hapticService = null)
+        {
+            store = settingsStore;
+            haptics = hapticService ?? new NoOpHapticService();
+            LoadAndApply();
+        }
+
+        public void Open()
+        {
+            EnsureLoaded();
+            mainMenuRoot?.SetActive(false);
+            view?.Show(current);
+        }
+
+        public bool CloseIfOpen()
+        {
+            if (view == null || !view.IsOpen)
+            {
+                return false;
+            }
+            Cancel();
+            return true;
+        }
+
+        public void LoadAndApply()
+        {
+            current = store != null ? store.Load() : GameSettings.CreateDefault();
+            ApplyRuntime(current);
+            view?.Render(current);
+        }
+
+        public void ApplyFromView()
+        {
+            EnsureLoaded();
+            current.SetMusicVolume(view != null ? view.MusicVolume : current.MusicVolume);
+            current.SetSfxVolume(view != null ? view.SfxVolume : current.SfxVolume);
+            current.SetMasterMuted(view != null && view.MasterMuted);
+            current.SetHapticsEnabled(view == null || view.HapticsEnabled);
+            current.SetReducedMotion(view != null && view.ReducedMotion);
+            current.SetLargerText(view != null && view.LargerText);
+            current.SetHighContrast(view != null && view.HighContrast);
+            current.SetUseHighFrameRateCap(view == null || view.UseHighFrameRateCap);
+            current.SetBatterySaverEnabled(view != null && view.BatterySaverEnabled);
+            current.SetTapButtonsEnabled(view == null || view.TapButtonsEnabled);
+            current.SetInvertSwipeRotation(view != null && view.InvertSwipeRotation);
+            SaveOutcome outcome = store != null ? store.Save(current) : SaveOutcome.Ok();
+            if (!outcome.Succeeded)
+            {
+                Debug.LogWarning("[Settings] Could not save preferences: " + outcome.Message, this);
+                return;
+            }
+            ApplyRuntime(current);
+            view?.Hide();
+            mainMenuRoot?.SetActive(true);
+        }
+
+        public void Cancel()
+        {
+            view?.Render(current ?? GameSettings.CreateDefault());
+            view?.Hide();
+            mainMenuRoot?.SetActive(true);
+        }
+
+        public void ResetToDefaults()
+        {
+            current = GameSettings.CreateDefault();
+            if (store != null)
+            {
+                SaveOutcome outcome = store.Save(current);
+                if (!outcome.Succeeded)
+                {
+                    Debug.LogWarning("[Settings] Could not reset preferences: " + outcome.Message, this);
+                }
+            }
+            ApplyRuntime(current);
+            view?.Render(current);
+        }
+
+        private void ApplyRuntime(GameSettings settings)
+        {
+            if (audioService != null)
+            {
+                audioService.SetMusicVolume(settings.MusicVolume);
+                audioService.SetSfxVolume(settings.SfxVolume);
+                audioService.SetMasterMuted(settings.MasterMuted);
+            }
+            haptics?.SetEnabled(settings.HapticsEnabled);
+            accessibility?.Apply(settings);
+
+            // Global engine setting: takes effect immediately and needs no scene-local reference.
+            // The card's own swipe sensitivity/rotation live in the Game scene's CardSwipeController
+            // and are re-applied there by GameSceneController when that scene loads its settings.
+            UnityEngine.Application.targetFrameRate = ResolveTargetFrameRate(settings);
+        }
+
+        private static int ResolveTargetFrameRate(GameSettings settings)
+        {
+            if (settings.BatterySaverEnabled)
+            {
+                return LowFrameRate;
+            }
+            return settings.UseHighFrameRateCap ? HighFrameRate : LowFrameRate;
+        }
+
+        private void HandleResetTutorialRequested()
+        {
+            EnsureLoaded();
+            current.SetTutorialCompleted(false);
+            SaveOutcome outcome = store != null ? store.Save(current) : SaveOutcome.Ok();
+            if (!outcome.Succeeded)
+            {
+                Debug.LogWarning("[Settings] Could not save preferences: " + outcome.Message, this);
+            }
+        }
+
+        private void HandleAboutRequested()
+        {
+            view?.Hide();
+            aboutPanel?.Show();
+        }
+
+        private void HandleAboutClosed() => view?.Reopen();
+
+        private void EnsureLoaded()
+        {
+            if (current == null)
+            {
+                LoadAndApply();
+            }
+        }
+
+#if UNITY_EDITOR
+        public void SetAuthoringReferences(
+            SettingsPanelView settingsView,
+            AudioService audio,
+            AccessibilityPresentationController accessibilityController,
+            AboutPanelView about = null,
+            GameObject mainMenu = null)
+        {
+            view = settingsView;
+            audioService = audio;
+            accessibility = accessibilityController;
+            aboutPanel = about;
+            mainMenuRoot = mainMenu;
+        }
+#endif
+    }
+}

@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ed605e48245b854587367c1cc682b5e, type: 3}
+  m_Name: PlaceholderContentCatalogue
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.ContentCatalogue
+  cards:
+  - {fileID: 11400000, guid: d3ae0544506282743bfb60a30c13ae8d, type: 2}
+  - {fileID: 11400000, guid: b32bfad160bce7d44b024fb2d7fd3037, type: 2}
+  - {fileID: 11400000, guid: 00c6cfac342dc444ebf05eadfed7c51c, type: 2}
+  - {fileID: 11400000, guid: c930fb512a5071e4f953d85e0242bce8, type: 2}
+  - {fileID: 11400000, guid: c415a0fc28434df4fae9f58129ac28db, type: 2}
+  - {fileID: 11400000, guid: e2671a0636b523a4ebb8e4f6138e2d5e, type: 2}
+  - {fileID: 11400000, guid: 3b4bdf74a62e9184485ea98515f07cdc, type: 2}
+  - {fileID: 11400000, guid: bb211697827c69345b11a8ea68c84400, type: 2}
+  - {fileID: 11400000, guid: 388d16314087deb4fb8f965afe6d42d7, type: 2}
+  - {fileID: 11400000, guid: 79e01e6b673afa9438df51edf27e78ce, type: 2}
+  - {fileID: 11400000, guid: 7e2ee77649fa5a944aeeb6f324341732, type: 2}
+  - {fileID: 11400000, guid: 613bc6487a55d36408a4a6790c2b803c, type: 2}
+  - {fileID: 11400000, guid: 076561081735fd548bb64178d49be471, type: 2}
+  - {fileID: 11400000, guid: 8974ba17bcb37574e9214c69aedc6aab, type: 2}
+  - {fileID: 11400000, guid: 6cff077852443d844914788b4d729621, type: 2}
+  - {fileID: 11400000, guid: 2749d7eeae6238b4e961dc3f55660ee2, type: 2}
+  - {fileID: 11400000, guid: 8576cccfc58b899498d894a391f674a2, type: 2}
+  - {fileID: 11400000, guid: fee76ee7c359ae24ea35d07ceda580bd, type: 2}
+  - {fileID: 11400000, guid: 2c48d3f8fbfe2c44ba62abe30e567e19, type: 2}
+  - {fileID: 11400000, guid: f9982dd5412fe43498eb3ae4490e695b, type: 2}
+  endings:
+  - {fileID: 11400000, guid: 63715e3c8fc90b04688476ef73df3640, type: 2}
+  - {fileID: 11400000, guid: 8e4bce6f85ec64d4ba3621c7d8e83343, type: 2}
+  - {fileID: 11400000, guid: 92f1e061d3a3fe64d8934621a84bb108, type: 2}
+  - {fileID: 11400000, guid: 82b9b3bf1986edd46a314a10456b7fcc, type: 2}
+  - {fileID: 11400000, guid: a6ab7500d2a4c3d45af406be54f24896, type: 2}
+  - {fileID: 11400000, guid: 901680cef98cb2048979daf0fe765f23, type: 2}
+  - {fileID: 11400000, guid: b2e995ef14ced9a4e9ed4227fb663707, type: 2}
+  - {fileID: 11400000, guid: ed54fd7445514c94f8be4ff1c8837e2a, type: 2}
+  openingCardId: card_01_coronation

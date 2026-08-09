@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: card_07_general_visit
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: card_07_general_visit
+  speaker: "[GE\xC7\u0130C\u0130] Ba\u015Fkomutan"
+  bodyText: "Daim\xEE birlikler iki mevsimdir maa\u015F alamad\u0131, h\xFCk\xFCmdar\u0131m."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "\xD6nce askeri \xF6de"
+    deltas:
+      authority: 5
+      people: 0
+      security: 10
+      wealth: 0
+    flagsToAdd:
+    - army_favoured
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  rightChoice:
+    previewText: "Beklemelerini s\xF6yle"
+    deltas:
+      authority: -5
+      people: 0
+      security: -5
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+  selectionWeight: 2
+  oncePerRun: 0
+  cooldownTurns: 0
+  forcedNextCardId: 

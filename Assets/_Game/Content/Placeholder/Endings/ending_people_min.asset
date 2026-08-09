@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 782c0c0ca6232504995d012e52fb15bb, type: 3}
+  m_Name: ending_people_min
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.EndingDefinition
+  id: ending_people_min
+  title: "[GE\xC7\u0130C\u0130] \u0130\xE7e A\xE7\u0131lan Kap\u0131lar"
+  bodyText: "Kalabal\u0131k avluda durmad\u0131; onu durdurmaya \xE7al\u0131\u015Fan
+    da olmad\u0131."
+  image: {fileID: 0}
+  triggerStat: 1
+  boundary: 0
+  priority: 0

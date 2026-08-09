@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: card_05_tax_backlash
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: card_05_tax_backlash
+  speaker: "[GE\xC7\u0130C\u0130] Lonca Ustas\u0131"
+  bodyText: "Yeni vergi at\xF6lyelerimizi bo\u015Faltt\u0131. Loncalar karar\u0131n\u0131z\u0131
+    yeniden d\xFC\u015F\xFCnmenizi istiyor."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "Muhaf\u0131zlar\u0131 g\xF6nder"
+    deltas:
+      authority: 5
+      people: -10
+      security: 5
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  rightChoice:
+    previewText: "Vergiyi kald\u0131r"
+    deltas:
+      authority: 0
+      people: 10
+      security: 0
+      wealth: -10
+    flagsToAdd: []
+    flagsToRemove:
+    - taxes_raised
+    forcedNextCardId: 
+    audioEventId: 
+  conditions:
+    requiredFlags:
+    - taxes_raised
+    forbiddenFlags: []
+    statRanges: []
+  selectionWeight: 1
+  oncePerRun: 0
+  cooldownTurns: 0
+  forcedNextCardId: 

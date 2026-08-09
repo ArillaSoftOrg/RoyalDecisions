@@ -1,0 +1,16 @@
+{
+    "name": "RoyalDecisions.Domain",
+    "rootNamespace": "RoyalDecisions.Domain",
+    "references": [
+        "RoyalDecisions.Data"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

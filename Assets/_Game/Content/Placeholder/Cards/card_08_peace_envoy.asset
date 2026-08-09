@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: card_08_peace_envoy
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: card_08_peace_envoy
+  speaker: "[GE\xC7\u0130C\u0130] Yabanc\u0131 El\xE7i"
+  bodyText: "Saray\u0131m bir anla\u015Fma \xF6neriyor. Bu \xE7eki\u015Fmenin bir
+    k\u0131\u015F daha s\xFCrmesi kimseye yarar sa\u011Flamaz."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "Anla\u015Fmay\u0131 imzala"
+    deltas:
+      authority: 0
+      people: 10
+      security: -5
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  rightChoice:
+    previewText: "El\xE7iyi geri g\xF6nder"
+    deltas:
+      authority: 0
+      people: -5
+      security: 5
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: 
+    audioEventId: 
+  conditions:
+    requiredFlags: []
+    forbiddenFlags:
+    - army_favoured
+    statRanges: []
+  selectionWeight: 1
+  oncePerRun: 0
+  cooldownTurns: 0
+  forcedNextCardId: 

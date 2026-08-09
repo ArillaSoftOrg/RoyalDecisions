@@ -1,0 +1,23 @@
+{
+    "name": "RoyalDecisions.Composition",
+    "rootNamespace": "RoyalDecisions.Composition",
+    "references": [
+        "RoyalDecisions.Data",
+        "RoyalDecisions.Domain",
+        "RoyalDecisions.Application",
+        "RoyalDecisions.Infrastructure",
+        "RoyalDecisions.Presentation",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

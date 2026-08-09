@@ -1,0 +1,29 @@
+{
+    "name": "RoyalDecisions.Tests.PlayMode",
+    "rootNamespace": "RoyalDecisions.Tests.PlayMode",
+    "references": [
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "RoyalDecisions.Data",
+        "RoyalDecisions.Domain",
+        "RoyalDecisions.Presentation",
+        "RoyalDecisions.Application",
+        "RoyalDecisions.Composition",
+        "RoyalDecisions.Infrastructure",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,11 @@
+﻿<Solution>
+  <Project Path="RoyalDecisions.Data.csproj" />
+  <Project Path="RoyalDecisions.Domain.csproj" />
+  <Project Path="RoyalDecisions.Tests.EditMode.csproj" />
+  <Project Path="RoyalDecisions.Infrastructure.csproj" />
+  <Project Path="RoyalDecisions.Presentation.csproj" />
+  <Project Path="RoyalDecisions.Composition.csproj" />
+  <Project Path="RoyalDecisions.Application.csproj" />
+  <Project Path="RoyalDecisions.Tests.PlayMode.csproj" />
+  <Project Path="RoyalDecisions.Editor.csproj" />
+</Solution>

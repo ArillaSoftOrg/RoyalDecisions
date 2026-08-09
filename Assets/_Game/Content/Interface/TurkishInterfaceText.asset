@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: edd28af0a0538504b968b6b3fe0111e1, type: 3}
+  m_Name: TurkishInterfaceText
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.InterfaceTextDefinition
+  languageCode: tr
+  mainMenuTitle: Royal Decisions
+  newGame: Yeni Oyun
+  continueGame: Devam Et
+  restart: "Yeniden Ba\u015Flat"
+  gameOverTitle: "H\xFCk\xFCmdarl\u0131k Sona Erdi"
+  gameOverBody: "H\xFCk\xFCmdarl\u0131\u011F\u0131n\u0131z sona erdi. Tarih, son
+    karar\u0131n\u0131z\u0131 sessizce kaydetti."
+  authority: Otorite
+  people: Halk
+  security: "G\xFCvenlik"
+  wealth: Servet
+  year: "Y\u0131l"
+  turn: Tur
+  leftPlaceholderChoice: Sol Karar
+  rightPlaceholderChoice: "Sa\u011F Karar"
+  corruptSave: "Kay\u0131t dosyas\u0131 okunamad\u0131."
+  unsupportedSave: "Bu kay\u0131t oyunun daha yeni bir s\xFCr\xFCm\xFCyle olu\u015Fturulmu\u015F."
