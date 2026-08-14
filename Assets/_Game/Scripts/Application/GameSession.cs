@@ -54,6 +54,12 @@ namespace RoyalDecisions.Application
 
         public event Action<GameSessionState> StateChanged;
 
+        /// <summary>Raised once per card, right after it becomes the one shown to the player.</summary>
+        public event Action<CardDefinition> CardPresented;
+
+        /// <summary>Forwards <see cref="StatSystem.StatChanged"/> for the currently bound run.</summary>
+        public event Action<StatChange> StatValueChanged;
+
         public GameSessionState State { get; private set; } = GameSessionState.Uninitialized;
 
         public RunState CurrentRun => runState;
@@ -318,7 +324,12 @@ namespace RoyalDecisions.Application
                 return Reject("No development run is active.");
             }
             runState.SetStats(values.Sanitized());
+            if (statSystem != null)
+            {
+                statSystem.StatChanged -= HandleStatSystemChanged;
+            }
             statSystem = new StatSystem(runState);
+            statSystem.StatChanged += HandleStatSystemChanged;
             choiceResolver = new ChoiceResolver(statSystem);
             presenter.UnbindStats();
             presenter.BindStats(statSystem);
@@ -382,6 +393,7 @@ namespace RoyalDecisions.Application
             choiceResolver = new ChoiceResolver(statSystem);
 
             presenter.BindStats(statSystem);
+            statSystem.StatChanged += HandleStatSystemChanged;
             statsBound = true;
 
             presenter.HideGameOver();
@@ -474,6 +486,7 @@ namespace RoyalDecisions.Application
 
             presenter.ShowTurn(runState.Turn + 1);
             presenter.ShowCard(currentCard);
+            CardPresented?.Invoke(currentCard);
             presenter.PrepareForInput();
 
             SetState(GameSessionState.AwaitingDecision);
@@ -572,8 +585,14 @@ namespace RoyalDecisions.Application
             }
 
             presenter.UnbindStats();
+            if (statSystem != null)
+            {
+                statSystem.StatChanged -= HandleStatSystemChanged;
+            }
             statsBound = false;
         }
+
+        private void HandleStatSystemChanged(StatChange change) => StatValueChanged?.Invoke(change);
 
         private void SetState(GameSessionState next)
         {

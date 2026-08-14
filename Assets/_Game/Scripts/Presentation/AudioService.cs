@@ -51,7 +51,13 @@ namespace RoyalDecisions.Presentation
         /// <summary>Diagnostic: how many distinct cue IDs have been warned about.</summary>
         public int WarnedCueIdCount => warnedCueIds.Count;
 
-        public AudioPlayResult Play(string audioEventId)
+        public AudioPlayResult Play(string audioEventId) => Play(audioEventId, volume);
+
+        /// <summary>
+        /// Plays a cue at an explicit volume instead of the configured SFX volume — used to preview
+        /// a setting (e.g. the SFX slider) before it has been applied.
+        /// </summary>
+        public AudioPlayResult Play(string audioEventId, float volumeOverride)
         {
             // Most specific reason first, so a caller learns the actual problem rather than the
             // first one an arbitrary ordering happened to hit.
@@ -89,7 +95,7 @@ namespace RoyalDecisions.Presentation
                 return AudioPlayResult.Muted;
             }
 
-            audioSource.PlayOneShot(cue.Clip, volume);
+            audioSource.PlayOneShot(cue.Clip, Mathf.Clamp01(volumeOverride));
             return AudioPlayResult.Played;
         }
 

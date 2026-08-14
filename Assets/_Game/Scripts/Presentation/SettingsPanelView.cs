@@ -40,6 +40,21 @@ namespace RoyalDecisions.Presentation
         public event Action ResetTutorialRequested;
         public event Action AboutRequested;
 
+        /// <summary>Forwarded from the Audio tab; at most once per ~10% of slider travel.</summary>
+        public event Action<float> MusicVolumeStepped;
+
+        /// <summary>As <see cref="MusicVolumeStepped"/>, carrying the value to preview it at.</summary>
+        public event Action<float> SfxVolumeStepped;
+
+        /// <summary>Forwarded from any tab; once per user-flipped toggle, never a programmatic Render.</summary>
+        public event Action ToggleChanged;
+
+        /// <summary>Forwarded from the Audio tab's master mute toggle, carrying its new value.</summary>
+        public event Action<bool> MasterMuteChanged;
+
+        /// <summary>Raised once per actual tab-button press; never for the default tab Show() selects.</summary>
+        public event Action TabPressed;
+
         public bool IsOpen => panelRoot != null && panelRoot.activeSelf;
 
         public float MusicVolume => audioPanel != null ? audioPanel.MusicVolume : GameSettings.DefaultVolume;
@@ -63,17 +78,28 @@ namespace RoyalDecisions.Presentation
             if (cancelButton != null) cancelButton.onClick.AddListener(HandleCancel);
             if (resetButton != null) resetButton.onClick.AddListener(HandleReset);
 
-            if (audioTabButton != null) audioTabButton.onClick.AddListener(ShowAudioTab);
-            if (graphicsTabButton != null) graphicsTabButton.onClick.AddListener(ShowGraphicsTab);
-            if (controlsTabButton != null) controlsTabButton.onClick.AddListener(ShowControlsTab);
-            if (generalTabButton != null) generalTabButton.onClick.AddListener(ShowGeneralTab);
+            if (audioTabButton != null) audioTabButton.onClick.AddListener(HandleAudioTabPressed);
+            if (graphicsTabButton != null) graphicsTabButton.onClick.AddListener(HandleGraphicsTabPressed);
+            if (controlsTabButton != null) controlsTabButton.onClick.AddListener(HandleControlsTabPressed);
+            if (generalTabButton != null) generalTabButton.onClick.AddListener(HandleGeneralTabPressed);
 
             if (generalPanel != null)
             {
                 generalPanel.ResetProgressConfirmed += HandleResetProgressConfirmed;
                 generalPanel.ResetTutorialRequested += HandleResetTutorialRequested;
                 generalPanel.AboutRequested += HandleAboutRequested;
+                generalPanel.ToggleChanged += HandleToggleChanged;
             }
+
+            if (audioPanel != null)
+            {
+                audioPanel.MusicVolumeStepped += HandleMusicVolumeStepped;
+                audioPanel.SfxVolumeStepped += HandleSfxVolumeStepped;
+                audioPanel.MasterMuteChanged += HandleMasterMuteChanged;
+            }
+
+            if (graphicsPanel != null) graphicsPanel.ToggleChanged += HandleToggleChanged;
+            if (controlsPanel != null) controlsPanel.ToggleChanged += HandleToggleChanged;
         }
 
         private void OnDisable()
@@ -82,17 +108,28 @@ namespace RoyalDecisions.Presentation
             if (cancelButton != null) cancelButton.onClick.RemoveListener(HandleCancel);
             if (resetButton != null) resetButton.onClick.RemoveListener(HandleReset);
 
-            if (audioTabButton != null) audioTabButton.onClick.RemoveListener(ShowAudioTab);
-            if (graphicsTabButton != null) graphicsTabButton.onClick.RemoveListener(ShowGraphicsTab);
-            if (controlsTabButton != null) controlsTabButton.onClick.RemoveListener(ShowControlsTab);
-            if (generalTabButton != null) generalTabButton.onClick.RemoveListener(ShowGeneralTab);
+            if (audioTabButton != null) audioTabButton.onClick.RemoveListener(HandleAudioTabPressed);
+            if (graphicsTabButton != null) graphicsTabButton.onClick.RemoveListener(HandleGraphicsTabPressed);
+            if (controlsTabButton != null) controlsTabButton.onClick.RemoveListener(HandleControlsTabPressed);
+            if (generalTabButton != null) generalTabButton.onClick.RemoveListener(HandleGeneralTabPressed);
 
             if (generalPanel != null)
             {
                 generalPanel.ResetProgressConfirmed -= HandleResetProgressConfirmed;
                 generalPanel.ResetTutorialRequested -= HandleResetTutorialRequested;
                 generalPanel.AboutRequested -= HandleAboutRequested;
+                generalPanel.ToggleChanged -= HandleToggleChanged;
             }
+
+            if (audioPanel != null)
+            {
+                audioPanel.MusicVolumeStepped -= HandleMusicVolumeStepped;
+                audioPanel.SfxVolumeStepped -= HandleSfxVolumeStepped;
+                audioPanel.MasterMuteChanged -= HandleMasterMuteChanged;
+            }
+
+            if (graphicsPanel != null) graphicsPanel.ToggleChanged -= HandleToggleChanged;
+            if (controlsPanel != null) controlsPanel.ToggleChanged -= HandleToggleChanged;
         }
 
         public void Show(GameSettings settings)
@@ -132,6 +169,16 @@ namespace RoyalDecisions.Presentation
         public void ShowGraphicsTab() => SetActiveTab(graphics: true);
         public void ShowControlsTab() => SetActiveTab(controls: true);
         public void ShowGeneralTab() => SetActiveTab(general: true);
+
+        /// <summary>
+        /// Wraps each <c>ShowXTab</c> for the tab button's own <c>onClick</c> only, so pressing a
+        /// tab raises <see cref="TabPressed"/> — <see cref="Show"/> calls <see cref="ShowAudioTab"/>
+        /// directly to select the default tab on open, which must stay silent.
+        /// </summary>
+        private void HandleAudioTabPressed() { TabPressed?.Invoke(); ShowAudioTab(); }
+        private void HandleGraphicsTabPressed() { TabPressed?.Invoke(); ShowGraphicsTab(); }
+        private void HandleControlsTabPressed() { TabPressed?.Invoke(); ShowControlsTab(); }
+        private void HandleGeneralTabPressed() { TabPressed?.Invoke(); ShowGeneralTab(); }
 
         private void SetActiveTab(
             bool audio = false, bool graphics = false, bool controls = false, bool general = false)
@@ -174,6 +221,10 @@ namespace RoyalDecisions.Presentation
         private void HandleResetProgressConfirmed() => ResetProgressConfirmed?.Invoke();
         private void HandleResetTutorialRequested() => ResetTutorialRequested?.Invoke();
         private void HandleAboutRequested() => AboutRequested?.Invoke();
+        private void HandleMusicVolumeStepped(float value) => MusicVolumeStepped?.Invoke(value);
+        private void HandleSfxVolumeStepped(float value) => SfxVolumeStepped?.Invoke(value);
+        private void HandleToggleChanged() => ToggleChanged?.Invoke();
+        private void HandleMasterMuteChanged(bool isMuted) => MasterMuteChanged?.Invoke(isMuted);
 
 #if UNITY_EDITOR
         public void SetAuthoringReferences(

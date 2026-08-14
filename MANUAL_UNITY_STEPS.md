@@ -1013,3 +1013,421 @@ TMP-cache settle. Full EditMode suite: **730/730 passed, 0 failed.**
 - [ ] Profile 60 seconds idle, repeated drags, ten decisions, GameOver/restart and scene transitions:
       zero project-attributed steady-state GC allocation, stable listener/coroutine counts and no
       growing memory trend.
+
+---
+
+## Audio work ported from RoyalDecisions-main
+
+Brought the audio assets and audio-specific code changes from the older `RoyalDecisions-main`
+working copy into this project, without touching any non-audio feature this project has already
+grown past `RoyalDecisions-main` (tap-choice buttons, invert-swipe-rotation setting, About panel,
+tutorial reset, battery-saver frame-rate cap — all untouched, all still present).
+
+**Copied**, `.meta` files and GUIDs intact:
+
+- `Assets/_Game/Audio/` (new folder) — `MainAudioCueLibrary.asset` (maps `ui_click`, `card_swipe`,
+  `card_preview` to clips) and `SFX/` (9 `.wav`/`.mp3` clips plus a `Sources/` subfolder of raw
+  source recordings).
+
+**Code changes** (additive only; every new call site is guarded exactly like the pre-existing ones,
+so absent audio stays silent, never an error):
+
+- `Application/GameSession.cs` — added `event Action<CardDefinition> CardPresented`, raised right
+  after `ShowCard`. (`ResetProgress()`, already present here but not in `RoyalDecisions-main`, was
+  left untouched.)
+- `Presentation/FeedbackCueProfile.cs` — added a `cardPreview` cue-ID field/property.
+- `Composition/GameFeedbackController.cs` — subscribes to `CardPresented` (plays `cues.CardEnter`);
+  `HandlePreview` now plays `cues.CardPreview` once when a drag first crosses
+  `PreviewCueMinimumStrength` (0.05) in a given direction, and again only if the direction changes;
+  `HandlePreviewCleared` resets that direction latch.
+- `Composition/GameSceneController.cs` — added a `cues` (`FeedbackCueProfile`) field,
+  `PlayGameplayMusic()` (called once from `Start()`, after `ApplySettings()`), and `PlayUiClick()`
+  (called from `HandleRestartRequested()`). `ApplySettings()` itself — including the tap-choice-
+  button/invert-rotation logic this project added — was left exactly as it was.
+- `Composition/MainMenuController.cs` — added `audioService`/`cues` fields and a
+  `sceneTransitionDelaySeconds` field (default `0.15`); `Start()` calls `PlayMenuMusic()`;
+  `OnNewGamePressed()`/`OnContinuePressed()` now play `ui_click` and load the Game scene through a
+  new `LoadGameSceneAfterClickCue()` coroutine (`WaitForSecondsRealtime(sceneTransitionDelaySeconds)`
+  before `sceneLoader.LoadScene(...)`) instead of loading synchronously, and are guarded by a new
+  `isTransitioningToGame` flag so a double-press can't start two loads or play the click twice.
+- `Composition/SettingsController.cs` — added a `cues` field and `PlayUiClick()`; `Open()`,
+  `ApplyFromView()` and `ResetToDefaults()` now play it directly. `Cancel()` itself is unchanged
+  (it is also the programmatic close path used by `CloseIfOpen()`, e.g. Android Back, which must
+  stay silent); the panel's own Cancel button now routes through a new `HandleCancelButton()`
+  wrapper that plays the click and then calls `Cancel()`.
+
+**Not ported** — already superseded by this project's own, more advanced implementation, so
+porting `RoyalDecisions-main`'s version would have been a regression:
+
+- Settings-menu audio wiring (volume/mute sliders, `AudioSettingsPanelView`,
+  `SettingsPanelView`/tabs). This project's `SettingsController.ApplyRuntime()` already calls
+  `audioService.SetMusicVolume/SetSfxVolume/SetMasterMuted` against its own newer tabbed Settings
+  architecture; `RoyalDecisions-main`'s single-panel `SettingsController` predates that redesign.
+- `Editor/SceneSetupAutomation.cs` — diverged almost entirely on non-audio scene-authoring work
+  (tap-choice buttons, the whole Settings tab rebuild documented above). Left untouched; the few
+  audio-relevant lines in it (`ConfigureAudio`, wiring `audioService`) were already equivalent on
+  both sides.
+
+### Required manual Inspector wiring
+
+None of this can be done from a script edit — these are `.asset`/`.unity` reference assignments
+(`CLAUDE.md` §11), and the new serialized fields above do not exist in the `.unity` YAML until
+Unity re-serializes the object, so they currently show as empty/`None` in the Inspector.
+
+- [ ] **`AudioService.Cue Library`** — empty (`fileID: 0`) on **both** `Game.unity` and
+      `MainMenu.unity`. Assign `Assets/_Game/Audio/MainAudioCueLibrary.asset` to each. Without this,
+      every `Play(...)` call resolves to `AudioPlayResult.NoLibrary` regardless of any other wiring.
+- [ ] **`GameSceneController.Cues`** (new field, `Game.unity`) — assign
+      `Assets/_Game/Content/UI/DefaultFeedbackCueProfile.asset` (the same asset already wired to
+      `GameFeedbackController.Cues` on the same scene).
+- [ ] **`MainMenuController.Audio Service`** (new field, `MainMenu.unity`) — assign the scene's
+      existing `AudioService` component (already wired to `SettingsController.Audio Service`).
+- [ ] **`MainMenuController.Cues`** (new field, `MainMenu.unity`) — assign
+      `DefaultFeedbackCueProfile.asset`.
+- [ ] **`SettingsController.Cues`** (new field, `MainMenu.unity`) — assign
+      `DefaultFeedbackCueProfile.asset`.
+
+### Content authoring gap (not a wiring step — data, deliberately not hand-edited)
+
+`Assets/_Game/Content/UI/DefaultFeedbackCueProfile.asset` — the one profile asset already shared by
+every controller above — currently has **every** cue-ID field blank, including on this project's
+own pre-existing `uiClick`/`cardEnter`/`threshold`/etc. fields, not just the new `cardPreview` one.
+This predates this session's change and was left alone deliberately: `CLAUDE.md` §11 reserves
+`.asset` content for the team, and every call site already degrades to silence when a field is
+empty, so nothing is broken by leaving it as-is.
+
+`MainAudioCueLibrary.asset` only defines three clip IDs: `ui_click`, `card_swipe`, `card_preview`
+(no `card_enter`, no music). To actually hear the ported features, fill in at minimum, in the
+Inspector on `DefaultFeedbackCueProfile.asset`:
+
+- [ ] `Ui Click` = `ui_click`
+- [ ] `Card Preview` = `card_preview`
+- [ ] `Left Confirmation` = `card_swipe`
+- [ ] `Right Confirmation` = `card_swipe`
+
+`Card Enter`, `Menu Music` and `Gameplay Music` have no matching clip in `MainAudioCueLibrary.asset`
+yet (no card-enter or music clips exist in the copied audio) — leaving them blank is correct for
+now; the silent fallback is by design (`CLAUDE.md` §3, missing/silent audio must not crash), not a
+missing wiring step.
+
+### Verify after wiring
+
+- [ ] Editor Console stays clean after opening both scenes and saving them (confirms the new
+      serialized fields deserialize without error).
+- [ ] `Window > General > Test Runner > EditMode > Run All` — should stay green; nothing above
+      changed a public signature the existing tests call, and `AudioServiceTests`/
+      `CardSwipeControllerTests`/`MainMenuControllerTests` do not exercise any of the new fields.
+- [ ] In Play Mode: New Game / Continue play a click and the Game scene loads ~0.15s later, not
+      instantly; a first left/right drag past 5% strength plays the preview cue once, switching
+      direction mid-drag plays it again, holding the same direction does not repeat it; the first
+      card of a run plays `card_enter`; Settings Open/Apply/Reset and the panel's own Cancel button
+      play a click, but Android Back closing Settings does not.
+
+---
+
+## Audio candidate integration — remaining 9 cues, gameplay hooks, slider feedback
+
+Filled in the gaps the previous pass above left open: the 9 cue IDs that had no clip and no
+trigger (`slider_tick`, `card_enter` had a clip but `snap_back`/`game_over`/`stat_increase`/
+`stat_decrease`/`critical`/`menu_music`/`gameplay_music` had neither), plus the stepped
+slider-tick feedback Phase 6 of this pass asked for. `ui_click`, `card_preview`, and `card_swipe`
+mappings were **not** touched — same clips, same IDs, as instructed.
+
+### Candidates evaluated
+
+Every file under `D:\2D Oyun\AudioCandidates\SFX\*` and `Music\*` was analyzed for duration, peak
+and RMS level (Python + `soundfile`/`numpy`, since neither `ffmpeg` nor a DAW is available in this
+environment) and compared against the project's existing reference cues
+(`card_swipe_real_A.wav`: peak -4.0 dBFS; `buton sesi okey gibi.wav` / ui_click: peak -12.7 dBFS;
+`card_preview_subtle.wav`: peak -10.5 dBFS). Every category had exactly one downloaded candidate;
+none were rejected, but most needed trimming and/or gain correction before they were game-ready:
+
+| Cue | Source file | Problem found | Fix applied |
+|---|---|---|---|
+| `slider_tick` | `757328__steaq__ui-hover-item.wav` | Fine as-is, just very quiet (peak -40.6 dB) | Trimmed to the 0.1s transient, +14.6 dB gain → peak -26.0 dB (still ~13 dB under ui_click) |
+| `card_enter` | `oxidvideos-placing-playing-card-522514 (2).mp3` | Peak +0.8 dB (louder than the swipe sound) | Trimmed silence, -10.8 dB gain → peak -10.0 dB, 20ms fade |
+| `snap_back` | `oxidvideos-paper-slide-short-478835.mp3` | Fine character, quiet (peak -24.2 dB) | Trimmed tail, +10.2 dB gain → peak -14.0 dB (still under card_swipe's -4 dB) |
+| `game_over` | `857938__bassimat__church-bell-bb5.wav` | 28s raw bell recording, near-0dB peak | Trimmed to 8s (strike + natural decay), -4.1 dB gain, 1s fade-out → peak -5.0 dB |
+| `stat_increase` | `370180__mpaol2023__3-tone-chime-up.wav` | 4s, 3 repeated tones — up to 4 stats can change per decision, would stack into a wash | Kept only the first tone (0-0.9s), -15.0 dB gain → peak -16.0 dB |
+| `stat_decrease` | `370179__mpaol2023__3-tone-chime-down.wav` | Same issue as above | Same treatment, -15.4 dB gain → peak -16.0 dB (matched level, distinct descending pitch) |
+| `critical` | `169289__qubodup__gong-bell-monkays-singing-bowl-modified.flac` | 18.9s resonant tail, 0dB peak | Trimmed to 1.1s (strike + short decay), -6.0 dB gain → peak -6.0 dB |
+| `menu_music` | `deuslower-medieval-ambient-236809.mp3` | None — already calm, peak -11.2 dB, clean fade tail | Copied unmodified |
+| `gameplay_music` | `deuslower-atmosphere-dark-fantasy-dungeon-synthpiano-verse-248215.mp3` | ~29s of near-total silence appended after the musical fade-out (music ends ~131s into a 159.6s file) — would leave a dead-air gap on every loop | Trimmed to 131s + 1.2s fade, re-exported as WAV (only file converted from its source format, and only because the silent tail made trimming necessary — no other gain/EQ change) |
+
+All final peak levels stay comfortably under 0 dBFS (no clipping); exact numbers are in each row
+above. The original downloaded files under `AudioCandidates\` were never modified.
+
+### Files copied into the project
+
+```
+Assets/_Game/Audio/SFX/slider_tick.wav       (new)
+Assets/_Game/Audio/SFX/card_enter.wav        (new)
+Assets/_Game/Audio/SFX/snap_back.wav         (new)
+Assets/_Game/Audio/SFX/game_over.wav         (new)
+Assets/_Game/Audio/SFX/stat_increase.wav     (new)
+Assets/_Game/Audio/SFX/stat_decrease.wav     (new)
+Assets/_Game/Audio/SFX/critical.wav          (new)
+Assets/_Game/Audio/Music/menu_music.mp3      (new folder + file, unmodified copy)
+Assets/_Game/Audio/Music/gameplay_music.wav  (new, trimmed/converted — see table above)
+```
+
+`ui_click`, `card_preview`, `card_swipe` and their clip files are untouched.
+
+### Code changes (additive, same silent-when-empty pattern as every existing cue call site)
+
+- **`Presentation/CardSwipeController.cs`** — added `event Action SnapBackStarted`, raised at the
+  top of `BeginSnapBack()` (a released drag that didn't cross the threshold). No existing behavior
+  changed; this is a new event with no subscribers until the next file.
+- **`Composition/GameFeedbackController.cs`** — subscribes to the new `SnapBackStarted` (plays
+  `cues.SnapBack`) and to a new `GameSession.StatValueChanged` (below); plays `cues.StatIncrease` /
+  `cues.StatDecrease` on an ordinary stat move, or `cues.Critical` (+haptic pulse) the instant a
+  stat *crosses into* its critical range (not on every further move while already critical — mirrors
+  the existing one-shot pattern already used for the drag threshold pulse). Critical is judged by a
+  new `[SerializeField] criticalBoundary = 15` on this component, mirroring
+  `GameUITheme.CriticalBoundary`'s default — the two aren't linked, so if a designer changes the
+  theme's boundary this field needs updating to match (documented in its Inspector tooltip).
+- **`Application/GameSession.cs`** — added `event Action<StatChange> StatValueChanged`, forwarding
+  `StatSystem.StatChanged` for whichever run is currently bound. Subscribed alongside the existing
+  `presenter.BindStats(statSystem)` call in `BeginRun()`, unsubscribed in `UnbindStats()`; the
+  `#if UNITY_EDITOR || DEVELOPMENT_BUILD` `DevelopmentSetStats()` path (which swaps `statSystem`
+  directly) was updated to re-subscribe too, so the development debug panel's manual stat editing
+  still drives the same audio.
+- **`Presentation/FeedbackCueProfile.cs`** — added a `sliderTick` cue-ID field/property. This field
+  did not exist before this pass; Phase 6 needed it and the desired-mapping list in the request
+  that drove this pass did not otherwise name a home for it.
+- **`Presentation/AudioService.cs`** — `Play(string)` is now a one-line wrapper around a new
+  `Play(string, float volumeOverride)` overload, used to preview the SFX slider at the volume it's
+  being dragged to without touching the applied SFX volume before Apply is pressed.
+- **`Presentation/AudioSettingsPanelView.cs`** — added `MusicVolumeStepped`/`SfxVolumeStepped`
+  events, raised at most once per ~10% of slider travel (never for a programmatic `Render()`, since
+  that still uses `SetValueWithoutNotify`). Subscribed via `onValueChanged` in `OnEnable`, released
+  in `OnDisable`.
+- **`Presentation/SettingsPanelView.cs`** — forwards the two events above from the Audio tab, same
+  pattern as `ApplyRequested`/`CancelRequested`.
+- **`Composition/SettingsController.cs`** — subscribes to both forwarded events; Music slider ticks
+  play `cues.SliderTick` at the normal SFX volume, SFX slider ticks play it at the value being
+  dragged to (via the new `AudioService` overload), so the tick itself previews the loudness about
+  to be applied.
+
+### New Editor tool (avoids hand-editing either `.asset`'s YAML)
+
+**`Assets/_Game/Scripts/Editor/AudioCueLibrarySetup.cs`** — three menu commands under
+`Tools > Royal Decisions > Audio`:
+
+- **`Update Main Audio Cue Library`** — adds/refreshes the 9 new `id → clip` pairs above in
+  `MainAudioCueLibrary.asset`, reading and writing only through `SerializedObject`/
+  `SerializedProperty` (never touching the YAML directly). Existing entries (`ui_click`,
+  `card_swipe`, `card_preview`, and anything else already authored) are preserved byte-for-byte;
+  re-running it is a no-op once the mapping matches.
+- **`Update Default Feedback Cue Profile`** — fills the matching string fields on
+  `DefaultFeedbackCueProfile.asset` (every field was blank per the previous pass's notes above:
+  `Ui Click=ui_click`, `Slider Tick=slider_tick`, `Card Enter=card_enter`,
+  `Card Preview=card_preview`, `Snap Back=snap_back`, `Left/Right Confirmation=card_swipe`,
+  `Stat Increase=stat_increase`, `Stat Decrease=stat_decrease`, `Critical=critical`,
+  `Game Over=game_over`, `Menu Music=menu_music`, `Gameplay Music=gameplay_music`). `Threshold`,
+  `Exit`, `Restart` and `Ambient Loop` are deliberately left alone — the first two have no cue by
+  design, Restart already plays `ui_click` directly from `GameSceneController`/`MainMenuController`
+  code rather than through this profile (matching "Restart may use ui_click" from the brief), and
+  nothing produces an ambient loop yet. A field that already carries a non-empty, different value is
+  left untouched and reported rather than overwritten.
+- **`Update Cue Library and Profile`** — runs both.
+
+**This tool could not be run this session** — `Temp/UnityLockfile` shows the project already open
+in your own Editor (`Unity.exe`, started before this session), and Unity refuses a second instance
+on the same project, so the batchmode attempt aborted with "another Unity instance is running with
+this project open." All five affected assemblies (Presentation, Application, Composition, and the
+Editor tool itself compiled standalone via a temporary `dotnet build` check) compile cleanly with
+`0 errors, 0 warnings` — see below — but the actual `.asset` writes still need one of:
+
+- [ ] **Run it from your already-open Editor** — `Tools > Royal Decisions > Audio > Update Cue
+      Library and Profile`. Console should report the 9 additions to the library and the profile
+      field summary, both idempotent on a second run.
+- [ ] *(only if you'd rather I run it)* Close your Editor session first and say so, and I can run it
+      via `Unity.exe -batchmode -executeMethod ...` next turn.
+
+### Required manual Inspector wiring (new, on top of the still-outstanding items from the previous pass)
+
+- [ ] **`AudioService.Music Source`** — no separate music `AudioSource` is mentioned anywhere
+      earlier in this document, and `AudioService.PlayMusic()` silently no-ops without one (logs
+      "No music AudioSource is assigned"). Add a second `AudioSource` next to the existing SFX one
+      on the `AudioService` object in **both** `Game.unity` and `MainMenu.unity` — `Play On Awake`
+      off, `Loop` on (or leave `PlayMusic`'s own `loop: true` default), `Spatial Blend = 2D` — and
+      assign it to `Music Source`.
+- [ ] The previous pass's still-open items remain open (this pass didn't touch scenes or these
+      assets beyond what the Editor tool above does): `AudioService.Cue Library` empty on both
+      scenes, `GameSceneController.Cues` / `MainMenuController.Audio Service` / `MainMenuController.
+      Cues` / `SettingsController.Cues` unassigned. None of the new cues in this pass will be heard
+      until those are wired, same as before.
+- [ ] `GameFeedbackController.Critical Boundary` — new field, defaults to `15` to match
+      `GameUITheme`'s default. Only needs attention if a designer changes the theme's boundary later.
+
+### Compile checks run this session
+
+Unity itself could not compile-check (see lock conflict above). As a substitute, `dotnet build` was
+run directly against the project's own generated `.csproj` files (the same assemblies Unity would
+produce), plus a temporary copy of the Editor `.csproj` patched to include the new
+`AudioCueLibrarySetup.cs` (deleted again immediately after, along with its `Temp/obj` output —
+confirmed absent from `git status`):
+
+- `RoyalDecisions.Presentation.csproj` — 0 errors, 0 warnings
+- `RoyalDecisions.Application.csproj` — 0 errors, 0 warnings
+- `RoyalDecisions.Composition.csproj` — 0 errors, 0 warnings
+- `RoyalDecisions.Editor.csproj` (+ new file, temporary copy) — 0 errors, 0 warnings
+
+This confirms the C# is syntactically and semantically valid against the real Unity assembly
+references, but it is **not** a substitute for actually entering Play Mode — no EditMode/PlayMode
+test run happened this session, for the same lock-conflict reason. Please run
+`Window > General > Test Runner > EditMode/PlayMode > Run All` yourself and confirm the Console
+stays clean, same as every other pass in this document asks.
+
+### Verify after wiring
+
+- [ ] Settings → Ses tab: dragging the Music or SFX slider ticks roughly every 10% of travel, not
+      continuously; dragging the SFX slider all the way down makes the tick itself get quieter
+      (previewing the level about to be applied); dragging Music does not change the tick's own
+      volume.
+- [ ] A below-threshold release (snap-back) plays a soft return sound, audibly quieter than a
+      confirmed swipe.
+- [ ] Reaching game over plays a bell-like sound instead of nothing.
+- [ ] A decision that raises a stat plays a small chime; one that lowers a stat plays a slightly
+      different small chime; a decision that pushes any stat to ≤15 or ≥85 plays a single, more
+      noticeable warning instead of (not in addition to) the ordinary chime for that stat, and only
+      on the turn it first crosses into that range.
+- [ ] MainMenu plays quiet background music; Game scene plays its own, quieter, different track
+      underneath the SFX above.
+
+---
+
+## Diagnosis: why Game scene SFX were silent, and Settings interaction sounds
+
+### Root cause (confirmed by reading the current `.unity` YAML, not by guessing)
+
+`Assets/_Game/Scenes/Game.unity`'s `AudioService` component has **`cueLibrary: {fileID: 0}`** —
+empty. Every `AudioService.Play(...)`/`PlayMusic(...)` call checks `cueLibrary == null` first and
+returns `AudioPlayResult.NoLibrary` without playing anything (a `Debug.LogWarning`, not an error —
+which is why the Console looked clean while every cue silently no-op'd). This alone fully explains
+"gameplay card sounds do NOT play at all": `card_preview`, `card_swipe`, `card_enter`, `snap_back`,
+`stat_increase`/`stat_decrease`/`critical`, and `game_over`/`gameplay_music` all route through this
+same `AudioService` instance, so none of them could ever have played, regardless of any other
+wiring or code correctness upstream.
+
+`GameSceneController.Cues` is a second, independent gap: the `cues` field entirely does not appear
+in `Game.unity`'s serialized `GameSceneController` block (it was added to the C# class in an
+earlier pass but the scene has not been re-saved since), so it deserializes to `null` and
+`PlayGameplayMusic()` no-ops too.
+
+Both `GameSceneController.Audio Service` and `GameFeedbackController.Audio Service`/`Cues` **are**
+already correctly wired in `Game.unity` (pointing at the same `AudioService` and at
+`DefaultFeedbackCueProfile.asset` respectively) — the previous pass's content work
+(`MainAudioCueLibrary.asset` now has all 12 cues, `DefaultFeedbackCueProfile.asset` now has all 13
+cue-ID strings filled in) was correct and complete. The only thing missing was these two scene
+object references.
+
+`MainMenu.unity` has the same class of gap in two more places: `SettingsController.Cues` is empty
+(so Settings sliders/toggles/tabs have never been able to play anything), and
+`MainMenuController.Audio Service`/`Cues` are both empty too (present in the file as new,
+zero-valued fields from the same not-yet-resaved situation as `GameSceneController.Cues` above).
+`MainMenu.unity`'s own `AudioService.Cue Library` **is** already wired (from the previous pass),
+which is presumably why menu music is audible.
+
+### Fix: `Assets/_Game/Scripts/Editor/GameAudioSceneWiringSetup.cs` (new)
+
+One menu command, under **`Tools > Royal Decisions > Audio > Wire Scene Audio References`**:
+
+- Opens `Game.unity`, then `MainMenu.unity`, each in turn (restoring whatever you had open
+  afterward).
+- In each, locates the relevant components by type (not by hardcoded scene object IDs, so it can't
+  silently point at the wrong instance) and, through `SerializedObject`/`SerializedProperty` only:
+  - `AudioService.Cue Library` → `MainAudioCueLibrary.asset`
+  - `GameSceneController.Cues` → `DefaultFeedbackCueProfile.asset`
+  - `GameFeedbackController.Audio Service` / `.Cues` (defensive — already correct, so this is a
+    no-op unless something regresses)
+  - `SettingsController.Cues` → `DefaultFeedbackCueProfile.asset`
+  - `MainMenuController.Audio Service` / `.Cues` → the scene's `AudioService` /
+    `DefaultFeedbackCueProfile.asset`
+- **Only ever fills a field that is currently empty.** A reference that already points at
+  something (correct or not) is left completely alone and reported, never overwritten — so this is
+  safe to run repeatedly and safe to run without first auditing every field by hand.
+- Saves only the scene(s) it actually changed.
+
+**This could not be run this session** — same as the previous pass, `Temp/UnityLockfile` shows your
+Editor already has the project open (`Unity.exe`, PID active since before this session started), and
+Unity refuses a second instance on the same project. The C# compiles cleanly (see below), but the
+actual reference assignment needs you to run it:
+
+- [ ] **`Tools > Royal Decisions > Audio > Wire Scene Audio References`** in your already-open
+      Editor. Console should report each reference it filled in (six lines: the `AudioService` cue
+      library on both scenes, `GameSceneController.Cues`, `SettingsController.Cues`,
+      `MainMenuController.Audio Service` and `.Cues`); a second run should report nothing left to
+      change.
+- [ ] Save both scenes if the Editor doesn't already do so as part of the tool running (it calls
+      `EditorSceneManager.SaveScene` itself, but confirm no unsaved-asterisk remains on either
+      scene tab afterward).
+
+### Part 2 — Settings interaction sounds: code changes
+
+All additive, all guarded exactly like every existing cue call site (empty `cues`/`audioService`
+stays silent, never an error):
+
+- **`AudioSettingsPanelView.cs`** — the `Master Mute` toggle now raises a new `ToggleChanged` event
+  from its own `onValueChanged`, added in `OnEnable`/removed in `OnDisable`. `Render()` already used
+  `SetIsOnWithoutNotify` before this change, so loading/resetting settings still cannot trigger it —
+  only an actual user flip can.
+- **`GraphicsSettingsPanelView.cs`**, **`ControlsSettingsPanelView.cs`** — neither file had an
+  `OnEnable`/`OnDisable` before this change (nothing on either tab produced any event). Both gained
+  one, wiring every toggle on that tab (`Use High Frame Rate Cap`/`Battery Saver`, and
+  `Tap Buttons Enabled`/`Invert Swipe Rotation`/`Haptics` respectively) to the same new
+  `ToggleChanged` event.
+- **`GeneralSettingsPanelView.cs`** — already had `OnEnable`/`OnDisable` for its three buttons;
+  `Reduced Motion`/`Larger Text`/`High Contrast` were added to the existing listener wiring, feeding
+  the same new `ToggleChanged` event. The two-tap Reset Progress arm/confirm button, Reset Tutorial,
+  and About buttons are untouched — they already have their own explicit sound-or-not behavior from
+  an earlier pass, and touching them was not asked for here.
+- **`SettingsPanelView.cs`** — aggregates all four tabs' `ToggleChanged` into its own single
+  `ToggleChanged` event (same pattern already used for `ApplyRequested`/`CancelRequested`/etc.).
+  Also added `TabPressed`, raised only from the four tab buttons' own `onClick` — **not** from
+  `Show()`'s internal call to `ShowAudioTab()` that selects the default tab on open, which stays
+  silent (opening Settings already plays its own click via `SettingsController.Open()`; a second
+  click for the auto-selected tab would be a duplicate).
+- **`SettingsController.cs`** — subscribes to both new events and plays `cues.UiClick` for each
+  (`view.ToggleChanged += PlayUiClick; view.TabPressed += PlayUiClick;`) — reusing the exact same
+  `PlayUiClick()` already used by Open/Apply/Reset/Cancel, so there is exactly one code path that
+  decides what "the click" sounds like. **Apply/Cancel/Reset/Reset Progress/Reset Tutorial/About are
+  untouched** — they already call `PlayUiClick()` from their own handlers, so nothing here duplicates
+  them.
+
+Net effect: every toggle across all four tabs, and all four tab buttons, now play `ui_click` exactly
+once per user action, with no possibility of firing from a programmatic `Render()` (every `Render()`
+already used the `WithoutNotify` setters before this change) and no possibility of double-firing on
+Apply/Cancel/Reset (those were not touched).
+
+### Compile checks run this session
+
+Unity itself could not compile-check (same lock conflict as the diagnosis above). `dotnet build`
+against the project's own generated `.csproj` files, same substitute as the previous pass:
+
+- `RoyalDecisions.Presentation.csproj` — 0 errors, 0 warnings (covers `AudioSettingsPanelView.cs`,
+  `GraphicsSettingsPanelView.cs`, `ControlsSettingsPanelView.cs`, `GeneralSettingsPanelView.cs`,
+  `SettingsPanelView.cs`)
+- `RoyalDecisions.Composition.csproj` — 0 errors, 0 warnings (covers `SettingsController.cs`)
+- `RoyalDecisions.Editor.csproj` (+ new `GameAudioSceneWiringSetup.cs`, temporary patched copy,
+  deleted immediately after along with its `Temp/obj` output) — 0 errors, 0 warnings
+
+Not a substitute for Play Mode or the Test Runner — please confirm the Console stays clean and run
+`EditMode`/`PlayMode > Run All` yourself once the scene-wiring command above has run.
+
+### Verify after running the menu command
+
+- [ ] Main Menu music still plays (unchanged by this pass).
+- [ ] `ui_click` still plays on New Game / Continue / Apply / Cancel / Reset / Reset Progress arm+
+      confirm / Reset Tutorial / About (all pre-existing, none of this pass's code touches them).
+- [ ] Settings → any tab's slider still ticks in ~10% steps, not continuously (unchanged by this
+      pass — only toggles and tabs were added).
+- [ ] Flipping `Sessiz`/Master Mute, either frame-rate/battery toggle, either control toggle, or
+      any of the three accessibility toggles plays exactly one click per flip; opening Settings
+      (which lands on the Ses tab) and switching tabs afterward does not double up or play on load.
+- [ ] In the Game scene: dragging left/right past 5% strength plays `card_preview` once per
+      direction; a confirmed swipe plays `card_swipe`; a new card plays `card_enter`; a
+      below-threshold release plays `snap_back`; a stat change plays `stat_increase`/
+      `stat_decrease`, or `critical` the instant a stat first crosses ≤15/≥85; reaching game over
+      plays `game_over`.

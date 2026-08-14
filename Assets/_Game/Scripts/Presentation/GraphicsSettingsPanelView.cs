@@ -1,3 +1,4 @@
+using System;
 using RoyalDecisions.Domain;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,8 +14,27 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private Toggle useHighFrameRateCap;
         [SerializeField] private Toggle batterySaver;
 
+        /// <summary>Raised once when the user flips a toggle on this tab; never for a Render().</summary>
+        public event Action ToggleChanged;
+
         public bool UseHighFrameRateCap => useHighFrameRateCap == null || useHighFrameRateCap.isOn;
         public bool BatterySaverEnabled => batterySaver != null && batterySaver.isOn;
+
+        private void OnEnable()
+        {
+            if (useHighFrameRateCap != null)
+                useHighFrameRateCap.onValueChanged.AddListener(HandleToggleChanged);
+            if (batterySaver != null) batterySaver.onValueChanged.AddListener(HandleToggleChanged);
+        }
+
+        private void OnDisable()
+        {
+            if (useHighFrameRateCap != null)
+                useHighFrameRateCap.onValueChanged.RemoveListener(HandleToggleChanged);
+            if (batterySaver != null) batterySaver.onValueChanged.RemoveListener(HandleToggleChanged);
+        }
+
+        private void HandleToggleChanged(bool value) => ToggleChanged?.Invoke();
 
         public void Render(GameSettings settings)
         {

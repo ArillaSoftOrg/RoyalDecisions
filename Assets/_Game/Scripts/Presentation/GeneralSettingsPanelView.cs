@@ -32,6 +32,9 @@ namespace RoyalDecisions.Presentation
         public event Action ResetTutorialRequested;
         public event Action AboutRequested;
 
+        /// <summary>Raised once when the user flips a toggle on this tab; never for a Render().</summary>
+        public event Action ToggleChanged;
+
         public bool ReducedMotion => reducedMotion != null && reducedMotion.isOn;
         public bool LargerText => largerText != null && largerText.isOn;
         public bool HighContrast => highContrast != null && highContrast.isOn;
@@ -42,6 +45,9 @@ namespace RoyalDecisions.Presentation
             if (resetProgressButton != null) resetProgressButton.onClick.AddListener(HandleResetProgressClicked);
             if (resetTutorialButton != null) resetTutorialButton.onClick.AddListener(HandleResetTutorialClicked);
             if (aboutButton != null) aboutButton.onClick.AddListener(HandleAboutClicked);
+            if (reducedMotion != null) reducedMotion.onValueChanged.AddListener(HandleToggleChanged);
+            if (largerText != null) largerText.onValueChanged.AddListener(HandleToggleChanged);
+            if (highContrast != null) highContrast.onValueChanged.AddListener(HandleToggleChanged);
         }
 
         private void OnDisable()
@@ -49,6 +55,9 @@ namespace RoyalDecisions.Presentation
             if (resetProgressButton != null) resetProgressButton.onClick.RemoveListener(HandleResetProgressClicked);
             if (resetTutorialButton != null) resetTutorialButton.onClick.RemoveListener(HandleResetTutorialClicked);
             if (aboutButton != null) aboutButton.onClick.RemoveListener(HandleAboutClicked);
+            if (reducedMotion != null) reducedMotion.onValueChanged.RemoveListener(HandleToggleChanged);
+            if (largerText != null) largerText.onValueChanged.RemoveListener(HandleToggleChanged);
+            if (highContrast != null) highContrast.onValueChanged.RemoveListener(HandleToggleChanged);
             DisarmResetProgress();
         }
 
@@ -90,6 +99,8 @@ namespace RoyalDecisions.Presentation
         private void HandleResetTutorialClicked() => ResetTutorialRequested?.Invoke();
 
         private void HandleAboutClicked() => AboutRequested?.Invoke();
+
+        private void HandleToggleChanged(bool value) => ToggleChanged?.Invoke();
 
 #if UNITY_EDITOR
         public void SetAuthoringReferences(

@@ -14,6 +14,7 @@ namespace RoyalDecisions.Composition
 
         [SerializeField] private SettingsPanelView view;
         [SerializeField] private AudioService audioService;
+        [SerializeField] private FeedbackCueProfile cues;
         [SerializeField] private AccessibilityPresentationController accessibility;
         [SerializeField] private AboutPanelView aboutPanel;
 
@@ -49,10 +50,15 @@ namespace RoyalDecisions.Composition
                 return;
             }
             view.ApplyRequested += ApplyFromView;
-            view.CancelRequested += Cancel;
+            view.CancelRequested += HandleCancelButton;
             view.ResetRequested += ResetToDefaults;
             view.ResetTutorialRequested += HandleResetTutorialRequested;
             view.AboutRequested += HandleAboutRequested;
+            view.MusicVolumeStepped += HandleMusicVolumeStepped;
+            view.SfxVolumeStepped += HandleSfxVolumeStepped;
+            view.ToggleChanged += PlayUiClick;
+            view.TabPressed += PlayUiClick;
+            view.MasterMuteChanged += HandleMasterMuteChanged;
             if (aboutPanel != null) aboutPanel.CloseRequested += HandleAboutClosed;
         }
 
@@ -61,10 +67,15 @@ namespace RoyalDecisions.Composition
             if (view != null)
             {
                 view.ApplyRequested -= ApplyFromView;
-                view.CancelRequested -= Cancel;
+                view.CancelRequested -= HandleCancelButton;
                 view.ResetRequested -= ResetToDefaults;
                 view.ResetTutorialRequested -= HandleResetTutorialRequested;
                 view.AboutRequested -= HandleAboutRequested;
+                view.MusicVolumeStepped -= HandleMusicVolumeStepped;
+                view.SfxVolumeStepped -= HandleSfxVolumeStepped;
+                view.ToggleChanged -= PlayUiClick;
+                view.TabPressed -= PlayUiClick;
+                view.MasterMuteChanged -= HandleMasterMuteChanged;
             }
             if (aboutPanel != null) aboutPanel.CloseRequested -= HandleAboutClosed;
         }
@@ -78,6 +89,7 @@ namespace RoyalDecisions.Composition
 
         public void Open()
         {
+            PlayUiClick();
             EnsureLoaded();
             mainMenuRoot?.SetActive(false);
             view?.Show(current);
@@ -102,6 +114,7 @@ namespace RoyalDecisions.Composition
 
         public void ApplyFromView()
         {
+            PlayUiClick();
             EnsureLoaded();
             current.SetMusicVolume(view != null ? view.MusicVolume : current.MusicVolume);
             current.SetSfxVolume(view != null ? view.SfxVolume : current.SfxVolume);
@@ -132,8 +145,18 @@ namespace RoyalDecisions.Composition
             mainMenuRoot?.SetActive(true);
         }
 
+        /// <summary>Cancel as requested by the panel's Cancel button; adds the click cue that a
+        /// programmatic close (e.g. the Android back button, via <see cref="CloseIfOpen"/>) must
+        /// not play.</summary>
+        private void HandleCancelButton()
+        {
+            PlayUiClick();
+            Cancel();
+        }
+
         public void ResetToDefaults()
         {
+            PlayUiClick();
             current = GameSettings.CreateDefault();
             if (store != null)
             {
@@ -192,12 +215,66 @@ namespace RoyalDecisions.Composition
 
         private void HandleAboutClosed() => view?.Reopen();
 
+        /// <summary>
+        /// The master mute toggle takes effect on the live AudioService immediately, unlike every
+        /// other Settings control which stays staged until Apply — otherwise there is nothing to
+        /// sequence the click cue against. Muting: click first, then mute, so the click itself is
+        /// never swallowed by the mute it is about to cause. Unmuting: unmute first, then click, so
+        /// the click is not swallowed by mute state that has not been lifted yet.
+        /// </summary>
+        private void HandleMasterMuteChanged(bool isMuted)
+        {
+            if (isMuted)
+            {
+                PlayUiClick();
+                audioService?.SetMasterMuted(true);
+            }
+            else
+            {
+                audioService?.SetMasterMuted(false);
+                PlayUiClick();
+            }
+        }
+
+        private void HandleMusicVolumeStepped(float value) => PlaySliderTick();
+
+        /// <summary>Previews the tick at the volume being dragged to, so the slider demonstrates
+        /// the SFX level it is about to be set to rather than whatever level is still applied.</summary>
+        private void HandleSfxVolumeStepped(float value) => PlaySliderTick(value);
+
+        private void PlaySliderTick(float? previewVolume = null)
+        {
+            if (audioService == null || cues == null || string.IsNullOrEmpty(cues.SliderTick))
+            {
+                return;
+            }
+
+            if (previewVolume.HasValue)
+            {
+                audioService.Play(cues.SliderTick, previewVolume.Value);
+            }
+            else
+            {
+                audioService.Play(cues.SliderTick);
+            }
+        }
+
         private void EnsureLoaded()
         {
             if (current == null)
             {
                 LoadAndApply();
             }
+        }
+
+        private void PlayUiClick()
+        {
+            if (audioService == null || cues == null || string.IsNullOrEmpty(cues.UiClick))
+            {
+                return;
+            }
+
+            audioService.Play(cues.UiClick);
         }
 
 #if UNITY_EDITOR

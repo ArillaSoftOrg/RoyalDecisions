@@ -8,8 +8,10 @@ namespace RoyalDecisions.Presentation
     public sealed class FeedbackCueProfile : ScriptableObject
     {
         [SerializeField] private string uiClick = string.Empty;
+        [SerializeField] private string sliderTick = string.Empty;
         [SerializeField] private string cardEnter = string.Empty;
         [SerializeField] private string threshold = string.Empty;
+        [SerializeField] private string cardPreview = string.Empty;
         [SerializeField] private string snapBack = string.Empty;
         [SerializeField] private string leftConfirmation = string.Empty;
         [SerializeField] private string rightConfirmation = string.Empty;
@@ -24,8 +26,10 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private string ambientLoop = string.Empty;
 
         public string UiClick => uiClick ?? string.Empty;
+        public string SliderTick => sliderTick ?? string.Empty;
         public string CardEnter => cardEnter ?? string.Empty;
         public string Threshold => threshold ?? string.Empty;
+        public string CardPreview => cardPreview ?? string.Empty;
         public string SnapBack => snapBack ?? string.Empty;
         public string LeftConfirmation => leftConfirmation ?? string.Empty;
         public string RightConfirmation => rightConfirmation ?? string.Empty;

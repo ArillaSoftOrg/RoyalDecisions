@@ -71,6 +71,9 @@ namespace RoyalDecisions.Presentation
         /// <summary>Reports that no choice-impact preview should remain visible.</summary>
         public event Action ChoicePreviewCleared;
 
+        /// <summary>Raised when a released drag starts returning to center without a decision.</summary>
+        public event Action SnapBackStarted;
+
         private int activePointerId = NoPointer;
         private Vector2 pressLocalPoint;
         private Vector2 initialAnchoredPosition;
@@ -329,6 +332,7 @@ namespace RoyalDecisions.Presentation
         private void BeginSnapBack()
         {
             State = CardSwipeState.SnappingBack;
+            SnapBackStarted?.Invoke();
 
             if (!CanRunCoroutines() || snapBackDuration <= 0f)
             {

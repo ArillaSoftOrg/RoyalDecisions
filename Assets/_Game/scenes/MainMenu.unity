@@ -3155,7 +3155,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: RoyalDecisions.Presentation::RoyalDecisions.Presentation.AudioService
   audioSource: {fileID: 434180161}
   musicSource: {fileID: 1498033563}
-  cueLibrary: {fileID: 0}
+  cueLibrary: {fileID: 11400000, guid: 8c1539703d6b7204cb6d68d1e8fa5723, type: 2}
   volume: 1
   musicVolume: 1
   muted: 0
@@ -6404,6 +6404,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: RoyalDecisions.Composition::RoyalDecisions.Composition.SettingsController
   view: {fileID: 1227755842}
   audioService: {fileID: 434180159}
+  cues: {fileID: 11400000, guid: f933cd62557671f4594f4207783f20cf, type: 2}
   accessibility: {fileID: 0}
   aboutPanel: {fileID: 1810437166}
   mainMenuRoot: {fileID: 314539479}
@@ -11955,6 +11956,9 @@ MonoBehaviour:
   continueButton: {fileID: 1366733081}
   interfaceText: {fileID: 11400000, guid: 4d6fb4043762f964ea8004a24a4da720, type: 2}
   mainMenuTextView: {fileID: 314539481}
+  audioService: {fileID: 434180159}
+  cues: {fileID: 11400000, guid: f933cd62557671f4594f4207783f20cf, type: 2}
+  sceneTransitionDelaySeconds: 0.15
 --- !u!4 &1917045663
 Transform:
   m_ObjectHideFlags: 0

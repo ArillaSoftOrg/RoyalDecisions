@@ -1,3 +1,4 @@
+using System.Collections;
 using RoyalDecisions.Application;
 using RoyalDecisions.Infrastructure;
 using RoyalDecisions.Data;
@@ -31,8 +32,17 @@ namespace RoyalDecisions.Composition
         [SerializeField] private InterfaceTextDefinition interfaceText;
         [SerializeField] private MainMenuTextView mainMenuTextView;
 
+        [Header("Audio")]
+        [Tooltip("Optional. Absent audio is a supported configuration.")]
+        [SerializeField] private AudioService audioService;
+        [SerializeField] private FeedbackCueProfile cues;
+
+        [Tooltip("Realtime seconds the ui_click cue is given to play before the Game scene loads.")]
+        [SerializeField] private float sceneTransitionDelaySeconds = 0.15f;
+
         private ISceneLoader sceneLoader;
         private IRunSaveStore runStore;
+        private bool isTransitioningToGame;
 
         /// <summary>True only for a save that is present and structurally loadable.</summary>
         public bool IsContinueAvailable { get; private set; }
@@ -51,6 +61,11 @@ namespace RoyalDecisions.Composition
             sceneLoader ??= new UnitySceneLoader();
 
             RefreshContinueAvailability();
+        }
+
+        private void Start()
+        {
+            PlayMenuMusic();
         }
 
         /// <summary>Injection seam for tests, which must never touch persistent data.</summary>
@@ -101,25 +116,55 @@ namespace RoyalDecisions.Composition
         /// <summary>Wire a Button's OnClick to this.</summary>
         public void OnNewGamePressed()
         {
+            if (isTransitioningToGame)
+            {
+                return;
+            }
+
+            isTransitioningToGame = true;
+            PlayUiClick();
             sessionIntent?.RequestNewGame();
-            LoadGameScene();
+            StartCoroutine(LoadGameSceneAfterClickCue());
         }
 
         /// <summary>Wire a Button's OnClick to this. Does nothing when Continue is unavailable.</summary>
         public void OnContinuePressed()
         {
-            if (!IsContinueAvailable)
+            if (!IsContinueAvailable || isTransitioningToGame)
             {
                 return;
             }
 
+            isTransitioningToGame = true;
+            PlayUiClick();
             sessionIntent?.RequestContinue();
-            LoadGameScene();
+            StartCoroutine(LoadGameSceneAfterClickCue());
         }
 
-        private void LoadGameScene()
+        private IEnumerator LoadGameSceneAfterClickCue()
         {
+            yield return new WaitForSecondsRealtime(sceneTransitionDelaySeconds);
             sceneLoader?.LoadScene(gameSceneName);
+        }
+
+        private void PlayMenuMusic()
+        {
+            if (audioService == null || cues == null || string.IsNullOrEmpty(cues.MenuMusic))
+            {
+                return;
+            }
+
+            audioService.PlayMusic(cues.MenuMusic);
+        }
+
+        private void PlayUiClick()
+        {
+            if (audioService == null || cues == null || string.IsNullOrEmpty(cues.UiClick))
+            {
+                return;
+            }
+
+            audioService.Play(cues.UiClick);
         }
 
         private void ApplyContinueAvailability()

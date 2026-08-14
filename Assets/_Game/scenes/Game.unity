@@ -2897,7 +2897,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 22.55
+  m_fontSize: 28
   m_fontSizeBase: 22
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -3539,7 +3539,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: RoyalDecisions.Presentation::RoyalDecisions.Presentation.AudioService
   audioSource: {fileID: 615145500}
   musicSource: {fileID: 364554751}
-  cueLibrary: {fileID: 0}
+  cueLibrary: {fileID: 11400000, guid: 8c1539703d6b7204cb6d68d1e8fa5723, type: 2}
   volume: 1
   musicVolume: 1
   muted: 0
@@ -3554,8 +3554,8 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 0}
-  m_PlayOnAwake: 0
+  m_Resource: {fileID: 8300000, guid: e23ad7c7a789eb74090650c2d40d9b20, type: 3}
+  m_PlayOnAwake: 1
   m_Volume: 1
   m_Pitch: 1
   Loop: 0
@@ -5072,7 +5072,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 23.45
+  m_fontSize: 28
   m_fontSizeBase: 22
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -8678,6 +8678,7 @@ MonoBehaviour:
   footerView: {fileID: 53702494}
   tutorialCoordinator: {fileID: 1144116864}
   audioService: {fileID: 615145499}
+  cues: {fileID: 11400000, guid: f933cd62557671f4594f4207783f20cf, type: 2}
   sessionIntent: {fileID: 11400000, guid: 339b3e4d681616c49a7cc46e9c74ec4a, type: 2}
   fallbackStartMode: 0
 --- !u!4 &1540153052
@@ -8728,6 +8729,7 @@ MonoBehaviour:
   swipeController: {fileID: 569737570}
   audioService: {fileID: 615145499}
   cues: {fileID: 11400000, guid: f933cd62557671f4594f4207783f20cf, type: 2}
+  criticalBoundary: 15
 --- !u!114 &1540153055
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9121,7 +9123,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 22
+  m_fontSize: 28
   m_fontSizeBase: 22
   m_fontWeight: 400
   m_enableAutoSizing: 1

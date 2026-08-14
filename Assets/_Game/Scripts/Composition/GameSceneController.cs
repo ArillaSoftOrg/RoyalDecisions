@@ -35,6 +35,7 @@ namespace RoyalDecisions.Composition
 
         [Header("Audio")]
         [SerializeField] private AudioService audioService;
+        [SerializeField] private FeedbackCueProfile cues;
 
         [Header("Start mode")]
         [Tooltip("Optional. Set by the main menu; when absent the fallback below is used.")]
@@ -102,6 +103,7 @@ namespace RoyalDecisions.Composition
             }
 
             ApplySettings();
+            PlayGameplayMusic();
             StartSession();
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             DevelopmentDebugPanel debug = gameObject.GetComponent<DevelopmentDebugPanel>();
@@ -199,6 +201,26 @@ namespace RoyalDecisions.Composition
             tapChoiceButtonsView?.SetVisible(settings.TapButtonsEnabled);
         }
 
+        private void PlayGameplayMusic()
+        {
+            if (audioService == null || cues == null || string.IsNullOrEmpty(cues.GameplayMusic))
+            {
+                return;
+            }
+
+            audioService.PlayMusic(cues.GameplayMusic);
+        }
+
+        private void PlayUiClick()
+        {
+            if (audioService == null || cues == null || string.IsNullOrEmpty(cues.UiClick))
+            {
+                return;
+            }
+
+            audioService.Play(cues.UiClick);
+        }
+
         private void StartSession()
         {
             SessionStartMode mode = sessionIntent != null ? sessionIntent.Mode : fallbackStartMode;
@@ -282,6 +304,7 @@ namespace RoyalDecisions.Composition
 
         private void HandleRestartRequested()
         {
+            PlayUiClick();
             session?.Restart();
         }
 

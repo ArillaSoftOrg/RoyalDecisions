@@ -12,18 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e3fb7526789fd97449c746402a632f23, type: 3}
   m_Name: DefaultFeedbackCueProfile
   m_EditorClassIdentifier: RoyalDecisions.Presentation::RoyalDecisions.Presentation.FeedbackCueProfile
-  uiClick: 
-  cardEnter: 
+  uiClick: ui_click
+  sliderTick: slider_tick
+  cardEnter: card_enter
   threshold: 
-  snapBack: 
-  leftConfirmation: 
-  rightConfirmation: 
+  cardPreview: card_preview
+  snapBack: snap_back
+  leftConfirmation: card_swipe
+  rightConfirmation: card_swipe
   exit: 
-  statIncrease: 
-  statDecrease: 
-  critical: 
-  gameOver: 
+  statIncrease: stat_increase
+  statDecrease: stat_decrease
+  critical: critical
+  gameOver: game_over
   restart: 
-  menuMusic: 
-  gameplayMusic: 
+  menuMusic: menu_music
+  gameplayMusic: gameplay_music
   ambientLoop: 
