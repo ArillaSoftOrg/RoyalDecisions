@@ -1431,3 +1431,236 @@ Not a substitute for Play Mode or the Test Runner — please confirm the Console
       below-threshold release plays `snap_back`; a stat change plays `stat_increase`/
       `stat_decrease`, or `critical` the instant a stat first crosses ≤15/≥85; reaching game over
       plays `game_over`.
+
+---
+
+## Haptics wiring + menu transition animations
+
+Two gaps, found by reading the existing code rather than assumed: **(1)** a Titreşim/Vibration
+toggle already existed end-to-end in `GameSettings`/`ControlsSettingsPanelView`/
+`SettingsController` and was persisted correctly, but `GameFeedbackController` — the only class
+that ever calls `haptics.Pulse()` — had its `Configure(IHapticService)` seam called by **no
+composition root at all**, so `haptics` stayed null and every `Pulse()` call in the Game scene was
+a silent no-op regardless of the toggle. **(2)** `PanelFadeAnimator` (fade+scale panel transitions,
+reduced-motion aware) existed fully implemented and tested but, per its own commit message, was
+"not yet wired into any scene."
+
+### What changed
+
+**Haptics — now tiered and actually reaches a service:**
+
+- `Presentation/HapticFeedbackLevel.cs` (new) — `Light` / `Standard` / `Critical`.
+- `Presentation/HapticProfile.cs` (new) — pure duration/amplitude data per level, unit-tested
+  independent of any platform code.
+- `IHapticService.Pulse()` now takes a `HapticFeedbackLevel` (default `Standard`, so every prior
+  caller still compiles).
+- `UnityHapticService` — on Android API 26+, uses `VibrationEffect.createOneShot` via
+  `AndroidJavaObject` reflection so Light/Standard/Critical genuinely differ in strength and
+  length; falls back to the legacy duration-only `Vibrator.vibrate(long)` down to this project's
+  minSdk 25; falls back again to `Handheld.Vibrate()` on the Editor/other platforms (Light stays
+  silent there — a full-strength buzz for a subtle drag-threshold tick would be worse than
+  nothing). Every native call is wrapped defensively (logged once, not silently) since OEM vibrator
+  services are a known source of odd exceptions this project cannot reproduce or test.
+- `GameFeedbackController` — now self-configures in `Awake()` exactly like `GameSceneController`
+  re-applies settings per scene load (Settings lives in a different scene, so there's no live
+  reference): builds a real `UnityHapticService` + `SettingsServiceStore` by default, reads the
+  saved `HapticsEnabled`, and applies it. `Configure()` (the test seam) now also re-establishes
+  event subscriptions, not just injected fields — mirrors `SettingsController.Configure()` calling
+  `LoadAndApply()`. The four `Pulse()` call sites are now tiered: drag crossing the confirm
+  threshold → `Light`; a confirmed decision → `Standard`; a stat entering its critical range, and
+  game over → `Critical`.
+
+**Menu transitions — `PanelFadeAnimator` wired into every panel-level and tab-level transition:**
+
+- `PanelFadeAnimator` gained `Swap(Action)` — fades a `CanvasGroup` out, runs the swap at zero
+  alpha, fades back in, without ever touching `panelRoot`'s active state (unlike `Show`/`Hide`).
+  Used for in-place content changes (a settings tab) where two `SetActive(true)` bodies existing
+  simultaneously inside a `VerticalLayoutGroup`/`ContentSizeFitter` stack would double the measured
+  height mid-swap. Also gained `animateScale` (off for tab swaps — a scale pulse would visibly
+  distort `ContentViewport`'s `RectMask2D`-clipped bounds; on, unchanged default, for full-panel
+  open/close).
+- `SettingsPanelView` — `Show()`/`Hide()`/`Reopen()` now route through an optional `panelAnimator`
+  (falls back to instant `SetActive` if unwired); tab switching now routes through an optional
+  `tabCrossfadeAnimator`. A `SettingsTabId` spam-guard skips animating a reselect of the
+  already-active tab (repeated button press, or `Show()` re-selecting the tab it was already on)
+  but still applies the (idempotent) active state directly, so it can't ever leave two tab bodies
+  active or drift from the actual GameObject state.
+- `AboutPanelView` — same optional `panelAnimator` pattern for `Show()`/`Hide()`.
+- `SceneSetupAutomation.cs` — new `ConfigurePanelFadeAnimator`/`ValidatePanelFadeAnimator` helpers
+  add a `CanvasGroup` + `PanelFadeAnimator` to `SettingsPanel`, `AboutPanel` (both 220ms show /
+  180ms hide — reads as a screen-level transition) and `ContentViewport` (kept at the animator's
+  shorter defaults, `animateScale` off — reads as an in-place content swap), and wire them into the
+  new `SettingsPanelView`/`AboutPanelView` fields. No manual scene wiring needed — already applied
+  (see below).
+- `SettingsController` needed **no changes** — `Open`/`ApplyFromView`/`Cancel`/
+  `HandleAboutRequested`/`HandleAboutClosed` already called `view.Show()`/`Hide()` and
+  `aboutPanel.Show()`/`Hide()` in the right order for a crossfade to fall out for free: the
+  destination panel/menu is reactivated immediately while the closing one fades out on top of it
+  (still blocking input the whole time, since `CanvasGroup.blocksRaycasts` stays true until alpha
+  reaches exactly 0) — this only works because `SettingsPanel`/`AboutPanel`'s background colour
+  already matches `MainMenuPanel`'s camera-clear-colour backdrop, so there's no flash of empty
+  canvas underneath, matching a design decision from an earlier pass in this file.
+- Input-spam / double-navigation: covered by two existing, unmodified guards plus the one new tab
+  guard above — `MainMenuController.isTransitioningToGame` (already blocked scene-load spam),
+  `CardSwipeController`'s input lock after confirmation (already existed), and `PanelFadeAnimator`
+  itself, where `Show()`/`Hide()`/`Swap()` all call `StopRunningAnimation()` before starting, so a
+  rapid repeated call always converges to the last request's target state instead of stacking or
+  getting stuck mid-fade.
+
+### Verified this session (Unity available via CLI, unlike most earlier passes in this file)
+
+Ran directly, not simulated — `Unity.exe -batchmode -nographics -projectPath . -executeMethod ...`:
+
+- [x] `ApplyBatch` — first attempt caught a real EditMode test compile error
+      (`Has.One.EqualTo(...)` isn't valid NUnit syntax; fixed to `Has.Exactly(1).EqualTo(...)`).
+      Second attempt: exit code 0, `BACKUP_CREATED` → `VALIDATION_OK` → `APPLY_COMPLETE`,
+      **0 errors, 0 warnings**.
+- [x] `ValidateBatch` — exit code 0, `VALIDATION_OK`, **0 errors, 0 warnings**.
+- [x] Idempotency: ran `ApplyBatch` two more times. Run 2 vs. run 1 changed only three
+      `m_fontSize` lines in `MainMenu.unity` (42→40, 68→64) — the same benign TMP auto-size cache
+      convergence documented earlier in this file, unrelated to this pass. Run 3 vs. run 2:
+      **byte-identical** for both `MainMenu.unity` and `Game.unity` (`diff -q`). Stable.
+- [x] Full `EditMode -runTests` (no `-quit`, per this file's own earlier lesson that the flag can
+      exit before results are written): first run — **747/750 passed, 3 failed**, all three in the
+      new tests, all three real bugs (not test-authoring mistakes in the assertion sense — the
+      tests were checking the right thing and caught actual defects):
+  - `SettingsPanelViewTests.Show_ActivatesOnlyTheAudioTab` — the tab spam-guard's original form
+    skipped `ApplyActiveTabContent` entirely on a no-op reselect, which is only safe if the
+    GameObjects' actual active state already matches (true in the real, `SceneSetupAutomation`
+    -authored scene, not guaranteed for arbitrarily-constructed GameObjects). Fixed: the guard
+    still applies the idempotent active state directly, only the animation is skipped.
+  - `GameFeedbackControllerTests.DraggingPastThreshold_PulsesLightExactlyOnce` and
+    `ConfirmingADecision_PulsesStandard` — both recorded zero pulses. Root cause: this test
+    activates `GameFeedbackController`'s host GameObject after wiring it (the documented
+    "build inactive, configure, then activate" pattern used elsewhere in this codebase's PlayMode
+    tests), but in a pure EditMode run `SetActive(true)` did not reliably invoke `OnEnable()`
+    synchronously the way it does in Play Mode, so `Subscribe()` never ran. Fixed by making
+    `Configure()` also call `Subscribe()` directly (idempotent, guarded) instead of relying on
+    Unity's automatic lifecycle dispatch — a production-code change, but `Configure()` is a
+    test-only seam no composition root calls, so this has no runtime behaviour impact.
+  - Re-ran after both fixes: **750/750 passed, 0 failed.**
+- [x] `ValidateBatch` re-run after the two code fixes above (neither touches scene wiring, but
+      confirmed anyway): exit code 0, `VALIDATION_OK`, 0 errors.
+
+PlayMode suite was **not** run this session — please run `PlayMode > Run All` yourself; nothing in
+this pass should affect it (`CardSwipeController` itself is unchanged), but it wasn't exercised.
+
+### Not verified — please check with your own eyes
+
+Batch mode can apply/validate wiring and run tests, but can't screenshot or feel an animation:
+
+- [ ] Titreşim toggle ON, on an Android device (not the Editor — `Handheld.Vibrate()`/native
+      `VibrationEffect` are both no-ops in the Editor by design): drag a card past the confirm
+      threshold (light tick), confirm a decision (a firmer pulse), and drive a stat to ≤15 or ≥85
+      or reach game over (the strongest pulse) — three distinguishably different feels, not one
+      repeated buzz. Toggle OFF and repeat: no vibration at all. Toggle back ON: works again
+      immediately on the next run (Settings/Game are different scenes, so this only takes effect
+      when the Game scene next loads — same as every other Controls-tab setting).
+- [ ] On a device below Android 8.0 (API 26) if one is available: same scenario, confirm no crash
+      and that *some* vibration still occurs (via the legacy `Vibrator.vibrate(long)` path) even
+      without amplitude differentiation.
+- [ ] MainMenu → tap the settings icon → Settings fades/scales in over the menu (~220ms); tap a
+      different tab → the tab content crossfades in place (~short, no scale) with no visible
+      double-tab flash or layout jump; tap Cancel or Apply → Settings fades out, menu is already
+      there underneath. Tap Hakkında → Settings fades out as About fades in (not layered); About's
+      Kapat → same crossfade back, with your tab selection and any unapplied edits intact.
+- [ ] Spam-tap the settings icon, a tab button, and Hakkında/Kapat rapidly: no duplicate panels, no
+      stuck mid-fade state, final state always matches the last tap.
+### Known gap noticed, not fixed (out of this pass's scope)
+
+`PanelFadeAnimator.SetReducedMotion(bool)` already existed before this pass and is unchanged by
+it, ready for a caller to shorten every transition when `Azaltılmış Hareket` is on — but nothing
+currently calls it for the new panel/tab animators, because `AccessibilityPresentationController`
+(the class that reads `GameSettings.ReducedMotion` and would call it) is **only ever constructed
+in the Game scene** by `SceneSetupAutomation.ApplyGameScene` — `SettingsController.accessibility`
+in `MainMenu.unity` has no matching `ApplyMainMenuScene` wiring and is therefore unset. This
+predates this session (confirmed by grepping `SceneSetupAutomation.cs` for every
+`AccessibilityPresentationController` reference — all in the Game-scene method). Building that
+MainMenu-scene wiring from scratch was judged out of scope for a vibration+transitions task and
+risked untested surface; flagging it here instead, per this file's own convention, rather than
+silently leaving it. If/when someone wires a MainMenu `AccessibilityPresentationController`, adding
+the four `PanelFadeAnimator`s (`SettingsPanel`, `AboutPanel`, `ContentViewport` ×1 shared) to a new
+array field and calling `SetReducedMotion` on each from `Apply()` is all that's left to do — the
+transition code itself needs no further changes.
+
+- [ ] With `Azaltılmış Hareket` (reduced motion) on, the panel/tab transitions added this session
+      currently still run at full speed (the gap above) — confirm this matches your expectations
+      for now, or ask for the MainMenu accessibility wiring as a follow-up.
+
+---
+
+## MainMenu → Game scene transition
+
+Every transition added in the previous section fades content *within* a single already-loaded
+scene. Leaving MainMenu for Game was still an untouched, instant `SceneManager.LoadScene` call —
+the one remaining "cut" in the menu flow — so this pass covers exactly that, reusing
+`PanelFadeAnimator` again rather than introducing a second transition mechanism.
+
+### What changed
+
+- **`PanelFadeAnimator.Show(Action onComplete = null)`** — gained a completion callback, mirroring
+  the one `Hide(Action onComplete = null)` already had. Every existing call site (`SettingsPanelView`,
+  `AboutPanelView`) still calls `Show()` with no argument and is unaffected.
+- **`MainMenuController`** — new optional `[SerializeField] PanelFadeAnimator transitionOverlay`.
+  `LoadGameSceneAfterClickCue()` (the existing coroutine that already waits
+  `sceneTransitionDelaySeconds` for the click cue to play) now calls
+  `transitionOverlay.Show(() => sceneLoader.LoadScene(gameSceneName))` when wired, fading the
+  screen to a solid cover before the scene actually loads; falls back to the previous instant load
+  when unwired. The existing `isTransitioningToGame` guard (unchanged) still prevents a double
+  New Game/Continue press from starting two transitions.
+- **`GameSceneController`** — new optional `[SerializeField] PanelFadeAnimator transitionOverlay`.
+  Unlike every other `PanelFadeAnimator` in this project, this one is authored to **start already
+  opaque and active** — the very first rendered frame of a freshly loaded scene must never show
+  unsettled/unstyled layout before anything has had a chance to run. `Start()` calls
+  `transitionOverlay?.Hide()` as its first line, fading the cover away once the scene has wired
+  itself.
+- **`SceneSetupAutomation.cs`** — new `ConfigureTransitionOverlay(canvas, report, startVisible)`
+  helper (next to the existing `ConfigurePanelFadeAnimator`): builds a full-screen
+  `Image`+`CanvasGroup`+`PanelFadeAnimator` named `TransitionOverlay`, always forced to be the
+  *last* child of the Canvas (so it renders above Background/SafeArea on Game, and above
+  SafeArea/SettingsPanel/AboutPanel on MainMenu, regardless of Apply call order). Uses
+  `OverallBackgroundColour` (`#07111B`) — the same dark navy already used for the Game background
+  and GameOverPanel — rather than plain black, so the cover reads as part of this game's palette.
+  280ms show/hide (within this project's own 200–350ms "large screen transition" range). Wired into
+  both `ApplyGameScene` (`startVisible: true`) and `ApplyMainMenuScene` (`startVisible: false`).
+  MainMenu's canvas-level `RemoveUnexpectedChildren` allow-list gained `"TransitionOverlay"` —
+  without this, a second Apply run would have deleted and recreated the object every time,
+  breaking the byte-identical-on-rerun idempotency this file's own automation is held to elsewhere.
+  Matching `ValidatePanelFadeAnimator`/`ValidateReference` checks were added to both
+  `ValidateGameScene` and `ValidateMainMenuScene`, plus an explicit assertion that Game's overlay
+  starts active and MainMenu's starts inactive (opposite of every other panel — flagged so a future
+  pass doesn't "fix" it to match the usual convention).
+- **`PanelFadeAnimatorTests.cs`** — two new tests for the `Show(onComplete)` addition, mirroring the
+  existing `Hide(onComplete)` coverage (`Show_OutsidePlayMode_InvokesCompletionAfterRaisingAlpha`,
+  `Show_OnAlreadyFullyVisiblePanel_InvokesCompletionWithoutError`).
+
+### Verified this session (Unity was available via CLI for this whole pass)
+
+- `ApplyBatch`: exit 0, `BACKUP_CREATED` → `VALIDATION_OK` → `APPLY_COMPLETE`, 0 errors/warnings.
+- Ran `ApplyBatch` three times total. Run 2 vs. run 1 changed only the same benign TMP auto-size
+  cache convergence documented earlier in this file (unrelated to this pass, `m_fontSize` 42→40 /
+  68→64 in `MainMenu.unity`). Run 3 vs. run 2: **byte-identical** for both `Game.unity` and
+  `MainMenu.unity` (`diff -q`). Stable.
+- `ValidateBatch` independently: exit 0, `VALIDATION_OK`, 0 errors.
+- Spot-checked the raw scene YAML directly (not just the Editor tool's own report): `Game.unity`'s
+  `TransitionOverlay` — `m_IsActive: 1`, `CanvasGroup.m_Alpha: 1`, `m_BlocksRaycasts: 1`;
+  `MainMenu.unity`'s — `m_IsActive: 0`, `m_Alpha: 0`, `m_BlocksRaycasts: 0`. Both
+  `GameSceneController.transitionOverlay` / `MainMenuController.transitionOverlay` reference the
+  correct component by fileID.
+- Full `EditMode -runTests` (no `-quit`): **752/752 passed, 0 failed** (750 before this pass, +2 new
+  `PanelFadeAnimator` tests). No compiler warnings or errors in the log.
+
+PlayMode suite was **not** run this session — please run `PlayMode > Run All` yourself; nothing in
+this pass changes gameplay logic, but the actual scene-load transition can only be felt, not
+asserted by a PlayMode test that doesn't load a second scene.
+
+### Not verified — please check with your own eyes
+
+- [ ] From MainMenu, tap **Yeni Oyun** or **Devam Et**: the click cue plays, then the screen fades
+      to a solid dark cover (~280ms) before the Game scene appears, rather than an instant cut.
+- [ ] The Game scene's first visible frame is already the faded cover, not a flash of
+      unsettled/unstyled layout — the cover then fades away (~280ms) once the opening card is ready.
+- [ ] Spam-tapping **Yeni Oyun**/**Devam Et** rapidly still starts exactly one transition (the
+      pre-existing `isTransitioningToGame` guard).
+- [ ] The cover's colour reads as intentional/branded, not like an unstyled loading flash — it's the
+      same dark navy already used for the Game scene's own background and the Game Over panel.

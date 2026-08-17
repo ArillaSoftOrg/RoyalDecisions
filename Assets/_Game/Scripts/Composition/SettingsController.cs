@@ -140,7 +140,12 @@ namespace RoyalDecisions.Composition
 
         public void Cancel()
         {
-            view?.Render(current ?? GameSettings.CreateDefault());
+            GameSettings saved = current ?? GameSettings.CreateDefault();
+            view?.Render(saved);
+            // Dragging the volume sliders previews live against audioService before Apply is
+            // pressed (see HandleMusicVolumeStepped/HandleSfxVolumeStepped); Cancel must put that
+            // back the way it was, or the live volume stays at the discarded preview.
+            ApplyRuntime(saved);
             view?.Hide();
             mainMenuRoot?.SetActive(true);
         }
@@ -236,11 +241,24 @@ namespace RoyalDecisions.Composition
             }
         }
 
-        private void HandleMusicVolumeStepped(float value) => PlaySliderTick();
+        /// <summary>
+        /// Previews live against the actual AudioService while the slider is being dragged, so
+        /// turning the music down is heard immediately rather than only after Apply. Not yet saved —
+        /// <see cref="Cancel"/> puts the live volume back if the player backs out instead.
+        /// </summary>
+        private void HandleMusicVolumeStepped(float value)
+        {
+            audioService?.SetMusicVolume(value);
+            PlaySliderTick();
+        }
 
-        /// <summary>Previews the tick at the volume being dragged to, so the slider demonstrates
-        /// the SFX level it is about to be set to rather than whatever level is still applied.</summary>
-        private void HandleSfxVolumeStepped(float value) => PlaySliderTick(value);
+        /// <summary>As <see cref="HandleMusicVolumeStepped"/>, and previews the tick at the volume
+        /// being dragged to, so the slider demonstrates the SFX level it is about to be set to.</summary>
+        private void HandleSfxVolumeStepped(float value)
+        {
+            audioService?.SetSfxVolume(value);
+            PlaySliderTick(value);
+        }
 
         private void PlaySliderTick(float? previewVolume = null)
         {

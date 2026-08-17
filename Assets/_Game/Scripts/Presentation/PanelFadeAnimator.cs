@@ -23,6 +23,10 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private float hideDuration = 0.12f;
         [SerializeField] private AnimationCurve ease = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
+        [Tooltip("Off for in-place content swaps (e.g. settings tabs) inside a ScrollRect/mask, "
+            + "where a scale pulse would visibly distort the clipped viewport.")]
+        [SerializeField] private bool animateScale = true;
+
         private Coroutine runningAnimation;
         private float defaultShowDuration;
         private float defaultHideDuration;
@@ -30,10 +34,11 @@ namespace RoyalDecisions.Presentation
 
         public bool IsVisible => panelRoot != null && panelRoot.activeSelf;
 
-        public void Show()
+        public void Show(Action onComplete = null)
         {
             if (IsVisible && CurrentAlpha() >= 1f)
             {
+                onComplete?.Invoke();
                 return;
             }
 
@@ -44,10 +49,11 @@ namespace RoyalDecisions.Presentation
             if (!CanRunCoroutines() || showDuration <= 0f)
             {
                 ApplyProgress(1f);
+                onComplete?.Invoke();
                 return;
             }
 
-            runningAnimation = StartCoroutine(FadeRoutine(from, 1f, showDuration, null));
+            runningAnimation = StartCoroutine(FadeRoutine(from, 1f, showDuration, onComplete));
         }
 
         public void Hide(Action onComplete = null)
@@ -72,6 +78,28 @@ namespace RoyalDecisions.Presentation
             runningAnimation = StartCoroutine(FadeRoutine(from, 0f, hideDuration, onComplete));
         }
 
+        /// <summary>
+        /// Crossfades content in place: fades this panel's <see cref="CanvasGroup"/> out, invokes
+        /// <paramref name="swapAction"/> at zero alpha (where a caller swaps which child is active,
+        /// e.g. a settings tab), then fades back in. Unlike <see cref="Show"/>/<see cref="Hide"/>
+        /// this never touches <c>panelRoot</c>'s active state — the panel itself never closes, only
+        /// its content changes, so hiding two children mid-swap avoids ever showing both stacked on
+        /// top of each other inside a layout group.
+        /// </summary>
+        public void Swap(Action swapAction)
+        {
+            StopRunningAnimation();
+
+            if (!CanRunCoroutines() || (showDuration <= 0f && hideDuration <= 0f))
+            {
+                swapAction?.Invoke();
+                ApplyProgress(1f);
+                return;
+            }
+
+            runningAnimation = StartCoroutine(SwapRoutine(swapAction));
+        }
+
         /// <summary>Shortens the transition instead of removing it, matching the swipe card's mode.</summary>
         public void SetReducedMotion(bool enabled)
         {
@@ -88,6 +116,27 @@ namespace RoyalDecisions.Presentation
 
         private IEnumerator FadeRoutine(float from, float to, float duration, Action onComplete)
         {
+            yield return TweenAlpha(from, to, duration);
+            runningAnimation = null;
+
+            if (to <= 0f && panelRoot != null)
+            {
+                panelRoot.SetActive(false);
+            }
+
+            onComplete?.Invoke();
+        }
+
+        private IEnumerator SwapRoutine(Action swapAction)
+        {
+            yield return TweenAlpha(CurrentAlpha(), 0f, hideDuration);
+            swapAction?.Invoke();
+            yield return TweenAlpha(0f, 1f, showDuration);
+            runningAnimation = null;
+        }
+
+        private IEnumerator TweenAlpha(float from, float to, float duration)
+        {
             float elapsed = 0f;
 
             while (elapsed < duration)
@@ -100,14 +149,6 @@ namespace RoyalDecisions.Presentation
             }
 
             ApplyProgress(to);
-            runningAnimation = null;
-
-            if (to <= 0f && panelRoot != null)
-            {
-                panelRoot.SetActive(false);
-            }
-
-            onComplete?.Invoke();
         }
 
         private void ApplyProgress(float alpha)
@@ -120,7 +161,10 @@ namespace RoyalDecisions.Presentation
             canvasGroup.alpha = alpha;
             canvasGroup.interactable = alpha >= 1f;
             canvasGroup.blocksRaycasts = alpha > 0f;
-            canvasGroup.transform.localScale = Vector3.one * Mathf.Lerp(RestingScale, 1f, alpha);
+            if (animateScale)
+            {
+                canvasGroup.transform.localScale = Vector3.one * Mathf.Lerp(RestingScale, 1f, alpha);
+            }
         }
 
         private float CurrentAlpha()
@@ -160,10 +204,11 @@ namespace RoyalDecisions.Presentation
         }
 
 #if UNITY_EDITOR
-        public void SetAuthoringReferences(GameObject root, CanvasGroup group)
+        public void SetAuthoringReferences(GameObject root, CanvasGroup group, bool scaleOnTransition = true)
         {
             panelRoot = root;
             canvasGroup = group;
+            animateScale = scaleOnTransition;
         }
 #endif
     }

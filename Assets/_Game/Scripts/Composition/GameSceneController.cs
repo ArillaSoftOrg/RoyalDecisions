@@ -44,6 +44,12 @@ namespace RoyalDecisions.Composition
         [Tooltip("Used when no SessionIntent asset is assigned.")]
         [SerializeField] private SessionStartMode fallbackStartMode = SessionStartMode.NewGame;
 
+        [Header("Transitions")]
+        [Tooltip("Optional. Starts covering the screen and fades away once the scene starts, "
+            + "hiding the frame where layout settles instead of an instant cut from MainMenu. "
+            + "Falls back to an already-clear scene when absent.")]
+        [SerializeField] private PanelFadeAnimator transitionOverlay;
+
         private GameSession session;
         private ISettingsStore settingsStore;
         private IRunSaveStore runStoreOverride;
@@ -102,6 +108,7 @@ namespace RoyalDecisions.Composition
                 return;
             }
 
+            transitionOverlay?.Hide();
             ApplySettings();
             PlayGameplayMusic();
             StartSession();

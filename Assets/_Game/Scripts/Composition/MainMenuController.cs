@@ -40,6 +40,11 @@ namespace RoyalDecisions.Composition
         [Tooltip("Realtime seconds the ui_click cue is given to play before the Game scene loads.")]
         [SerializeField] private float sceneTransitionDelaySeconds = 0.15f;
 
+        [Header("Transitions")]
+        [Tooltip("Optional. Fades to a solid cover before the Game scene loads, instead of an "
+            + "instant cut; falls back to loading immediately when absent.")]
+        [SerializeField] private PanelFadeAnimator transitionOverlay;
+
         private ISceneLoader sceneLoader;
         private IRunSaveStore runStore;
         private bool isTransitioningToGame;
@@ -144,7 +149,15 @@ namespace RoyalDecisions.Composition
         private IEnumerator LoadGameSceneAfterClickCue()
         {
             yield return new WaitForSecondsRealtime(sceneTransitionDelaySeconds);
-            sceneLoader?.LoadScene(gameSceneName);
+
+            if (transitionOverlay != null)
+            {
+                transitionOverlay.Show(() => sceneLoader?.LoadScene(gameSceneName));
+            }
+            else
+            {
+                sceneLoader?.LoadScene(gameSceneName);
+            }
         }
 
         private void PlayMenuMusic()

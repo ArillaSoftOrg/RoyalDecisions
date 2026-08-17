@@ -15,6 +15,15 @@ namespace RoyalDecisions.Presentation
     {
         [SerializeField] private GameObject panelRoot;
 
+        [Header("Transitions")]
+        [Tooltip("Optional. Animates the whole panel opening/closing; falls back to an instant "
+            + "SetActive when absent.")]
+        [SerializeField] private PanelFadeAnimator panelAnimator;
+
+        [Tooltip("Optional. Crossfades the active tab's content when switching tabs; falls back to "
+            + "an instant swap when absent.")]
+        [SerializeField] private PanelFadeAnimator tabCrossfadeAnimator;
+
         [Header("Tabs")]
         [SerializeField] private AudioSettingsPanelView audioPanel;
         [SerializeField] private GraphicsSettingsPanelView graphicsPanel;
@@ -54,6 +63,15 @@ namespace RoyalDecisions.Presentation
 
         /// <summary>Raised once per actual tab-button press; never for the default tab Show() selects.</summary>
         public event Action TabPressed;
+
+        private enum SettingsTabId { Audio, Graphics, Controls, General }
+
+        /// <summary>
+        /// Matches the panel's authored resting state (Audio active, the rest inactive; see
+        /// <c>ConfigureSettingsPanel</c>), so the first <see cref="ShowAudioTab"/> call after
+        /// authoring correctly no-ops instead of animating a swap nothing actually changed.
+        /// </summary>
+        private SettingsTabId activeTabId = SettingsTabId.Audio;
 
         public bool IsOpen => panelRoot != null && panelRoot.activeSelf;
 
@@ -139,7 +157,17 @@ namespace RoyalDecisions.Presentation
             OpenPanel();
         }
 
-        public void Hide() => panelRoot?.SetActive(false);
+        public void Hide()
+        {
+            if (panelAnimator != null)
+            {
+                panelAnimator.Hide();
+            }
+            else
+            {
+                panelRoot?.SetActive(false);
+            }
+        }
 
         /// <summary>
         /// Reactivates the panel without re-rendering or resetting the active tab — used when
@@ -150,10 +178,18 @@ namespace RoyalDecisions.Presentation
 
         private void OpenPanel()
         {
-            panelRoot?.SetActive(true);
             // Reasserted every time in case another overlay (About) has since taken the last
             // sibling slot — guarantees Settings renders above the menu regardless of history.
             if (panelRoot != null) panelRoot.transform.SetAsLastSibling();
+
+            if (panelAnimator != null)
+            {
+                panelAnimator.Show();
+            }
+            else
+            {
+                panelRoot?.SetActive(true);
+            }
         }
 
         public void Render(GameSettings settings)
@@ -183,15 +219,44 @@ namespace RoyalDecisions.Presentation
         private void SetActiveTab(
             bool audio = false, bool graphics = false, bool controls = false, bool general = false)
         {
-            if (audioPanel != null) audioPanel.gameObject.SetActive(audio);
-            if (graphicsPanel != null) graphicsPanel.gameObject.SetActive(graphics);
-            if (controlsPanel != null) controlsPanel.gameObject.SetActive(controls);
-            if (generalPanel != null) generalPanel.gameObject.SetActive(general);
-
+            // Button tint always re-applies — cheap and idempotent — even when the content swap
+            // below is skipped as a no-op reselect.
             TintTab(audioTabButton, audio);
             TintTab(graphicsTabButton, graphics);
             TintTab(controlsTabButton, controls);
             TintTab(generalTabButton, general);
+
+            SettingsTabId target = audio ? SettingsTabId.Audio
+                : graphics ? SettingsTabId.Graphics
+                : controls ? SettingsTabId.Controls
+                : SettingsTabId.General;
+
+            // Spam-guard: reselecting the already-active tab (or Show() re-selecting the tab it was
+            // already on) applies the (idempotent) content state directly instead of animating a
+            // crossfade over content that isn't actually changing.
+            if (target == activeTabId)
+            {
+                ApplyActiveTabContent(audio, graphics, controls, general);
+                return;
+            }
+            activeTabId = target;
+
+            if (tabCrossfadeAnimator != null)
+            {
+                tabCrossfadeAnimator.Swap(() => ApplyActiveTabContent(audio, graphics, controls, general));
+            }
+            else
+            {
+                ApplyActiveTabContent(audio, graphics, controls, general);
+            }
+        }
+
+        private void ApplyActiveTabContent(bool audio, bool graphics, bool controls, bool general)
+        {
+            if (audioPanel != null) audioPanel.gameObject.SetActive(audio);
+            if (graphicsPanel != null) graphicsPanel.gameObject.SetActive(graphics);
+            if (controlsPanel != null) controlsPanel.gameObject.SetActive(controls);
+            if (generalPanel != null) generalPanel.gameObject.SetActive(general);
         }
 
         /// <summary>Gives the selected category a distinct fill so the active tab is unambiguous.</summary>
@@ -239,7 +304,9 @@ namespace RoyalDecisions.Presentation
             Button generalTab,
             Button apply,
             Button cancel,
-            Button reset)
+            Button reset,
+            PanelFadeAnimator panelTransition = null,
+            PanelFadeAnimator tabTransition = null)
         {
             panelRoot = root;
             audioPanel = audio;
@@ -253,6 +320,8 @@ namespace RoyalDecisions.Presentation
             applyButton = apply;
             cancelButton = cancel;
             resetButton = reset;
+            panelAnimator = panelTransition;
+            tabCrossfadeAnimator = tabTransition;
         }
 #endif
     }

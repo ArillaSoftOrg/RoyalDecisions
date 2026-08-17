@@ -60,6 +60,32 @@ namespace RoyalDecisions.Tests.EditMode
         }
 
         [Test]
+        public void Show_OutsidePlayMode_InvokesCompletionAfterRaisingAlpha()
+        {
+            PanelFadeAnimator animator = Build(out GameObject root, out CanvasGroup group);
+            bool completed = false;
+
+            animator.Show(() => completed = true);
+
+            Assert.That(root.activeSelf, Is.True);
+            Assert.That(group.alpha, Is.EqualTo(1f));
+            Assert.That(completed, Is.True);
+        }
+
+        [Test]
+        public void Show_OnAlreadyFullyVisiblePanel_InvokesCompletionWithoutError()
+        {
+            PanelFadeAnimator animator = Build(out GameObject root, out CanvasGroup group);
+            root.SetActive(true);
+            group.alpha = 1f;
+            bool completed = false;
+
+            animator.Show(() => completed = true);
+
+            Assert.That(completed, Is.True);
+        }
+
+        [Test]
         public void SetReducedMotion_DoesNotPreventShowingOrHiding()
         {
             PanelFadeAnimator animator = Build(out GameObject root, out CanvasGroup group);
@@ -72,6 +98,34 @@ namespace RoyalDecisions.Tests.EditMode
             animator.Hide();
             Assert.That(root.activeSelf, Is.False);
             Assert.That(group.alpha, Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void Swap_OutsidePlayMode_InvokesActionAndRestoresFullAlpha()
+        {
+            PanelFadeAnimator animator = Build(out GameObject root, out CanvasGroup group);
+            root.SetActive(true);
+            group.alpha = 1f;
+            bool swapped = false;
+
+            animator.Swap(() => swapped = true);
+
+            Assert.That(swapped, Is.True);
+            Assert.That(group.alpha, Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void Swap_NeverDeactivatesPanelRoot()
+        {
+            PanelFadeAnimator animator = Build(out GameObject root, out CanvasGroup group);
+            root.SetActive(true);
+            group.alpha = 1f;
+
+            animator.Swap(() => { });
+
+            Assert.That(root.activeSelf, Is.True,
+                "Swap is for in-place content changes (e.g. a settings tab) — unlike Hide(), the " +
+                "panel itself must never close.");
         }
     }
 }

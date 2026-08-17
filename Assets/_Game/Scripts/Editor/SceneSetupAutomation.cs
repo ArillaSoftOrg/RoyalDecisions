@@ -485,6 +485,9 @@ namespace RoyalDecisions.Editor
             GameOverParts gameOver = ConfigureGameOver(
                 canvasObject, safeArea, interfaceText, font, report);
             AudioService audio = ConfigureAudio(scene, report);
+            // Starts opaque (unlike every other panel in this file) — see the method's own remarks.
+            PanelFadeAnimator transitionOverlay = ConfigureTransitionOverlay(
+                canvasObject.transform, report, startVisible: true);
 
             GameObject controllerObject = EnsureRoot(scene, "GameSceneController", report);
             GameSceneController controller = EnsureSingleComponent<GameSceneController>(
@@ -503,6 +506,7 @@ namespace RoyalDecisions.Editor
                 SetObjectProperty(controller, "audioService", audio, report);
                 SetObjectProperty(controller, "sessionIntent", intent, report);
                 SetObjectProperty(controller, "tutorialCoordinator", tutorial.Coordinator, report);
+                SetObjectProperty(controller, "transitionOverlay", transitionOverlay, report);
                 SetEnumProperty(controller, "fallbackStartMode", (int)SessionStartMode.NewGame, report);
             }
 
@@ -1860,7 +1864,8 @@ namespace RoyalDecisions.Editor
             // SettingsPanel/AboutPanel are legitimate direct Canvas children too (full-screen
             // overlays, siblings of SafeArea) — they're migrated into place further down.
             RemoveUnexpectedChildren(
-                canvasObject.transform, report, "SafeArea", "SettingsPanel", "AboutPanel");
+                canvasObject.transform, report,
+                "SafeArea", "SettingsPanel", "AboutPanel", "TransitionOverlay");
 
             RectTransform panel = EnsureUiChild(safeArea, "MainMenuPanel", report);
             Stretch(panel);
@@ -1904,6 +1909,10 @@ namespace RoyalDecisions.Editor
             // SettingsController below), so remove that leftover component if present.
             RemoveStaleComponents<CanvasGroup>(panel.gameObject);
 
+            // Starts hidden, like every other panel — only appears for the moment of leaving.
+            PanelFadeAnimator transitionOverlay = ConfigureTransitionOverlay(
+                canvasObject.transform, report, startVisible: false);
+
             GameObject controllerObject = EnsureRoot(scene, "MainMenuController", report);
             MainMenuController controller = EnsureSingleComponent<MainMenuController>(
                 controllerObject, report);
@@ -1912,6 +1921,7 @@ namespace RoyalDecisions.Editor
             SetObjectProperty(controller, "continueButton", continueButton, report);
             SetObjectProperty(controller, "interfaceText", interfaceText, report);
             SetObjectProperty(controller, "mainMenuTextView", textView, report);
+            SetObjectProperty(controller, "transitionOverlay", transitionOverlay, report);
 
             EnsureExpectedListener(newGame, controller, nameof(MainMenuController.OnNewGamePressed),
                 controller != null ? controller.OnNewGamePressed : null, report);
@@ -2194,6 +2204,16 @@ namespace RoyalDecisions.Editor
             SetObjectProperty(view, "cancelButton", cancel, report);
             SetObjectProperty(view, "resetButton", reset, report);
 
+            // Panel-level open/close reads as a screen transition (longer); the tab crossfade is an
+            // in-place content swap (kept at the animator's shorter defaults) and never scales, since
+            // ContentViewport clips via RectMask2D and a scale pulse would visibly distort that clip.
+            PanelFadeAnimator settingsPanelTransition = ConfigurePanelFadeAnimator(
+                root.gameObject, report, showDuration: 0.22f, hideDuration: 0.18f);
+            PanelFadeAnimator tabCrossfadeTransition = ConfigurePanelFadeAnimator(
+                contentViewport.gameObject, report, animateScale: false);
+            SetObjectProperty(view, "panelAnimator", settingsPanelTransition, report);
+            SetObjectProperty(view, "tabCrossfadeAnimator", tabCrossfadeTransition, report);
+
             GameObject controllerObject = EnsureRoot(
                 root.gameObject.scene, "SettingsController", report);
             SettingsController controller = EnsureSingleComponent<SettingsController>(
@@ -2255,6 +2275,10 @@ namespace RoyalDecisions.Editor
             AboutPanelView view = EnsureSingleComponent<AboutPanelView>(root.gameObject, report);
             SetObjectProperty(view, "panelRoot", root.gameObject, report);
             SetObjectProperty(view, "closeButton", close, report);
+
+            PanelFadeAnimator aboutPanelTransition = ConfigurePanelFadeAnimator(
+                root.gameObject, report, showDuration: 0.22f, hideDuration: 0.18f);
+            SetObjectProperty(view, "panelAnimator", aboutPanelTransition, report);
 
             // Last sibling under the Canvas: About opens on top of both MainMenu and Settings.
             SetSiblingIndex(root, canvasTransform.childCount - 1);
@@ -2541,6 +2565,8 @@ namespace RoyalDecisions.Editor
             GameObject eventSystem = RequirePath(scene, "/EventSystem", report);
             GameObject safeArea = RequirePath(scene, "/UICanvas/SafeArea", report);
             GameObject backgroundObject = RequirePath(scene, "/UICanvas/Background", report);
+            GameObject transitionOverlayObject = RequirePath(
+                scene, "/UICanvas/TransitionOverlay", report);
             GameObject hudObject = RequirePath(scene, "/UICanvas/SafeArea/HUD", report);
             GameObject cardArea = RequirePath(scene, "/UICanvas/SafeArea/CardArea", report);
             GameObject cardObject = RequirePath(scene, "/UICanvas/SafeArea/CardArea/Card", report);
@@ -3005,6 +3031,16 @@ namespace RoyalDecisions.Editor
                 "/GameSceneController", report);
             ValidateReference(controller, "tutorialCoordinator", tutorial, scene.path,
                 "/GameSceneController", report);
+            PanelFadeAnimator transitionOverlay = ValidatePanelFadeAnimator(
+                transitionOverlayObject, scene.path, "/UICanvas/TransitionOverlay", report);
+            ValidateReference(controller, "transitionOverlay", transitionOverlay, scene.path,
+                "/GameSceneController", report);
+            if (transitionOverlayObject != null && !transitionOverlayObject.activeSelf)
+            {
+                AddInvalid(report, scene.path, "/UICanvas/TransitionOverlay",
+                    "TransitionOverlay must start active — it covers the first frame until "
+                    + "GameSceneController reveals it.");
+            }
             AccessibilityPresentationController accessibility = controllerObject != null
                 ? RequireSingleComponent<AccessibilityPresentationController>(
                     controllerObject, scene.path, report)
@@ -3237,6 +3273,8 @@ namespace RoyalDecisions.Editor
                 scene, "/UICanvas/SettingsPanel", report);
             GameObject settingsControllerObject = RequirePath(scene, "/SettingsController", report);
             GameObject audioObject = RequirePath(scene, "/AudioService", report);
+            GameObject transitionOverlayObject = RequirePath(
+                scene, "/UICanvas/TransitionOverlay", report);
 
             // The Game UI foundation deliberately leaves the existing MainMenu scene untouched.
             // Validate the Phase-F localization wiring only when that separately managed migration
@@ -3266,6 +3304,15 @@ namespace RoyalDecisions.Editor
                 "/MainMenuController", report);
             ValidateReference(controller, "continueButton", continueButton, scene.path,
                 "/MainMenuController", report);
+            PanelFadeAnimator transitionOverlay = ValidatePanelFadeAnimator(
+                transitionOverlayObject, scene.path, "/UICanvas/TransitionOverlay", report);
+            ValidateReference(controller, "transitionOverlay", transitionOverlay, scene.path,
+                "/MainMenuController", report);
+            if (transitionOverlayObject != null && transitionOverlayObject.activeSelf)
+            {
+                AddInvalid(report, scene.path, "/UICanvas/TransitionOverlay",
+                    "TransitionOverlay must start inactive.");
+            }
             if (hasLocalizedMenu)
             {
                 ValidateReference(controller, "interfaceText", interfaceText, scene.path,
@@ -3333,6 +3380,17 @@ namespace RoyalDecisions.Editor
                 AddInvalid(report, scene.path, "/UICanvas/SettingsPanel",
                     "SettingsPanel must start inactive.");
             }
+            PanelFadeAnimator settingsPanelTransition = ValidatePanelFadeAnimator(
+                settingsPanelObject, scene.path, "/UICanvas/SettingsPanel", report);
+            ValidateReference(settingsView, "panelAnimator", settingsPanelTransition, scene.path,
+                "/UICanvas/SettingsPanel", report);
+            GameObject settingsContentViewport = RequirePath(
+                scene, "/UICanvas/SettingsPanel/SafeArea/Content/ContentViewport", report);
+            PanelFadeAnimator tabCrossfadeTransition = ValidatePanelFadeAnimator(
+                settingsContentViewport, scene.path,
+                "/UICanvas/SettingsPanel/SafeArea/Content/ContentViewport", report);
+            ValidateReference(settingsView, "tabCrossfadeAnimator", tabCrossfadeTransition, scene.path,
+                "/UICanvas/SettingsPanel", report);
             AudioService audio = audioObject != null
                 ? RequireSingleComponent<AudioService>(audioObject, scene.path, report)
                 : null;
@@ -3352,6 +3410,10 @@ namespace RoyalDecisions.Editor
                 AddInvalid(report, scene.path, "/UICanvas/AboutPanel",
                     "AboutPanel must start inactive.");
             }
+            PanelFadeAnimator aboutPanelTransition = ValidatePanelFadeAnimator(
+                aboutPanelObject, scene.path, "/UICanvas/AboutPanel", report);
+            ValidateReference(aboutPanel, "panelAnimator", aboutPanelTransition, scene.path,
+                "/UICanvas/AboutPanel", report);
 
             GameObject resetProgressObject = RequirePath(scene, "/ResetProgressController", report);
             ResetProgressController resetProgressController = resetProgressObject != null
@@ -4138,6 +4200,76 @@ namespace RoyalDecisions.Editor
             property.serializedObject.ApplyModifiedProperties();
         }
 
+        /// <summary>
+        /// Ensures a <see cref="CanvasGroup"/> + <see cref="PanelFadeAnimator"/> pair on
+        /// <paramref name="target"/>, wired to fade that same object. <paramref name="animateScale"/>
+        /// is off for in-place content swaps (settings tabs) where a scale pulse would visibly
+        /// distort a clipped ScrollRect viewport; durations are left at the animator's own defaults
+        /// unless overridden, so every screen-level panel shares one timing without repeating it here.
+        /// </summary>
+        private static PanelFadeAnimator ConfigurePanelFadeAnimator(
+            GameObject target,
+            SceneSetupReport report,
+            bool animateScale = true,
+            float? showDuration = null,
+            float? hideDuration = null)
+        {
+            CanvasGroup group = EnsureSingleComponent<CanvasGroup>(target, report);
+            PanelFadeAnimator animator = EnsureSingleComponent<PanelFadeAnimator>(target, report);
+            SetObjectProperty(animator, "panelRoot", target, report);
+            SetObjectProperty(animator, "canvasGroup", group, report);
+            SetBoolProperty(animator, "animateScale", animateScale, report);
+            if (showDuration.HasValue)
+            {
+                SetFloatProperty(animator, "showDuration", showDuration.Value, report);
+            }
+            if (hideDuration.HasValue)
+            {
+                SetFloatProperty(animator, "hideDuration", hideDuration.Value, report);
+            }
+            return animator;
+        }
+
+        /// <summary>
+        /// Full-screen solid-colour cover used only as a MainMenu-to-Game scene transition wipe —
+        /// distinct from <c>Background</c>, which is a permanent decorative layer. Always the last
+        /// child of <paramref name="canvas"/> so it renders above every other Canvas-level object
+        /// (SafeArea, and on MainMenu, Settings/About too), including ones added after it by a
+        /// later Configure* call in the same Apply pass.
+        /// </summary>
+        /// <param name="startVisible">
+        /// MainMenu's overlay starts hidden, like every other panel — it only appears for the
+        /// moment of leaving. Game's starts the opposite way, already opaque: the very first
+        /// rendered frame of a freshly loaded scene must never show unstyled/unsettled layout
+        /// before <see cref="GameSceneController"/> reveals it in <c>Start()</c>.
+        /// </param>
+        private static PanelFadeAnimator ConfigureTransitionOverlay(
+            Transform canvas,
+            SceneSetupReport report,
+            bool startVisible)
+        {
+            RectTransform root = EnsureUiChild(canvas, "TransitionOverlay", report);
+            Stretch(root);
+            Image surface = EnsureSingleComponent<Image>(root.gameObject, report);
+            ConfigureSimpleImage(surface, null, OverallBackgroundColour, true);
+
+            PanelFadeAnimator animator = ConfigurePanelFadeAnimator(
+                root.gameObject, report, animateScale: false, showDuration: 0.28f, hideDuration: 0.28f);
+
+            CanvasGroup group = root.GetComponent<CanvasGroup>();
+            if (group != null)
+            {
+                Undo.RecordObject(group, "Configure transition overlay resting state");
+                group.alpha = startVisible ? 1f : 0f;
+                group.interactable = false;
+                group.blocksRaycasts = startVisible;
+            }
+            SetActiveIfNeeded(root.gameObject, startVisible);
+            SetSiblingIndex(root, canvas.childCount - 1);
+
+            return animator;
+        }
+
         private static SerializedProperty FindProperty(
             Object target,
             string propertyName,
@@ -4674,6 +4806,22 @@ namespace RoyalDecisions.Editor
                 current = next;
             }
             return current.gameObject;
+        }
+
+        /// <summary>Validate-side counterpart to <see cref="ConfigurePanelFadeAnimator"/>.</summary>
+        private static PanelFadeAnimator ValidatePanelFadeAnimator(
+            GameObject target, string scenePath, string hierarchyPath, SceneSetupReport report)
+        {
+            if (target == null)
+            {
+                return null;
+            }
+            CanvasGroup group = RequireSingleComponent<CanvasGroup>(target, scenePath, report);
+            PanelFadeAnimator animator = RequireSingleComponent<PanelFadeAnimator>(
+                target, scenePath, report);
+            ValidateReference(animator, "panelRoot", target, scenePath, hierarchyPath, report);
+            ValidateReference(animator, "canvasGroup", group, scenePath, hierarchyPath, report);
+            return animator;
         }
 
         private static void ValidateReference(

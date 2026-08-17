@@ -1,6 +1,7 @@
 using RoyalDecisions.Application;
 using RoyalDecisions.Data;
 using RoyalDecisions.Domain;
+using RoyalDecisions.Infrastructure;
 using RoyalDecisions.Presentation;
 using UnityEngine;
 
@@ -22,17 +23,48 @@ namespace RoyalDecisions.Composition
         [SerializeField] private int criticalBoundary = 15;
 
         private IHapticService haptics;
+        private ISettingsStore settingsStore;
         private bool thresholdPulsed;
         private bool subscribed;
         private ChoiceSide? previewCueSide;
+
+        private void Awake()
+        {
+            haptics ??= new UnityHapticService();
+            if (settingsStore == null)
+            {
+                SavePaths paths = SavePaths.ForPersistentData();
+                settingsStore = new SettingsServiceStore(
+                    new SettingsSaveService(new SystemFileSystem(), paths));
+            }
+            ApplyHapticsSetting();
+        }
 
         private void OnEnable() => Subscribe();
 
         private void OnDisable() => Unsubscribe();
 
-        public void Configure(IHapticService hapticService)
+        /// <summary>
+        /// Injection seam for tests. The Settings menu lives in a different scene (see
+        /// <see cref="GameSceneController.ApplySettings"/> for the same pattern), so there is no
+        /// live reference to it — the latest saved <see cref="GameSettings.HapticsEnabled"/> is
+        /// read once, here, when this scene loads.
+        /// </summary>
+        public void Configure(IHapticService hapticService, ISettingsStore settingsStoreOverride = null)
         {
             haptics = hapticService ?? new NoOpHapticService();
+            settingsStore = settingsStoreOverride ?? settingsStore;
+            ApplyHapticsSetting();
+            // Re-establishes subscriptions too, not just the injected fields — mirrors
+            // SettingsController.Configure() calling LoadAndApply(). Idempotent via the
+            // `subscribed` guard, so this is a no-op if OnEnable already subscribed normally.
+            Subscribe();
+        }
+
+        private void ApplyHapticsSetting()
+        {
+            GameSettings settings = settingsStore != null ? settingsStore.Load() : GameSettings.CreateDefault();
+            haptics?.SetEnabled(settings.HapticsEnabled);
         }
 
         private void Subscribe()
@@ -84,7 +116,7 @@ namespace RoyalDecisions.Composition
             {
                 thresholdPulsed = true;
                 Play(cues != null ? cues.Threshold : string.Empty);
-                haptics?.Pulse();
+                haptics?.Pulse(HapticFeedbackLevel.Light);
             }
             else if (strength < 1f)
             {
@@ -120,7 +152,7 @@ namespace RoyalDecisions.Composition
             if (becameCritical)
             {
                 Play(cues != null ? cues.Critical : string.Empty);
-                haptics?.Pulse();
+                haptics?.Pulse(HapticFeedbackLevel.Critical);
                 return;
             }
 
@@ -135,7 +167,7 @@ namespace RoyalDecisions.Composition
         {
             Play(cues == null ? string.Empty
                 : side == ChoiceSide.Left ? cues.LeftConfirmation : cues.RightConfirmation);
-            haptics?.Pulse();
+            haptics?.Pulse(HapticFeedbackLevel.Standard);
         }
 
         private void HandleExit(ChoiceSide side) => Play(cues != null ? cues.Exit : string.Empty);
@@ -145,7 +177,7 @@ namespace RoyalDecisions.Composition
             if (state == GameSessionState.ShowingGameOver)
             {
                 Play(cues != null ? cues.GameOver : string.Empty);
-                haptics?.Pulse();
+                haptics?.Pulse(HapticFeedbackLevel.Critical);
             }
         }
 

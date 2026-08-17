@@ -95,8 +95,23 @@ namespace RoyalDecisions.Presentation
                 return AudioPlayResult.Muted;
             }
 
-            audioSource.PlayOneShot(cue.Clip, Mathf.Clamp01(volumeOverride));
+            audioSource.PlayOneShot(cue.Clip, PlayOneShotScaleFor(Mathf.Clamp01(volumeOverride)));
             return AudioPlayResult.Played;
+        }
+
+        /// <summary>
+        /// <c>AudioSource.PlayOneShot</c> multiplies its scale argument by <c>audioSource.volume</c>,
+        /// which already carries the configured SFX volume (see <see cref="SetVolume"/>). Passing
+        /// <paramref name="desiredAbsoluteVolume"/> straight through would apply that volume twice
+        /// (quadratic falloff). Dividing it out here makes the argument mean what callers expect: the
+        /// absolute volume the clip should play at, independent of the current baseline.
+        /// </summary>
+        private float PlayOneShotScaleFor(float desiredAbsoluteVolume)
+        {
+            float baseline = audioSource.volume;
+            return baseline > 0.0001f
+                ? Mathf.Clamp01(desiredAbsoluteVolume / baseline)
+                : desiredAbsoluteVolume;
         }
 
         public void SetVolume(float value)

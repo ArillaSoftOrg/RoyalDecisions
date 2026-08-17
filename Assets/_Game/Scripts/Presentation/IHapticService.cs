@@ -6,6 +6,6 @@ namespace RoyalDecisions.Presentation
 
         void SetEnabled(bool enabled);
 
-        void Pulse();
+        void Pulse(HapticFeedbackLevel level = HapticFeedbackLevel.Standard);
     }
 }
