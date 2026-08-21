@@ -109,5 +109,19 @@ namespace RoyalDecisions.Tests.PlayMode
 
             Assert.That(source.volume, Is.EqualTo(0.25f).Within(0.0001f));
         }
+
+        [UnityTest]
+        public IEnumerator MasterVolumeScalesTheAudioSourceMultiplicatively()
+        {
+            AudioService service = CreateService(withSource: true, withClip: true);
+            AudioSource source = host.GetComponent<AudioSource>();
+            yield return null;
+
+            service.SetVolume(0.5f);
+            service.SetMasterVolume(0.5f);
+
+            Assert.That(source.volume, Is.EqualTo(0.25f).Within(0.0001f),
+                "effectiveSfxVolume = masterVolume * sfxVolume");
+        }
     }
 }

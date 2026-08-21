@@ -20,5 +20,22 @@ namespace RoyalDecisions.Presentation
 
         /// <summary>Light text on the dark inactive fill.</summary>
         public static readonly Color InactiveTabTextColour = Color.white;
+
+        /// <summary>
+        /// Marks a destructive, irreversible action (Reset Progress) as visually distinct from the
+        /// ordinary settings around it — a muted red rather than the gold used for every other
+        /// button, so it reads as dangerous without introducing a whole second button style.
+        /// </summary>
+        public static readonly Color DangerColour = new Color32(0x7A, 0x22, 0x22, 0xFF);
+
+        /// <summary>Light text on the dark danger fill.</summary>
+        public static readonly Color DangerTextColour = Color.white;
+
+        /// <summary>
+        /// A lighter, legible red for danger-tinted text sitting directly on the panel background
+        /// (e.g. the "Tehlikeli İşlemler" section caption) — <see cref="DangerColour"/> is tuned as
+        /// a button fill behind white text and reads as too dark/low-contrast on its own.
+        /// </summary>
+        public static readonly Color DangerAccentColour = new Color32(0xE0, 0x7A, 0x7A, 0xFF);
     }
 }

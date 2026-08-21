@@ -1664,3 +1664,256 @@ asserted by a PlayMode test that doesn't load a second scene.
       pre-existing `isTransitioningToGame` guard).
 - [ ] The cover's colour reads as intentional/branded, not like an unstyled loading flash — it's the
       same dark navy already used for the Game scene's own background and the Game Over panel.
+
+---
+
+## Settings menu expansion #2 — master volume, FPS choice, swipe sensitivity/disable, text size, language, danger styling (2026-08-21)
+
+Extends the existing four-tab Settings menu with new controls inside its current architecture
+(staged Apply/Cancel/Reset, versioned JSON persistence, passive per-tab views aggregated by
+`SettingsPanelView`) — no new Settings system, no new state-management or persistence mechanism.
+
+### What changed
+
+**`Domain/GameSettings.cs`** — new additive fields, all with safe defaults so an older save file
+missing a key falls back to the field initializer (no version bump, same pattern as every prior
+addition): `masterVolume` (default `1f`, so a pre-existing save keeps sounding exactly as loud as
+it always did — `effectiveVolume = masterVolume * (music|sfx)Volume`), `swipeSensitivity` (default
+`0.5f`), `disableSwipe` (default `false`), `language` (default `"tr"`). Two booleans were **replaced**
+by three-way enums, each new file (one public type per file, CLAUDE.md §10):
+- `FrameRateMode.cs` (`Sixty = 0` / `Thirty` / `Auto`) replaces `useHighFrameRateCap`; `Sixty` is
+  the enum default so an old save missing the new field lands on the same behaviour the old `true`
+  default gave.
+- `TextSizeMode.cs` (`Normal = 0` / `Small` / `Large`) replaces `largerText`; `Normal` is the
+  default, matching the old `false`.
+`SanitizeAfterLoad()` gained clamping for the two new floats and `Enum.IsDefined` guards for the
+two new enums (a corrupt/out-of-range save value resets to the safe default, same defensive pattern
+as the existing volume-NaN handling).
+
+**`Presentation/AudioService.cs` + `IAudioService.cs` + `SilentAudioService.cs`** — added
+`MasterVolume`/`SetMasterVolume`. SFX and music are each multiplied by the master before reaching
+the `AudioSource`s; `Play(id)` (no explicit volume override) now resolves through the master too.
+`Volume`/`MusicVolume` still return the raw per-channel setting, unscaled — existing callers and
+tests that read those properties are unaffected.
+
+**`Presentation/CardSwipeController.cs`** — added `SetSwipeSensitivity(0..1)` (maps onto the
+existing `thresholdRatio`, captured-default pattern identical to `SetInvertRotation`/
+`SetReducedMotion`: 0.5 exactly reproduces today's authored threshold) and
+`SetSwipeInputEnabled(bool)` (guards `OnBeginDrag`; `ConfirmSide`, used by the tap-button path, is
+untouched, so decision buttons keep working with swipe off).
+
+**`Presentation/AccessibilityPresentationController.cs`** — `TextSizeMode` now maps to a scale
+(`Small` 0.9× / `Normal` 1× / `Large` 1.15×, the last being byte-identical to the old "larger text"
+behaviour).
+
+**Four `*SettingsPanelView.cs`** (all still passive — no rule/persistence logic):
+- `AudioSettingsPanelView` — new Master Volume slider + live "NN%" `TMP_Text` next to all three
+  volume sliders, updated on every drag frame (not gated to the 10%-step tick).
+- `GraphicsSettingsPanelView` — the single frame-rate `Toggle` is replaced by three `Toggle`s
+  (`frameRateThirty/Sixty/Auto`) read as a `FrameRateMode`; Battery Saver toggle unchanged.
+- `ControlsSettingsPanelView` — new Swipe Sensitivity slider (+ percentage label, same step-gated
+  tick pattern as the volume sliders) and a Disable Swipe `Toggle`; Tap Buttons, Invert Rotation,
+  Haptics unchanged.
+- `GeneralSettingsPanelView` — the Larger Text `Toggle` is replaced by three `Toggle`s
+  (`textSizeSmall/Normal/Large`) read as a `TextSizeMode`; new read-only Language `TMP_Text`
+  (`"tr"` → `"Türkçe"` — no in-app localization system exists, so this is a fixed lookup, not a
+  functional picker); Reduced Motion, High Contrast, Reset Progress/Tutorial/About unchanged.
+
+**`Presentation/SettingsPanelTheme.cs`** — added `DangerColour`/`DangerTextColour` (muted red), the
+same "single source of truth" pattern as the existing tab tints.
+
+**`Presentation/SettingsPanelView.cs`** — pass-through properties/events for all of the above,
+mirroring the exact shape of the existing Music/Sfx/InvertRotation pass-throughs.
+
+**`Composition/SettingsController.cs`** — `ApplyFromView` now stages the four new fields into
+`GameSettings` alongside the existing ones. Master Volume previews live against `AudioService`
+while dragging, exactly like Music/Sfx (`Cancel()` already reverted `ApplyRuntime`, so no extra
+revert logic was needed — it now naturally reverts master volume too). `ResolveTargetFrameRate`
+switches on `FrameRateMode`: `Thirty`→30, `Sixty`→60, `Auto`→`Application.targetFrameRate = -1`
+(Unity's own "use the platform's default cadence" value — deliberately **not** a fabricated
+device-performance heuristic, since no such system exists in this project). Swipe
+sensitivity/disable are staged into `GameSettings` here but — like `InvertSwipeRotation` before
+them — are only ever *applied* in the Game scene (see below), since MainMenu has no live
+`CardSwipeController` reference.
+
+**`Composition/GameSceneController.cs`** (`ApplySettings()`) — now also calls
+`SetMasterVolume`, `SetSwipeSensitivity`, and `SetSwipeInputEnabled(!DisableSwipe)`. When swipe is
+disabled, the tap decision buttons are forced visible (`TapButtonsEnabled || DisableSwipe`)
+regardless of their own toggle, so a player who also had tap buttons off is never stranded with no
+way to resolve a card.
+
+**Apply/Cancel/Reset kept as-is.** `SettingsController` genuinely depends on the staged-edit model
+(Cancel reverts a live audio preview that would otherwise be stuck at a discarded value), so per
+the task's own instruction the buttons were not removed. `Varsayılanlara Dön`'s existing mechanism
+(`GameSettings.CreateDefault()`) automatically covers every new field's default — no new reset code
+was needed. `Sıfırla` → **Varsayılanlara Dön** and `Öğreticiyi Sıfırla` → **Öğreticiyi Tekrar
+Göster** are label-only renames (`SceneSetupAutomation.cs`); the underlying events/wiring are
+untouched.
+
+**`Editor/SceneSetupAutomation.cs`** — the scene-construction tool (CLAUDE.md §11: `.unity` is not
+hand-edited) gained the UI for every field above, reusing the *existing* `EnsureSliderControl`/
+`EnsureToggleControl`/`EnsureMenuButton` row builders — no new UI component system:
+- `EnsureSliderControl` gained a trailing `TMP_Text` percentage readout (an `out` parameter);
+  updated at all four call sites (Master/Music/Sfx/Sensitivity).
+- The FPS and Text Size three-way choices reuse the project's one existing "selectable" control
+  (`Toggle`) grouped under a `UnityEngine.UI.ToggleGroup` (`allowSwitchOff = false`) for radio
+  behaviour — the standard uGUI mechanism for this, not a bespoke segmented control.
+- `İlerlemeyi Sıfırla` is visually separated: an 18px spacer row above it, and its button now uses
+  `SettingsPanelTheme.DangerColour`/`DangerTextColour` instead of the gold every other button uses.
+  Its existing two-tap arm/confirm guard (unchanged) already prevented an accidental single-tap
+  delete — this pass only adds the visual distinction the task asked for.
+- `RemoveUnexpectedChildren` allow-lists were updated per tab so a repeated Apply run cleans up the
+  renamed/removed old rows (`UseHighFrameRateCap`, `LargerText`) instead of leaving orphans.
+- The `ValidateMainMenuScene` path-existence list was updated to match every renamed/new object.
+- Only `SceneSetupAutomation.cs` (Editor code) was touched — `MainMenu.unity` itself was **not**
+  edited directly, per CLAUDE.md §11.
+
+**Tests** — `SettingsSaveServiceTests.cs`: updated the two tests that referenced the removed
+`UseHighFrameRateCap`/`LargerText` API to use `FrameRateMode`/`TextSizeMode`, plus four new tests
+(additive-JSON defaults for the four new fields, save/load round-trip for master volume + language,
+out-of-range clamping, unknown-enum-value fallback). `CardSwipeControllerTests.cs`: six new tests
+for `SetSwipeSensitivity` (min/max/default threshold) and `SetSwipeInputEnabled` (suppresses drag,
+`ConfirmSide` still works, re-enable restores drag). `AudioServiceTests.cs`: two new tests for
+`SetMasterVolume` (default is full, doesn't affect the raw per-channel readback; clamping).
+`AudioServicePlayModeTests.cs`: one new test proving `effectiveSfxVolume = masterVolume * sfxVolume`
+reaches the real `AudioSource`.
+
+### Manual step required
+
+- [ ] Run **`Tools > Royal Decisions > Scene Setup > Apply Remaining Setup`** — rebuilds
+      `MainMenu.unity`'s Settings panel to add the new rows and rename the changed ones. Nothing in
+      this pass touches `.unity`/`.prefab` files directly.
+
+### Verified this session (Unity 6000.3.18f1 was available via CLI for this whole pass)
+
+- Full `EditMode -runTests`: **764/764 passed, 0 failed** (752 before this pass, +12 new tests
+  listed above). Zero `error CS` in the compiler log across three full recompiles (the test-runner's
+  own define-symbol switch forces two extra domain reloads beyond the normal one). No compiler
+  warnings or errors.
+- **Important CLI note for next time:** `-runTests` must **not** be combined with `-quit` — Unity
+  exits immediately after Editor init in that combination without ever invoking the test runner
+  (confirmed: first attempt this session produced no updated results file and no test output at
+  all, despite `exit 0`). Drop `-quit`; the test framework quits on its own once the run finishes.
+- Full `PlayMode -runTests`: **30/39 passed, 9 failed** — all 9 failures are
+  `CardSwipeAnimationPlayModeTests` timing tests ("animation did not complete within 300 frames").
+  Confirmed **pre-existing**: `Logs/PlayModeResultsBaseline.xml` (2026-08-16, before this session)
+  shows the exact same 9 tests failing with the exact same message, 38/29/9 — i.e. this pass added
+  exactly one new PlayMode test (`MasterVolumeScalesTheAudioSourceMultiplicatively`) and it passed;
+  no regression. The 9 failures appear specific to headless `-batchmode -nographics` CLI execution
+  (likely coroutine/frame-timing behaviour without a real display) — please also run
+  `PlayMode > Run All` from inside the Editor window yourself to confirm they pass interactively,
+  since that's the environment that actually matters for the shipped game.
+
+### Not verified — please check with your own eyes
+
+- [ ] After **Apply Remaining Setup**, open Settings → **Ses**: Ana Ses/Müzik/Ses Efektleri each
+      show a live "NN%" next to the slider that updates while dragging; dragging Ana Ses audibly
+      scales both music and SFX together.
+- [ ] **Grafik**: 30 FPS / 60 FPS / Otomatik behave as a radio group (selecting one deselects the
+      others); Pil Tasarrufu still overrides to 30 regardless of the FPS choice.
+- [ ] **Kontroller**: Kaydırma Hassasiyeti slider shows a live percentage; dragging it to the low
+      end makes a card noticeably harder to confirm by swipe in the Game scene, and to the high end
+      easier. Kaydırmayı Devre Dışı Bırak: with it on, swiping a card does nothing, but the decision
+      buttons still work (and appear even if Dokunma ile Karar Butonları is off).
+- [ ] **Genel**: Küçük/Normal/Büyük behave as a radio group and visibly change text size; Dil shows
+      "Türkçe" as a static (non-interactive) row.
+- [ ] İlerlemeyi Sıfırla reads as visually distinct (muted red) from every other row/button in
+      Settings, with a spacer above separating it from Yüksek Kontrast; still requires two taps.
+- [ ] Bottom action bar: **Varsayılanlara Dön** label (was Sıfırla); pressing it resets every new
+      field above back to its default too. **Öğreticiyi Tekrar Göster** label (was Öğreticiyi
+      Sıfırla) on the General tab's tutorial-reset button.
+- [ ] With many more rows now in each tab, confirm on a small/low-height device (or a resized Game
+      view) that Settings content scrolls smoothly, the header/tab bar/bottom action bar never
+      scroll away, and there is no horizontal scrollbar or content clipped outside the panel.
+- [ ] Console shows no errors/warnings after opening every Settings tab at least once.
+
+---
+
+## Settings menu expansion #2 — real-user-flow verification pass (2026-08-21, later same day)
+
+No production behaviour changed in this pass except one real bug found and fixed (below). The
+goal was to actually exercise the Settings screen — sliders dragged, toggles clicked, tabs
+switched, Apply/Cancel/Reset pressed, persisted, and reloaded — since this environment has no
+way to click a rendered screen by hand.
+
+### What changed
+
+- **`Composition/SettingsController.cs`** — real bug found by this pass's audit (not by running
+  anything yet): `HandleSfxVolumeStepped`'s slider-tick preview passed the raw dragged SFX value
+  straight to `AudioService.Play(id, volumeOverride)`, bypassing the master-volume multiplier.
+  With Ana Ses turned down, the preview tick while dragging Ses Efektleri played louder than the
+  SFX will actually sound once Uygula is pressed. Fixed: the preview volume is now multiplied by
+  `audioService.MasterVolume` before being passed through. Verified by re-deriving the
+  `PlayOneShotScaleFor` math by hand (single multiplication, no double-counting) and by a full
+  EditMode rerun (764/764, unchanged).
+- **`Domain/GameSettings.cs`** — an XML-doc `<see cref>` on `ClampUnitRange` pointed at
+  `Mathf.Clamp01` from an earlier rename, but the method still calls `Mathf.Clamp(float,float,float)`.
+  Corrected the cref; no behaviour change.
+- **Ran the project's own `SceneSetupAutomation.ApplyBatch` via CLI** (the same sanctioned,
+  backup-protected tool `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup` runs, and
+  the same one prior sessions already used from the CLI — see the report `BACKUP_CREATED` →
+  `VALIDATION_OK` → `APPLY_COMPLETE`, 0 errors) so `MainMenu.unity` actually contains the new
+  Settings rows described in the previous section, making this pass possible at all. Only removed
+  the two expected stale orphans (`UseHighFrameRateCap`, `LargerText`). **`Game.unity`'s resulting
+  changes were reverted** — unrelated `ResponsiveCardSizer`-driven card-size and TMP auto-size
+  drift the same Apply run touched, out of scope for Settings and not reviewed here; the one field
+  addition it also produced (`AudioService.masterVolume: 1`) needs no explicit YAML entry since
+  Unity already defaults an absent serialized field to the C# field initializer.
+- **New `Tests/PlayMode/SettingsFlowPlayModeTests.cs`** (13 tests) — builds the real
+  `SettingsController` + `SettingsPanelView` + all four tab views under a real `Canvas`, wired
+  with genuine `Slider`/`Toggle`/`Button`/`ToggleGroup` components exactly as
+  `SceneSetupAutomation` wires them (not fakes), and a `StubSettingsStore` standing in for the
+  persisted file. Drives it the way a player would: opens the panel, drags sliders, clicks
+  toggles across tabs (switching tabs first — see "what this pass did NOT find" below), presses
+  Apply/Cancel/Reset/Öğreticiyi Tekrar Göster/İlerlemeyi Sıfırla, and tears the whole scene down
+  and rebuilds it against the *same* store instance to simulate an app restart. Covers: opening
+  shows persisted values; 0% and 100% render correctly; live percentage tracking while dragging;
+  mute never zeroes the underlying volumes and unmuting restores them exactly; the FPS and Metin
+  Boyutu radio groups are genuinely mutually exclusive (a real `ToggleGroup`, not simulated);
+  Kaydırma Hassasiyeti and Kaydırmayı Devre Dışı Bırak persist; Varsayılanlara Dön restores every
+  new field in both UI and the store; Öğreticiyi Tekrar Göster touches only the tutorial flag;
+  İlerlemeyi Sıfırla needs two taps, arms/disarms correctly, and never touches the Settings store
+  (that's a different component); Cancel reverts the live audio preview and never saves;
+  persistence survives a simulated restart.
+- **`Tests/PlayMode/GameCompositionPlayModeTests.cs`** — extended the existing real-`GameSceneController`
+  fixture with an optional settings seed and a wired `TapChoiceButtonsView`, and added two tests:
+  with `DisableSwipe` on, a real drag no longer resolves a card but the tap-button path still does,
+  and the buttons are forced visible even though `TapButtonsEnabled` is off; with `DisableSwipe`
+  off, tap-button visibility still follows its own toggle as before (no regression).
+
+### What this pass did NOT find a bug in, despite initially suspecting one
+
+The first run of the new tests failed 5 of the 13 (FPS/Metin Boyutu exclusivity, Kaydırma
+Hassasiyeti, Kaydırmayı Devre Dışı Bırak, Öğreticiyi Tekrar Göster, İlerlemeyi Sıfırla — the tests
+outside the Audio tab). Root cause was the test, not the product: `SettingsPanelView.Show()`
+always opens on the Ses tab and explicitly deactivates the other three tabs'
+`GameObject`s (`ApplyActiveTabContent`), which un-registers those tabs' own `OnEnable`-subscribed
+listeners. The tests were interacting with Grafik/Kontroller/Genel controls without first calling
+`view.ShowGraphicsTab()`/`ShowControlsTab()`/`ShowGeneralTab()` — exactly what a real player would
+have to do (switch tabs) before touching those controls. Fixed the tests, not the product; all 13
+now pass. Recorded here because it is worth knowing this is how tab-switching interacts with each
+tab's own event subscriptions, if it ever needs debugging again.
+
+### Verified this session
+
+- Full `EditMode -runTests`: **764/764 passed, 0 failed** — unchanged by this pass (only the doc-cref
+  and the slider-tick fix touched production code, neither is covered by a value this suite
+  wasn't already asserting).
+- Full `PlayMode -runTests`: **45/54 passed** (54 total = 39 pre-existing + 13 new Settings-flow
+  tests + 2 new gameplay-integration tests). All 9 failures are the same pre-existing
+  `CardSwipeAnimationPlayModeTests` timing failures documented in the previous section and in
+  `Logs/PlayModeResultsBaseline.xml` (2026-08-16) — confirmed by name-for-name comparison, not
+  just count. All 15 new tests passed.
+- `ProjectSettings/ProjectSettings.asset` picked up an unrelated scripting-define-symbol change
+  from running the Editor three times this pass; reverted each time (CLAUDE.md §11).
+
+### Not verified — please check with your own eyes
+
+Everything already listed as "Not verified" in the previous section still applies (this pass
+could not click a rendered screen, only drive the real components programmatically). In addition:
+- [ ] Confirm `Assets/_Game/scenes/MainMenu.unity`'s diff from this pass looks right when opened
+      in the Editor — it was applied via the CLI `ApplyBatch` path rather than the interactive
+      `Tools` menu, and `Game.unity`'s incidental changes from the same run were deliberately
+      reverted (see above) rather than reviewed by eye.
+- [ ] The slider-tick preview fix: with Ana Ses around 20–30%, drag Ses Efektleri — the tick
+      should now sound quiet, matching what Uygula will actually commit, not full volume.

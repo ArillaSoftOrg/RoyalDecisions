@@ -31,6 +31,9 @@ namespace RoyalDecisions.Presentation
         [Range(0f, 1f)]
         [SerializeField] private float musicVolume = 1f;
 
+        [Range(0f, 1f)]
+        [SerializeField] private float masterVolume = 1f;
+
         [SerializeField] private bool muted;
 
         /// <summary>
@@ -48,10 +51,18 @@ namespace RoyalDecisions.Presentation
 
         public float MusicVolume => musicVolume;
 
+        public float MasterVolume => masterVolume;
+
+        /// <summary>The volume actually sent to <see cref="audioSource"/> for one-shot cues.</summary>
+        private float EffectiveSfxVolume => Mathf.Clamp01(masterVolume * volume);
+
+        /// <summary>The volume actually sent to <see cref="musicSource"/>.</summary>
+        private float EffectiveMusicVolume => Mathf.Clamp01(masterVolume * musicVolume);
+
         /// <summary>Diagnostic: how many distinct cue IDs have been warned about.</summary>
         public int WarnedCueIdCount => warnedCueIds.Count;
 
-        public AudioPlayResult Play(string audioEventId) => Play(audioEventId, volume);
+        public AudioPlayResult Play(string audioEventId) => Play(audioEventId, EffectiveSfxVolume);
 
         /// <summary>
         /// Plays a cue at an explicit volume instead of the configured SFX volume — used to preview
@@ -120,7 +131,7 @@ namespace RoyalDecisions.Presentation
 
             if (audioSource != null)
             {
-                audioSource.volume = volume;
+                audioSource.volume = EffectiveSfxVolume;
             }
         }
 
@@ -131,7 +142,21 @@ namespace RoyalDecisions.Presentation
             musicVolume = Mathf.Clamp01(value);
             if (musicSource != null)
             {
-                musicSource.volume = musicVolume;
+                musicSource.volume = EffectiveMusicVolume;
+            }
+        }
+
+        public void SetMasterVolume(float value)
+        {
+            masterVolume = Mathf.Clamp01(value);
+
+            if (audioSource != null)
+            {
+                audioSource.volume = EffectiveSfxVolume;
+            }
+            if (musicSource != null)
+            {
+                musicSource.volume = EffectiveMusicVolume;
             }
         }
 
@@ -169,7 +194,7 @@ namespace RoyalDecisions.Presentation
             }
             musicSource.clip = clip;
             musicSource.loop = loop;
-            musicSource.volume = musicVolume;
+            musicSource.volume = EffectiveMusicVolume;
             musicSource.Play();
             return AudioPlayResult.Played;
         }

@@ -16,10 +16,15 @@ namespace RoyalDecisions.Presentation
         private readonly Dictionary<TMP_Text, Vector2> baseSizes =
             new Dictionary<TMP_Text, Vector2>();
 
+        /// <summary>Small trims the default down; Large matches the old "larger text" toggle exactly.</summary>
+        private const float SmallTextScale = 0.9f;
+        private const float NormalTextScale = 1f;
+        private const float LargeTextScale = 1.15f;
+
         public void Apply(GameSettings settings)
         {
             settings ??= GameSettings.CreateDefault();
-            float scale = settings.LargerText ? 1.15f : 1f;
+            float scale = TextScaleFor(settings.TextSizeMode);
             for (int i = 0; i < scalableText.Length; i++)
             {
                 TMP_Text text = scalableText[i];
@@ -49,6 +54,16 @@ namespace RoyalDecisions.Presentation
             for (int i = 0; i < statItems.Length; i++)
             {
                 statItems[i]?.SetReducedMotion(settings.ReducedMotion);
+            }
+        }
+
+        private static float TextScaleFor(TextSizeMode mode)
+        {
+            switch (mode)
+            {
+                case TextSizeMode.Small: return SmallTextScale;
+                case TextSizeMode.Large: return LargeTextScale;
+                default: return NormalTextScale;
             }
         }
 

@@ -26,6 +26,12 @@ namespace RoyalDecisions.Presentation
 
         void SetMusicVolume(float volume);
 
+        /// <summary>
+        /// Multiplies both SFX and music before either reaches the audio system:
+        /// <c>effectiveVolume = MasterVolume * (Volume | MusicVolume)</c>.
+        /// </summary>
+        void SetMasterVolume(float volume);
+
         void SetMasterMuted(bool muted);
 
         float Volume { get; }
@@ -33,5 +39,7 @@ namespace RoyalDecisions.Presentation
         bool IsMuted { get; }
 
         float MusicVolume { get; }
+
+        float MasterVolume { get; }
     }
 }

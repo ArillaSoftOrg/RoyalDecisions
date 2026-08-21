@@ -50,10 +50,16 @@ namespace RoyalDecisions.Presentation
         public event Action AboutRequested;
 
         /// <summary>Forwarded from the Audio tab; at most once per ~10% of slider travel.</summary>
+        public event Action<float> MasterVolumeStepped;
+
+        /// <summary>As <see cref="MasterVolumeStepped"/>.</summary>
         public event Action<float> MusicVolumeStepped;
 
-        /// <summary>As <see cref="MusicVolumeStepped"/>, carrying the value to preview it at.</summary>
+        /// <summary>As <see cref="MasterVolumeStepped"/>, carrying the value to preview it at.</summary>
         public event Action<float> SfxVolumeStepped;
+
+        /// <summary>Forwarded from the Controls tab; at most once per ~10% of slider travel.</summary>
+        public event Action<float> SwipeSensitivityStepped;
 
         /// <summary>Forwarded from any tab; once per user-flipped toggle, never a programmatic Render.</summary>
         public event Action ToggleChanged;
@@ -75,19 +81,26 @@ namespace RoyalDecisions.Presentation
 
         public bool IsOpen => panelRoot != null && panelRoot.activeSelf;
 
+        public float MasterVolume => audioPanel != null ? audioPanel.MasterVolume : GameSettings.MaxVolume;
         public float MusicVolume => audioPanel != null ? audioPanel.MusicVolume : GameSettings.DefaultVolume;
         public float SfxVolume => audioPanel != null ? audioPanel.SfxVolume : GameSettings.DefaultVolume;
         public bool MasterMuted => audioPanel != null && audioPanel.MasterMuted;
 
-        public bool UseHighFrameRateCap => graphicsPanel == null || graphicsPanel.UseHighFrameRateCap;
+        public FrameRateMode FrameRateMode =>
+            graphicsPanel != null ? graphicsPanel.FrameRateMode : FrameRateMode.Sixty;
         public bool BatterySaverEnabled => graphicsPanel != null && graphicsPanel.BatterySaverEnabled;
 
         public bool TapButtonsEnabled => controlsPanel == null || controlsPanel.TapButtonsEnabled;
         public bool InvertSwipeRotation => controlsPanel != null && controlsPanel.InvertSwipeRotation;
+        public bool DisableSwipe => controlsPanel != null && controlsPanel.DisableSwipe;
+        public float SwipeSensitivity => controlsPanel != null
+            ? controlsPanel.SwipeSensitivity
+            : GameSettings.DefaultSwipeSensitivity;
         public bool HapticsEnabled => controlsPanel == null || controlsPanel.HapticsEnabled;
 
         public bool ReducedMotion => generalPanel != null && generalPanel.ReducedMotion;
-        public bool LargerText => generalPanel != null && generalPanel.LargerText;
+        public TextSizeMode TextSizeMode =>
+            generalPanel != null ? generalPanel.TextSizeMode : TextSizeMode.Normal;
         public bool HighContrast => generalPanel != null && generalPanel.HighContrast;
 
         private void OnEnable()
@@ -111,13 +124,18 @@ namespace RoyalDecisions.Presentation
 
             if (audioPanel != null)
             {
+                audioPanel.MasterVolumeStepped += HandleMasterVolumeStepped;
                 audioPanel.MusicVolumeStepped += HandleMusicVolumeStepped;
                 audioPanel.SfxVolumeStepped += HandleSfxVolumeStepped;
                 audioPanel.MasterMuteChanged += HandleMasterMuteChanged;
             }
 
             if (graphicsPanel != null) graphicsPanel.ToggleChanged += HandleToggleChanged;
-            if (controlsPanel != null) controlsPanel.ToggleChanged += HandleToggleChanged;
+            if (controlsPanel != null)
+            {
+                controlsPanel.ToggleChanged += HandleToggleChanged;
+                controlsPanel.SwipeSensitivityStepped += HandleSwipeSensitivityStepped;
+            }
         }
 
         private void OnDisable()
@@ -141,13 +159,18 @@ namespace RoyalDecisions.Presentation
 
             if (audioPanel != null)
             {
+                audioPanel.MasterVolumeStepped -= HandleMasterVolumeStepped;
                 audioPanel.MusicVolumeStepped -= HandleMusicVolumeStepped;
                 audioPanel.SfxVolumeStepped -= HandleSfxVolumeStepped;
                 audioPanel.MasterMuteChanged -= HandleMasterMuteChanged;
             }
 
             if (graphicsPanel != null) graphicsPanel.ToggleChanged -= HandleToggleChanged;
-            if (controlsPanel != null) controlsPanel.ToggleChanged -= HandleToggleChanged;
+            if (controlsPanel != null)
+            {
+                controlsPanel.ToggleChanged -= HandleToggleChanged;
+                controlsPanel.SwipeSensitivityStepped -= HandleSwipeSensitivityStepped;
+            }
         }
 
         public void Show(GameSettings settings)
@@ -286,8 +309,10 @@ namespace RoyalDecisions.Presentation
         private void HandleResetProgressConfirmed() => ResetProgressConfirmed?.Invoke();
         private void HandleResetTutorialRequested() => ResetTutorialRequested?.Invoke();
         private void HandleAboutRequested() => AboutRequested?.Invoke();
+        private void HandleMasterVolumeStepped(float value) => MasterVolumeStepped?.Invoke(value);
         private void HandleMusicVolumeStepped(float value) => MusicVolumeStepped?.Invoke(value);
         private void HandleSfxVolumeStepped(float value) => SfxVolumeStepped?.Invoke(value);
+        private void HandleSwipeSensitivityStepped(float value) => SwipeSensitivityStepped?.Invoke(value);
         private void HandleToggleChanged() => ToggleChanged?.Invoke();
         private void HandleMasterMuteChanged(bool isMuted) => MasterMuteChanged?.Invoke(isMuted);
 

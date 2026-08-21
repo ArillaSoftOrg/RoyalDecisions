@@ -193,6 +193,7 @@ namespace RoyalDecisions.Composition
             if (audioService != null)
             {
                 // Volume and mute go through the audio service's public API only.
+                audioService.SetMasterVolume(settings.MasterVolume);
                 audioService.SetSfxVolume(settings.SfxVolume);
                 audioService.SetMusicVolume(settings.MusicVolume);
                 audioService.SetMasterMuted(settings.MasterMuted);
@@ -204,8 +205,13 @@ namespace RoyalDecisions.Composition
             if (swipeController != null)
             {
                 swipeController.SetInvertRotation(settings.InvertSwipeRotation);
+                swipeController.SetSwipeSensitivity(settings.SwipeSensitivity);
+                swipeController.SetSwipeInputEnabled(!settings.DisableSwipe);
             }
-            tapChoiceButtonsView?.SetVisible(settings.TapButtonsEnabled);
+
+            // With swipe disabled, decision buttons are the only way to play — forced visible
+            // regardless of the toggle, or a player who also had tap buttons off would be stuck.
+            tapChoiceButtonsView?.SetVisible(settings.TapButtonsEnabled || settings.DisableSwipe);
         }
 
         private void PlayGameplayMusic()

@@ -11,6 +11,7 @@ namespace RoyalDecisions.Composition
     {
         private const int HighFrameRate = 60;
         private const int LowFrameRate = 30;
+        private const int AutoFrameRate = -1;
 
         [SerializeField] private SettingsPanelView view;
         [SerializeField] private AudioService audioService;
@@ -54,6 +55,7 @@ namespace RoyalDecisions.Composition
             view.ResetRequested += ResetToDefaults;
             view.ResetTutorialRequested += HandleResetTutorialRequested;
             view.AboutRequested += HandleAboutRequested;
+            view.MasterVolumeStepped += HandleMasterVolumeStepped;
             view.MusicVolumeStepped += HandleMusicVolumeStepped;
             view.SfxVolumeStepped += HandleSfxVolumeStepped;
             view.ToggleChanged += PlayUiClick;
@@ -71,6 +73,7 @@ namespace RoyalDecisions.Composition
                 view.ResetRequested -= ResetToDefaults;
                 view.ResetTutorialRequested -= HandleResetTutorialRequested;
                 view.AboutRequested -= HandleAboutRequested;
+                view.MasterVolumeStepped -= HandleMasterVolumeStepped;
                 view.MusicVolumeStepped -= HandleMusicVolumeStepped;
                 view.SfxVolumeStepped -= HandleSfxVolumeStepped;
                 view.ToggleChanged -= PlayUiClick;
@@ -116,17 +119,20 @@ namespace RoyalDecisions.Composition
         {
             PlayUiClick();
             EnsureLoaded();
+            current.SetMasterVolume(view != null ? view.MasterVolume : current.MasterVolume);
             current.SetMusicVolume(view != null ? view.MusicVolume : current.MusicVolume);
             current.SetSfxVolume(view != null ? view.SfxVolume : current.SfxVolume);
             current.SetMasterMuted(view != null && view.MasterMuted);
             current.SetHapticsEnabled(view == null || view.HapticsEnabled);
             current.SetReducedMotion(view != null && view.ReducedMotion);
-            current.SetLargerText(view != null && view.LargerText);
+            current.SetTextSizeMode(view != null ? view.TextSizeMode : current.TextSizeMode);
             current.SetHighContrast(view != null && view.HighContrast);
-            current.SetUseHighFrameRateCap(view == null || view.UseHighFrameRateCap);
+            current.SetFrameRateMode(view != null ? view.FrameRateMode : current.FrameRateMode);
             current.SetBatterySaverEnabled(view != null && view.BatterySaverEnabled);
             current.SetTapButtonsEnabled(view == null || view.TapButtonsEnabled);
             current.SetInvertSwipeRotation(view != null && view.InvertSwipeRotation);
+            current.SetSwipeSensitivity(view != null ? view.SwipeSensitivity : current.SwipeSensitivity);
+            current.SetDisableSwipe(view != null && view.DisableSwipe);
             SaveOutcome outcome = store != null ? store.Save(current) : SaveOutcome.Ok();
             if (!outcome.Succeeded)
             {
@@ -179,6 +185,7 @@ namespace RoyalDecisions.Composition
         {
             if (audioService != null)
             {
+                audioService.SetMasterVolume(settings.MasterVolume);
                 audioService.SetMusicVolume(settings.MusicVolume);
                 audioService.SetSfxVolume(settings.SfxVolume);
                 audioService.SetMasterMuted(settings.MasterMuted);
@@ -198,7 +205,17 @@ namespace RoyalDecisions.Composition
             {
                 return LowFrameRate;
             }
-            return settings.UseHighFrameRateCap ? HighFrameRate : LowFrameRate;
+            switch (settings.FrameRateMode)
+            {
+                case FrameRateMode.Thirty:
+                    return LowFrameRate;
+                case FrameRateMode.Auto:
+                    // Unity's own "no target frame rate" value: the platform's default cadence is
+                    // used as-is. Deliberately not a fabricated device-performance heuristic.
+                    return AutoFrameRate;
+                default:
+                    return HighFrameRate;
+            }
         }
 
         private void HandleResetTutorialRequested()
@@ -241,6 +258,14 @@ namespace RoyalDecisions.Composition
             }
         }
 
+        /// <summary>As <see cref="HandleMusicVolumeStepped"/>, previewing the master multiplier that
+        /// scales both music and SFX.</summary>
+        private void HandleMasterVolumeStepped(float value)
+        {
+            audioService?.SetMasterVolume(value);
+            PlaySliderTick();
+        }
+
         /// <summary>
         /// Previews live against the actual AudioService while the slider is being dragged, so
         /// turning the music down is heard immediately rather than only after Apply. Not yet saved —
@@ -253,11 +278,14 @@ namespace RoyalDecisions.Composition
         }
 
         /// <summary>As <see cref="HandleMusicVolumeStepped"/>, and previews the tick at the volume
-        /// being dragged to, so the slider demonstrates the SFX level it is about to be set to.</summary>
+        /// being dragged to, so the slider demonstrates the SFX level it is about to be set to.
+        /// Scaled by the current master volume too — otherwise, with master turned down, this
+        /// preview would play louder than the SFX will actually sound once applied.</summary>
         private void HandleSfxVolumeStepped(float value)
         {
             audioService?.SetSfxVolume(value);
-            PlaySliderTick(value);
+            float master = audioService != null ? audioService.MasterVolume : GameSettings.MaxVolume;
+            PlaySliderTick(value * master);
         }
 
         private void PlaySliderTick(float? previewVolume = null)

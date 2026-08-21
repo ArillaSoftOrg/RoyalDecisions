@@ -2136,7 +2136,7 @@ namespace RoyalDecisions.Editor
             ControlsSettingsPanelView controlsPanel =
                 ConfigureControlsSettingsTab(scrollContent, font, report);
             GeneralSettingsPanelView generalPanel =
-                ConfigureGeneralSettingsTab(scrollContent, font, report);
+                ConfigureGeneralSettingsTab(scrollContent, font, report, out Button resetToDefaults);
 
             // Only Audio is visible at rest, matching SettingsPanelView.Show() -> ShowAudioTab().
             // Authoring all four active would otherwise render every tab's rows stacked on top of
@@ -2146,7 +2146,21 @@ namespace RoyalDecisions.Editor
             SetActiveIfNeeded(controlsPanel != null ? controlsPanel.gameObject : null, false);
             SetActiveIfNeeded(generalPanel != null ? generalPanel.gameObject : null, false);
 
-            // Bottom actions: pinned outside the ScrollRect so Apply/Cancel/Reset never scroll away.
+            // Thin divider so the fixed Apply/Cancel bar reads as a distinct footer rather than
+            // blurring into whatever tab content happens to sit right above it.
+            RectTransform bottomDivider = EnsureUiChild(content, "BottomDivider", report);
+            SetRect(bottomDivider, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
+                new Vector2(0f, 2f), new Vector2(0.5f, 1f));
+            ConfigureLayoutElement(bottomDivider.gameObject, 2f, report);
+            Image dividerImage = EnsureSingleComponent<Image>(bottomDivider.gameObject, report);
+            ConfigureSimpleImage(
+                dividerImage, LoadBuiltInUiSprite(report), new Color(1f, 1f, 1f, 0.18f), false);
+
+            // Bottom actions: pinned outside the ScrollRect so Apply/Cancel never scroll away.
+            // Varsayılanlara Dön used to live here as a third button with the same visual weight
+            // as Uygula/İptal; it is now an ordinary settings action row inside the Genel tab
+            // (see ConfigureGeneralSettingsTab) — İptal/Uygula are the only two draft-state
+            // actions left, so they are the only two buttons left in the footer.
             RectTransform bottomActions = EnsureUiChild(content, "BottomActions", report);
             SetRect(bottomActions, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
                 new Vector2(0f, 104f), new Vector2(0.5f, 1f));
@@ -2166,16 +2180,14 @@ namespace RoyalDecisions.Editor
             }
             MigrateChildIfNeeded(bottomActions, content, "ApplyButton", report);
             MigrateChildIfNeeded(bottomActions, content, "CancelButton", report);
-            MigrateChildIfNeeded(bottomActions, content, "ResetButton", report);
 
-            Button apply = EnsureMenuButton(bottomActions, "ApplyButton", "Uygula", 0f, report);
+            // İptal (secondary/neutral) on the left, Uygula (primary) on the right.
             Button cancel = EnsureMenuButton(bottomActions, "CancelButton", "İptal", 0f, report);
-            Button reset = EnsureMenuButton(bottomActions, "ResetButton", "Sıfırla", 0f, report);
-            ConfigureButtonFont(apply, font, 36f, 30f, 40f);
+            Button apply = EnsureMenuButton(bottomActions, "ApplyButton", "Uygula", 0f, report);
             ConfigureButtonFont(cancel, font, 36f, 30f, 40f);
-            ConfigureButtonFont(reset, font, 36f, 30f, 40f);
-            // Apply is the primary action; a heavier weight distinguishes it from the two
-            // secondary actions without needing a second colour or size.
+            ConfigureButtonFont(apply, font, 36f, 30f, 40f);
+            // Apply is the primary action; a heavier weight distinguishes it from İptal without
+            // needing a second colour or size.
             TextMeshProUGUI applyLabel = apply != null
                 ? apply.GetComponentInChildren<TextMeshProUGUI>(true) : null;
             if (applyLabel != null)
@@ -2185,10 +2197,18 @@ namespace RoyalDecisions.Editor
             }
             ConfigureMinimumTouchTarget(apply, report);
             ConfigureMinimumTouchTarget(cancel, report);
-            ConfigureMinimumTouchTarget(reset, report);
+            SetSiblingIndex(cancel.transform, 0);
+            SetSiblingIndex(apply.transform, 1);
+
+            // Sweeps the old ResetButton left behind in the footer by an earlier authoring pass —
+            // it now lives inside the Genel tab as a normal action row instead.
+            RemoveUnexpectedChildren(bottomActions, report, "CancelButton", "ApplyButton");
+
+            SetSiblingIndex(bottomDivider, 3);
+            SetSiblingIndex(bottomActions, 4);
 
             RemoveUnexpectedChildren(content, report,
-                "Header", "TabBar", "ContentViewport", "BottomActions");
+                "Header", "TabBar", "ContentViewport", "BottomDivider", "BottomActions");
 
             SettingsPanelView view = EnsureSingleComponent<SettingsPanelView>(root.gameObject, report);
             SetObjectProperty(view, "panelRoot", root.gameObject, report);
@@ -2202,7 +2222,7 @@ namespace RoyalDecisions.Editor
             SetObjectProperty(view, "generalTabButton", generalTabButton, report);
             SetObjectProperty(view, "applyButton", apply, report);
             SetObjectProperty(view, "cancelButton", cancel, report);
-            SetObjectProperty(view, "resetButton", reset, report);
+            SetObjectProperty(view, "resetButton", resetToDefaults, report);
 
             // Panel-level open/close reads as a screen transition (longer); the tab crossfade is an
             // in-place content swap (kept at the animator's shorter defaults) and never scales, since
@@ -2295,21 +2315,32 @@ namespace RoyalDecisions.Editor
             RectTransform scrollContent, TMP_FontAsset font, SceneSetupReport report)
         {
             RectTransform tab = EnsureUiChild(scrollContent, "AudioTab", report);
-            ConfigureTabLayout(tab, report);
+            ConfigureTabLayout(tab, report, spacing: 40f);
             EnsureTabSectionHeader(tab, "Ses ve Müzik",
                 "Müzik ve efekt seviyelerini ayarlayın.", font, report);
 
+            Slider master = EnsureSliderControl(tab, "MasterVolume", "Ana Ses", font, report,
+                out TMP_Text masterLabel, defaultValue: GameSettings.MaxVolume);
             Slider music = EnsureSliderControl(tab, "MusicVolume", "Müzik", font, report,
-                defaultValue: GameSettings.DefaultVolume);
-            Slider sfx = EnsureSliderControl(tab, "SfxVolume", "Efekt", font, report,
-                defaultValue: GameSettings.DefaultVolume);
+                out TMP_Text musicLabel, defaultValue: GameSettings.DefaultVolume);
+            Slider sfx = EnsureSliderControl(tab, "SfxVolume", "Ses Efektleri", font, report,
+                out TMP_Text sfxLabel, defaultValue: GameSettings.DefaultVolume);
             Toggle mute = EnsureToggleControl(tab, "MasterMute", "Sessiz", font, report);
 
             AudioSettingsPanelView audioPanel =
                 EnsureSingleComponent<AudioSettingsPanelView>(tab.gameObject, report);
+            SetObjectProperty(audioPanel, "masterVolume", master, report);
             SetObjectProperty(audioPanel, "musicVolume", music, report);
             SetObjectProperty(audioPanel, "sfxVolume", sfx, report);
             SetObjectProperty(audioPanel, "masterMute", mute, report);
+            SetObjectProperty(audioPanel, "masterVolumeValueLabel", masterLabel, report);
+            SetObjectProperty(audioPanel, "musicVolumeValueLabel", musicLabel, report);
+            SetObjectProperty(audioPanel, "sfxVolumeValueLabel", sfxLabel, report);
+
+            // MasterVolume is a new row inserted above the pre-existing Music/Sfx/MasterMute rows;
+            // on a scene authored before this pass, EnsureUiChild would otherwise append it last.
+            // Sibling order controls display order, VerticalLayoutGroup does the rest.
+            SetSiblingIndex(master.transform, 2);
             return audioPanel;
         }
 
@@ -2321,15 +2352,34 @@ namespace RoyalDecisions.Editor
             EnsureTabSectionHeader(tab, "Grafik",
                 "Kare hızı ve pil tasarrufu tercihlerini yönetin.", font, report);
 
-            Toggle frameRateCap = EnsureToggleControl(
-                tab, "UseHighFrameRateCap", "Yüksek Kare Hızı (60 FPS)", font, report);
+            // A single slider snapping across three whole-number steps (30 FPS / 60 FPS /
+            // Otomatik) — the same slider control and visual language as the volume sliders on
+            // the Ses tab, rather than three separate toggle buttons.
+            Slider frameRateSlider = EnsureSliderControl(
+                tab, "FrameRate", "Kare Hızı", font, report,
+                out TMP_Text frameRateLabel,
+                minValue: 0f, maxValue: 2f, defaultValue: 1f,
+                wholeNumbers: true, initialValueText: "60 FPS",
+                // "Otomatik" is far longer than the "100%" the default anchors were sized for —
+                // a shorter track and a wider value-label region keep the word (and its font,
+                // auto-sized within the same range as the row's own name label) from being
+                // squeezed down disproportionately small.
+                trackEndAnchor: 0.66f, valueLabelStartAnchor: 0.68f);
+
             Toggle batterySaver = EnsureToggleControl(
                 tab, "BatterySaver", "Pil Tasarrufu", font, report);
 
             GraphicsSettingsPanelView graphicsPanel =
                 EnsureSingleComponent<GraphicsSettingsPanelView>(tab.gameObject, report);
-            SetObjectProperty(graphicsPanel, "useHighFrameRateCap", frameRateCap, report);
+            SetObjectProperty(graphicsPanel, "frameRateSlider", frameRateSlider, report);
+            SetObjectProperty(graphicsPanel, "frameRateValueLabel", frameRateLabel, report);
             SetObjectProperty(graphicsPanel, "batterySaver", batterySaver, report);
+
+            SetSiblingIndex(frameRateSlider.transform, 2);
+            SetSiblingIndex(batterySaver.transform, 3);
+
+            RemoveUnexpectedChildren(tab, report,
+                "SectionTitle", "SectionDescription", "FrameRate", "BatterySaver");
             return graphicsPanel;
         }
 
@@ -2339,29 +2389,48 @@ namespace RoyalDecisions.Editor
             RectTransform tab = EnsureUiChild(scrollContent, "ControlsTab", report);
             ConfigureTabLayout(tab, report);
             EnsureTabSectionHeader(tab, "Kontroller",
-                "Dokunma butonlarını, kaydırma yönünü ve titreşimi ayarlayın.", font, report);
+                "Dokunma butonlarını, kaydırma hassasiyetini ve titreşimi ayarlayın.", font, report);
 
+            Slider sensitivity = EnsureSliderControl(
+                tab, "SwipeSensitivity", "Kaydırma Hassasiyeti", font, report,
+                out TMP_Text sensitivityLabel, defaultValue: GameSettings.DefaultSwipeSensitivity,
+                // "Kaydırma Hassasiyeti" is far longer than every other row's name ("Ana Ses",
+                // "Kare Hızı", ...), so it needs more of the row's width to render at the same
+                // font-size range as those labels instead of shrinking to the ellipsis floor.
+                labelEndAnchor: 0.56f, trackStartAnchor: 0.58f,
+                trackEndAnchor: 0.80f, valueLabelStartAnchor: 0.82f);
             Toggle tapButtons = EnsureToggleControl(
                 tab, "TapButtonsEnabled", "Dokunma ile Karar Butonları", font, report);
             Toggle invert = EnsureToggleControl(
                 tab, "InvertSwipeRotation", "Kaydırma Eğimini Ters Çevir", font, report);
+            Toggle disableSwipe = EnsureToggleControl(
+                tab, "DisableSwipe", "Kaydırmayı Devre Dışı Bırak", font, report);
             Toggle haptics = EnsureToggleControl(tab, "Haptics", "Titreşim", font, report);
 
             ControlsSettingsPanelView controlsPanel =
                 EnsureSingleComponent<ControlsSettingsPanelView>(tab.gameObject, report);
+            SetObjectProperty(controlsPanel, "swipeSensitivity", sensitivity, report);
+            SetObjectProperty(controlsPanel, "swipeSensitivityValueLabel", sensitivityLabel, report);
             SetObjectProperty(controlsPanel, "tapButtonsEnabled", tapButtons, report);
             SetObjectProperty(controlsPanel, "invertSwipeRotation", invert, report);
+            SetObjectProperty(controlsPanel, "disableSwipe", disableSwipe, report);
             SetObjectProperty(controlsPanel, "haptics", haptics, report);
 
-            // Drops the old sensitivity slider row left behind by a prior authoring pass.
+            SetSiblingIndex(sensitivity.transform, 2);
+            SetSiblingIndex(tapButtons.transform, 3);
+            SetSiblingIndex(invert.transform, 4);
+            SetSiblingIndex(disableSwipe.transform, 5);
+            SetSiblingIndex(haptics.transform, 6);
+
             RemoveUnexpectedChildren(tab, report,
-                "SectionTitle", "SectionDescription",
-                "TapButtonsEnabled", "InvertSwipeRotation", "Haptics");
+                "SectionTitle", "SectionDescription", "SwipeSensitivity",
+                "TapButtonsEnabled", "InvertSwipeRotation", "DisableSwipe", "Haptics");
             return controlsPanel;
         }
 
         private static GeneralSettingsPanelView ConfigureGeneralSettingsTab(
-            RectTransform scrollContent, TMP_FontAsset font, SceneSetupReport report)
+            RectTransform scrollContent, TMP_FontAsset font, SceneSetupReport report,
+            out Button resetToDefaultsButton)
         {
             RectTransform tab = EnsureUiChild(scrollContent, "GeneralTab", report);
             ConfigureTabLayout(tab, report);
@@ -2369,53 +2438,152 @@ namespace RoyalDecisions.Editor
                 "Erişilebilirlik seçenekleri ve ilerleme yönetimi.", font, report);
 
             Toggle reduced = EnsureToggleControl(tab, "ReducedMotion", "Azaltılmış Hareket", font, report);
-            Toggle larger = EnsureToggleControl(tab, "LargerText", "Büyük Metin", font, report);
+
+            RectTransform textSizeLabelRow = EnsureUiChild(tab, "TextSizeLabel", report);
+            SetRect(textSizeLabelRow, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
+                new Vector2(0f, 44f), new Vector2(0.5f, 1f));
+            ConfigureLayoutElement(textSizeLabelRow.gameObject, 44f, report);
+            TextMeshProUGUI textSizeLabel = EnsureSingleComponent<TextMeshProUGUI>(
+                textSizeLabelRow.gameObject, report);
+            ConfigureReadableText(textSizeLabel, font, 28f, 22f, 30f, true, false, 2f);
+            textSizeLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            textSizeLabel.text = "Metin Boyutu";
+
+            // A three-way radio choice, same pattern as the Graphics tab's frame-rate picker.
+            ToggleGroup textSizeGroup = EnsureSingleComponent<ToggleGroup>(tab.gameObject, report);
+            if (textSizeGroup != null)
+            {
+                Undo.RecordObject(textSizeGroup, "Configure text size radio group");
+                textSizeGroup.allowSwitchOff = false;
+            }
+            Toggle textSizeSmall = EnsureToggleControl(tab, "TextSizeSmall", "Küçük", font, report);
+            Toggle textSizeNormal = EnsureToggleControl(tab, "TextSizeNormal", "Normal", font, report);
+            Toggle textSizeLarge = EnsureToggleControl(tab, "TextSizeLarge", "Büyük", font, report);
+            AssignToggleGroup(textSizeSmall, textSizeGroup);
+            AssignToggleGroup(textSizeNormal, textSizeGroup);
+            AssignToggleGroup(textSizeLarge, textSizeGroup);
+
             Toggle contrast = EnsureToggleControl(tab, "HighContrast", "Yüksek Kontrast", font, report);
 
-            Button resetProgress = EnsureMenuButton(
-                tab, "ResetProgressButton", "İlerlemeyi Sıfırla", 0f, report,
-                width: 780f, height: 108f);
-            ConfigureButtonFont(resetProgress, font, 36f, 30f, 40f);
+            // Read-only: no in-app localization system exists yet, so this shows the current
+            // (only) supported language rather than a non-functional picker.
+            RectTransform languageRow = EnsureUiChild(tab, "Language", report);
+            SetRect(languageRow, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
+                new Vector2(0f, 60f), new Vector2(0.5f, 1f));
+            ConfigureLayoutElement(languageRow.gameObject, 60f, report);
+            RectTransform languageNameTransform = EnsureUiChild(languageRow, "Label", report);
+            SetRect(languageNameTransform, new Vector2(0.05f, 0f), new Vector2(0.5f, 1f),
+                Vector2.zero, Vector2.zero, Center);
+            TextMeshProUGUI languageNameLabel = EnsureSingleComponent<TextMeshProUGUI>(
+                languageNameTransform.gameObject, report);
+            ConfigureReadableText(languageNameLabel, font, 28f, 22f, 30f, true, false, 2f);
+            languageNameLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            languageNameLabel.text = "Dil";
+            RectTransform languageValueTransform = EnsureUiChild(languageRow, "Value", report);
+            SetRect(languageValueTransform, new Vector2(0.5f, 0f), new Vector2(0.97f, 1f),
+                Vector2.zero, Vector2.zero, Center);
+            TextMeshProUGUI languageValue = EnsureSingleComponent<TextMeshProUGUI>(
+                languageValueTransform.gameObject, report);
+            ConfigureReadableText(languageValue, font, 28f, 22f, 30f, true, false, 2f);
+            languageValue.alignment = TextAlignmentOptions.MidlineRight;
+            if (string.IsNullOrEmpty(languageValue.text))
+            {
+                Undo.RecordObject(languageValue, "Set language value placeholder");
+                languageValue.text = "Türkçe";
+            }
+
+            // "Diğer" groups the settings actions (tutorial replay, resetting preferences to
+            // defaults, About, and Reset Progress) as plain navigation rows — same visual weight
+            // as any other settings row, not big CTA buttons — so they read as routine actions
+            // rather than competing with Uygula for attention.
+            EnsureActionSectionLabel(
+                tab, "OtherSectionLabel", "Diğer", SpeakerTextColour, font, report);
+
+            Button resetTutorial = EnsureActionRow(
+                tab, "ResetTutorialButton", "Öğreticiyi Tekrar Göster", font, report);
+
+            // Moved here from the panel's bottom action bar: resetting preferences to defaults is
+            // an ordinary settings action (and — unlike Uygula/İptal — already saves immediately
+            // via SettingsController.ResetToDefaults, so it was never actually part of the
+            // Apply/Cancel draft state machine), so it belongs with the other normal actions
+            // rather than sitting between Uygula and İptal with equal visual weight.
+            resetToDefaultsButton = EnsureActionRow(
+                tab, "ResetToDefaultsButton", "Varsayılanlara Dön", font, report);
+
+            Button about = EnsureActionRow(tab, "AboutButton", "Hakkında", font, report);
+
+            // Reset Progress is still destructive and irreversible (the two-tap confirmation
+            // below is unchanged, still enforced in GeneralSettingsPanelView), but it no longer
+            // gets a separate "Tehlikeli İşlemler" section or a distinct red CTA style — it now
+            // sits as an ordinary row directly under Hakkında, identical in shape to the three
+            // rows above it. The idle label swaps out for an "armed" confirmation overlay on the
+            // first tap exactly as before; only the resting visual shell changed.
+            Button resetProgress = EnsureActionRow(
+                tab, "ResetProgressButton", "İlerlemeyi Sıfırla", font, report);
+
+            RectTransform resetProgressRoot = resetProgress != null
+                ? resetProgress.transform as RectTransform : tab;
+            RectTransform resetProgressLabel = FindDirectChild(resetProgressRoot, "Label", report);
+            GameObject resetProgressIdleTextObject =
+                resetProgressLabel != null ? resetProgressLabel.gameObject : null;
+
             RectTransform resetProgressArmedText = EnsureUiChild(
-                resetProgress != null ? resetProgress.transform as RectTransform : tab,
-                "ArmedText (TMP)", report);
+                resetProgressRoot, "ArmedText (TMP)", report);
             Stretch(resetProgressArmedText);
             TextMeshProUGUI armedLabel = EnsureSingleComponent<TextMeshProUGUI>(
                 resetProgressArmedText.gameObject, report);
-            ConfigureText(armedLabel, 34f);
+            ConfigureText(armedLabel, 30f);
             if (armedLabel != null && string.IsNullOrEmpty(armedLabel.text))
             {
                 Undo.RecordObject(armedLabel, "Set armed label text");
                 armedLabel.text = "Onaylamak için tekrar dokun";
             }
-            ConfigureReadableText(armedLabel, font, 36f, 30f, 40f, true, true, 2f);
+            ConfigureReadableText(armedLabel, font, 30f, 24f, 34f, true, true, 2f);
             resetProgressArmedText.gameObject.SetActive(false);
 
-            GameObject resetProgressIdleTextObject = resetProgress != null
-                ? FindChildText(resetProgress.transform, report) : null;
-
-            Button resetTutorial = EnsureMenuButton(
-                tab, "ResetTutorialButton", "Öğreticiyi Sıfırla", 0f, report,
-                width: 780f, height: 108f);
-            Button about = EnsureMenuButton(
-                tab, "AboutButton", "Hakkında", 0f, report, width: 780f, height: 108f);
-            ConfigureButtonFont(resetTutorial, font, 36f, 30f, 40f);
-            ConfigureButtonFont(about, font, 36f, 30f, 40f);
             ConfigureMinimumTouchTarget(resetProgress, report);
             ConfigureMinimumTouchTarget(resetTutorial, report);
+            ConfigureMinimumTouchTarget(resetToDefaultsButton, report);
             ConfigureMinimumTouchTarget(about, report);
 
             GeneralSettingsPanelView generalPanel =
                 EnsureSingleComponent<GeneralSettingsPanelView>(tab.gameObject, report);
             SetObjectProperty(generalPanel, "reducedMotion", reduced, report);
-            SetObjectProperty(generalPanel, "largerText", larger, report);
+            SetObjectProperty(generalPanel, "textSizeSmall", textSizeSmall, report);
+            SetObjectProperty(generalPanel, "textSizeNormal", textSizeNormal, report);
+            SetObjectProperty(generalPanel, "textSizeLarge", textSizeLarge, report);
             SetObjectProperty(generalPanel, "highContrast", contrast, report);
+            SetObjectProperty(generalPanel, "languageValueLabel", languageValue, report);
             SetObjectProperty(generalPanel, "resetProgressButton", resetProgress, report);
             SetObjectProperty(generalPanel, "resetProgressIdleLabel", resetProgressIdleTextObject, report);
             SetObjectProperty(
                 generalPanel, "resetProgressArmedLabel", resetProgressArmedText.gameObject, report);
             SetObjectProperty(generalPanel, "resetTutorialButton", resetTutorial, report);
             SetObjectProperty(generalPanel, "aboutButton", about, report);
+
+            // A scene authored across several passes can leave these at whatever sibling index
+            // they first got created at, independent of where this method now logically places
+            // them (EnsureUiChild reuses an existing child in place rather than moving it). Pin
+            // the intended reading order explicitly: every accessibility/general control first,
+            // then all four "Diğer" action rows in order, Reset Progress last among them.
+            SetSiblingIndex(reduced.transform, 2);
+            SetSiblingIndex(textSizeLabelRow, 3);
+            SetSiblingIndex(textSizeSmall.transform, 4);
+            SetSiblingIndex(textSizeNormal.transform, 5);
+            SetSiblingIndex(textSizeLarge.transform, 6);
+            SetSiblingIndex(contrast.transform, 7);
+            SetSiblingIndex(languageRow, 8);
+            SetSiblingIndex(FindDirectChild(tab, "OtherSectionLabel", report), 9);
+            SetSiblingIndex(resetTutorial.transform, 10);
+            SetSiblingIndex(resetToDefaultsButton.transform, 11);
+            SetSiblingIndex(about.transform, 12);
+            SetSiblingIndex(resetProgress.transform, 13);
+
+            RemoveUnexpectedChildren(tab, report,
+                "SectionTitle", "SectionDescription", "ReducedMotion", "TextSizeLabel",
+                "TextSizeSmall", "TextSizeNormal", "TextSizeLarge", "HighContrast", "Language",
+                "OtherSectionLabel", "ResetTutorialButton", "ResetToDefaultsButton", "AboutButton",
+                "ResetProgressButton");
             return generalPanel;
         }
 
@@ -2432,9 +2600,16 @@ namespace RoyalDecisions.Editor
             string labelText,
             TMP_FontAsset font,
             SceneSetupReport report,
+            out TMP_Text valueLabel,
             float minValue = 0f,
             float maxValue = 1f,
-            float defaultValue = GameSettings.DefaultVolume)
+            float defaultValue = GameSettings.DefaultVolume,
+            bool wholeNumbers = false,
+            string initialValueText = null,
+            float labelEndAnchor = 0.36f,
+            float trackStartAnchor = 0.40f,
+            float trackEndAnchor = 0.78f,
+            float valueLabelStartAnchor = 0.80f)
         {
             RectTransform root = EnsureUiChild(parent, name, report);
             SetRect(root, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
@@ -2446,20 +2621,21 @@ namespace RoyalDecisions.Editor
             Image background = EnsureSingleComponent<Image>(root.gameObject, report);
             ConfigureSimpleImage(background, LoadBuiltInUiSprite(report), Color.clear, true);
             Slider slider = EnsureSingleComponent<Slider>(root.gameObject, report);
-            // Label and track are proportional splits of the row (not fixed pixel offsets) so
-            // neither one can run off-screen on a narrower-than-reference-width safe area.
+            // Label, track and the trailing value readout are proportional splits of the row (not
+            // fixed pixel offsets) so none of them can run off-screen on a narrower-than-reference-
+            // width safe area.
             RectTransform track = EnsureUiChild(root, "Track", report);
-            SetRect(track, new Vector2(0.40f, 0.30f), new Vector2(0.94f, 0.70f),
+            SetRect(track, new Vector2(trackStartAnchor, 0.30f), new Vector2(trackEndAnchor, 0.70f),
                 Vector2.zero, Vector2.zero, Center);
             ConfigureRoundedFill(track.gameObject, StatBackgroundColour, 40f, false, report);
             RectTransform fillArea = EnsureUiChild(root, "FillArea", report);
-            SetRect(fillArea, new Vector2(0.40f, 0.30f), new Vector2(0.94f, 0.70f),
+            SetRect(fillArea, new Vector2(trackStartAnchor, 0.30f), new Vector2(trackEndAnchor, 0.70f),
                 Vector2.zero, Vector2.zero, Center);
             RectTransform fillTransform = EnsureUiChild(fillArea, "Fill", report);
             Stretch(fillTransform);
             ConfigureRoundedFill(fillTransform.gameObject, BorderGoldColour, 40f, false, report);
             RectTransform handleArea = EnsureUiChild(root, "HandleArea", report);
-            SetRect(handleArea, new Vector2(0.40f, 0.15f), new Vector2(0.94f, 0.85f),
+            SetRect(handleArea, new Vector2(trackStartAnchor, 0.15f), new Vector2(trackEndAnchor, 0.85f),
                 Vector2.zero, Vector2.zero, Center);
             RectTransform handleTransform = EnsureUiChild(handleArea, "Handle", report);
             SetRect(handleTransform, Center, Center, Vector2.zero, new Vector2(48f, 48f), Center);
@@ -2469,18 +2645,37 @@ namespace RoyalDecisions.Editor
             SetSiblingIndex(fillArea, 1);
             SetSiblingIndex(handleArea, 2);
             RectTransform labelTransform = EnsureUiChild(root, "Label", report);
-            SetRect(labelTransform, new Vector2(0.05f, 0f), new Vector2(0.36f, 1f),
+            SetRect(labelTransform, new Vector2(0.05f, 0f), new Vector2(labelEndAnchor, 1f),
                 Vector2.zero, Vector2.zero, Center);
             TextMeshProUGUI label = EnsureSingleComponent<TextMeshProUGUI>(
                 labelTransform.gameObject, report);
-            ConfigureReadableText(label, font, 28f, 22f, 30f, true, false, 2f);
+            ConfigureReadableText(label, font, 32f, 26f, 34f, true, false, 2f);
             label.alignment = TextAlignmentOptions.MidlineLeft;
             label.text = labelText;
+
+            // Trailing percentage readout, e.g. "80%" — updated at runtime by the owning panel
+            // view's Render()/onValueChanged, never written here beyond an initial placeholder.
+            RectTransform valueLabelTransform = EnsureUiChild(root, "ValueLabel", report);
+            SetRect(valueLabelTransform, new Vector2(valueLabelStartAnchor, 0f), new Vector2(0.98f, 1f),
+                Vector2.zero, Vector2.zero, Center);
+            TextMeshProUGUI valueText = EnsureSingleComponent<TextMeshProUGUI>(
+                valueLabelTransform.gameObject, report);
+            ConfigureReadableText(valueText, font, 32f, 24f, 34f, true, false, 2f);
+            valueText.alignment = TextAlignmentOptions.MidlineRight;
+            if (string.IsNullOrEmpty(valueText.text))
+            {
+                Undo.RecordObject(valueText, "Set slider value label placeholder");
+                valueText.text = initialValueText
+                    ?? Mathf.RoundToInt(Mathf.Clamp01(defaultValue) * 100f) + "%";
+            }
+            valueLabel = valueText;
+
             if (slider != null)
             {
                 Undo.RecordObject(slider, "Configure settings slider");
                 slider.minValue = minValue;
                 slider.maxValue = maxValue;
+                slider.wholeNumbers = wholeNumbers;
                 slider.value = defaultValue;
                 slider.fillRect = fillTransform;
                 slider.handleRect = handleTransform;
@@ -2544,6 +2739,93 @@ namespace RoyalDecisions.Editor
                 toggle.isOn = false;
             }
             return toggle;
+        }
+
+        /// <summary>
+        /// A low-emphasis, tappable settings row: label on the left, a trailing chevron on the
+        /// right — same row shell (transparent background, proportional splits) as
+        /// <see cref="EnsureToggleControl"/>/<see cref="EnsureSliderControl"/>, but for a normal
+        /// navigation/action item (Öğreticiyi Tekrar Göster, Varsayılanlara Dön, Hakkında) instead
+        /// of a big filled CTA button, so it reads as "an ordinary settings action" rather than
+        /// competing visually with Uygula/İptal or the destructive İlerlemeyi Sıfırla button.
+        /// </summary>
+        private static Button EnsureActionRow(
+            RectTransform parent, string name, string labelText, TMP_FontAsset font,
+            SceneSetupReport report)
+        {
+            RectTransform root = EnsureUiChild(parent, name, report);
+            SetRect(root, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
+                new Vector2(0f, 80f), new Vector2(0.5f, 1f));
+            ConfigureLayoutElement(root.gameObject, 80f, report);
+            // This object may already exist from an earlier authoring pass as a big filled CTA
+            // button (a ProceduralRoundedRectGraphic fill, via EnsureMenuButton); strip that down
+            // to the plain row shell below instead of layering the new look on top of the old one.
+            RemoveStaleComponents<ProceduralRoundedRectGraphic>(root.gameObject);
+            // A faint (not fully transparent) fill so Button's built-in pressed/highlighted colour
+            // multiply still has something non-zero to darken — the row's only touch feedback,
+            // since there is no separate switch/pill graphic like the toggle rows have. No sprite
+            // (a flat solid fill): the built-in UI sprite has soft/rounded edges meant for a
+            // button-shaped rect, and stretches into a visible blurry oval across a wide, short
+            // row — invisible at Color.clear (every other row's background), but not at a
+            // non-zero alpha like this one needs for its own touch feedback.
+            Image background = EnsureSingleComponent<Image>(root.gameObject, report);
+            ConfigureSimpleImage(background, null, new Color(1f, 1f, 1f, 0.04f), true);
+            Button button = EnsureSingleComponent<Button>(root.gameObject, report);
+
+            RectTransform labelTransform = EnsureUiChild(root, "Label", report);
+            SetRect(labelTransform, new Vector2(0.05f, 0f), new Vector2(0.85f, 1f),
+                Vector2.zero, Vector2.zero, Center);
+            TextMeshProUGUI label = EnsureSingleComponent<TextMeshProUGUI>(
+                labelTransform.gameObject, report);
+            ConfigureReadableText(label, font, 30f, 24f, 32f, true, false, 2f);
+            label.alignment = TextAlignmentOptions.MidlineLeft;
+            label.text = labelText;
+
+            RectTransform chevronTransform = EnsureUiChild(root, "Chevron", report);
+            SetRect(chevronTransform, new Vector2(0.88f, 0f), new Vector2(0.97f, 1f),
+                Vector2.zero, Vector2.zero, Center);
+            TextMeshProUGUI chevron = EnsureSingleComponent<TextMeshProUGUI>(
+                chevronTransform.gameObject, report);
+            ConfigureText(chevron, 30f);
+            if (font != null)
+            {
+                Undo.RecordObject(chevron, "Set action row chevron font");
+                chevron.font = font;
+            }
+            chevron.alignment = TextAlignmentOptions.MidlineRight;
+            if (string.IsNullOrEmpty(chevron.text))
+            {
+                Undo.RecordObject(chevron, "Set action row chevron");
+                chevron.text = ">";
+            }
+            SetTextColour(chevron, SecondaryTextColour);
+
+            // Drops the old "Text (TMP)" child EnsureMenuButton left behind when this object used
+            // to be a big filled CTA button, if it was ever authored as one.
+            RemoveUnexpectedChildren(root, report, "Label", "Chevron");
+
+            if (button != null)
+            {
+                Undo.RecordObject(button, "Configure settings action row");
+                button.targetGraphic = background;
+            }
+            return button;
+        }
+
+        /// <summary>A small left-aligned caption introducing a group of action rows below it.</summary>
+        private static void EnsureActionSectionLabel(
+            RectTransform parent, string name, string labelText, Color tint, TMP_FontAsset font,
+            SceneSetupReport report)
+        {
+            RectTransform row = EnsureUiChild(parent, name, report);
+            SetRect(row, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
+                new Vector2(0f, 40f), new Vector2(0.5f, 1f));
+            ConfigureLayoutElement(row.gameObject, 40f, report);
+            TextMeshProUGUI text = EnsureSingleComponent<TextMeshProUGUI>(row.gameObject, report);
+            ConfigureReadableText(text, font, 24f, 20f, 26f, true, false, 2f);
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.text = labelText;
+            SetTextColour(text, tint);
         }
 
         // Validation -----------------------------------------------------------------
@@ -3353,23 +3635,29 @@ namespace RoyalDecisions.Editor
                 "SafeArea/Content/Header/Title",
                 "SafeArea/Content/TabBar/AudioTabButton", "SafeArea/Content/TabBar/GraphicsTabButton",
                 "SafeArea/Content/TabBar/ControlsTabButton", "SafeArea/Content/TabBar/GeneralTabButton",
+                settingsScrollContent + "AudioTab/MasterVolume",
                 settingsScrollContent + "AudioTab/MusicVolume",
                 settingsScrollContent + "AudioTab/SfxVolume",
                 settingsScrollContent + "AudioTab/MasterMute",
-                settingsScrollContent + "GraphicsTab/UseHighFrameRateCap",
+                settingsScrollContent + "GraphicsTab/FrameRate",
                 settingsScrollContent + "GraphicsTab/BatterySaver",
+                settingsScrollContent + "ControlsTab/SwipeSensitivity",
                 settingsScrollContent + "ControlsTab/TapButtonsEnabled",
                 settingsScrollContent + "ControlsTab/InvertSwipeRotation",
+                settingsScrollContent + "ControlsTab/DisableSwipe",
                 settingsScrollContent + "ControlsTab/Haptics",
                 settingsScrollContent + "GeneralTab/ReducedMotion",
-                settingsScrollContent + "GeneralTab/LargerText",
+                settingsScrollContent + "GeneralTab/TextSizeSmall",
+                settingsScrollContent + "GeneralTab/TextSizeNormal",
+                settingsScrollContent + "GeneralTab/TextSizeLarge",
                 settingsScrollContent + "GeneralTab/HighContrast",
-                settingsScrollContent + "GeneralTab/ResetProgressButton",
+                settingsScrollContent + "GeneralTab/Language",
                 settingsScrollContent + "GeneralTab/ResetTutorialButton",
+                settingsScrollContent + "GeneralTab/ResetToDefaultsButton",
                 settingsScrollContent + "GeneralTab/AboutButton",
+                settingsScrollContent + "GeneralTab/ResetProgressButton",
                 "SafeArea/Content/BottomActions/ApplyButton",
-                "SafeArea/Content/BottomActions/CancelButton",
-                "SafeArea/Content/BottomActions/ResetButton"
+                "SafeArea/Content/BottomActions/CancelButton"
             };
             for (int i = 0; i < settingsPaths.Length; i++)
             {
@@ -3557,6 +3845,9 @@ namespace RoyalDecisions.Editor
                     Undo.RecordObject(element, "Configure menu button layout");
                     element.preferredWidth = width;
                     element.preferredHeight = height;
+                    // Also a floor, not just a hint — belt-and-suspenders against a sibling in the
+                    // same VerticalLayoutGroup ever compressing this button below its authored size.
+                    element.minHeight = height;
                     element.flexibleWidth = parentLayout is HorizontalLayoutGroup ? 1f : 0f;
                     element.flexibleHeight = 0f;
                 }
@@ -3614,6 +3905,17 @@ namespace RoyalDecisions.Editor
                 graphic.SetCornerRadius(cornerRadius);
             }
             return graphic;
+        }
+
+        /// <summary>Wires a radio-style Toggle into its mutually-exclusive ToggleGroup.</summary>
+        private static void AssignToggleGroup(Toggle toggle, ToggleGroup group)
+        {
+            if (toggle == null || group == null)
+            {
+                return;
+            }
+            Undo.RecordObject(toggle, "Assign toggle group");
+            toggle.group = group;
         }
 
         private static void RemoveStaleComponents<T>(GameObject target) where T : Component
@@ -3682,7 +3984,8 @@ namespace RoyalDecisions.Editor
         }
 
         /// <summary>Configures a settings tab body to auto-size vertically from its own children.</summary>
-        private static void ConfigureTabLayout(RectTransform tab, SceneSetupReport report)
+        private static void ConfigureTabLayout(
+            RectTransform tab, SceneSetupReport report, float spacing = 20f)
         {
             SetRect(tab, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero,
                 new Vector2(0.5f, 1f));
@@ -3691,7 +3994,7 @@ namespace RoyalDecisions.Editor
             {
                 Undo.RecordObject(layout, "Configure settings tab layout");
                 layout.padding = new RectOffset(4, 4, 6, 12);
-                layout.spacing = 10f;
+                layout.spacing = spacing;
                 layout.childAlignment = TextAnchor.UpperCenter;
                 layout.childControlWidth = true;
                 layout.childForceExpandWidth = true;

@@ -1,5 +1,6 @@
 using System;
 using RoyalDecisions.Domain;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,44 +12,96 @@ namespace RoyalDecisions.Presentation
     /// </summary>
     public sealed class GraphicsSettingsPanelView : MonoBehaviour
     {
-        [SerializeField] private Toggle useHighFrameRateCap;
+        /// <summary>A three-step slider: 0 = 30 FPS, 1 = 60 FPS, 2 = Otomatik.</summary>
+        [SerializeField] private Slider frameRateSlider;
+
+        [Tooltip("Optional. Shows the current step's name (e.g. \"60 FPS\") next to the slider.")]
+        [SerializeField] private TMP_Text frameRateValueLabel;
+
         [SerializeField] private Toggle batterySaver;
 
-        /// <summary>Raised once when the user flips a toggle on this tab; never for a Render().</summary>
+        /// <summary>Raised once when the user changes a control on this tab; never for a Render().</summary>
         public event Action ToggleChanged;
 
-        public bool UseHighFrameRateCap => useHighFrameRateCap == null || useHighFrameRateCap.isOn;
+        public FrameRateMode FrameRateMode => frameRateSlider != null
+            ? StepToMode(Mathf.RoundToInt(frameRateSlider.value))
+            : FrameRateMode.Sixty;
+
         public bool BatterySaverEnabled => batterySaver != null && batterySaver.isOn;
 
         private void OnEnable()
         {
-            if (useHighFrameRateCap != null)
-                useHighFrameRateCap.onValueChanged.AddListener(HandleToggleChanged);
+            if (frameRateSlider != null) frameRateSlider.onValueChanged.AddListener(HandleFrameRateChanged);
             if (batterySaver != null) batterySaver.onValueChanged.AddListener(HandleToggleChanged);
         }
 
         private void OnDisable()
         {
-            if (useHighFrameRateCap != null)
-                useHighFrameRateCap.onValueChanged.RemoveListener(HandleToggleChanged);
+            if (frameRateSlider != null) frameRateSlider.onValueChanged.RemoveListener(HandleFrameRateChanged);
             if (batterySaver != null) batterySaver.onValueChanged.RemoveListener(HandleToggleChanged);
         }
 
         private void HandleToggleChanged(bool value) => ToggleChanged?.Invoke();
 
+        private void HandleFrameRateChanged(float value)
+        {
+            SetLabel(StepToMode(Mathf.RoundToInt(value)));
+            ToggleChanged?.Invoke();
+        }
+
         public void Render(GameSettings settings)
         {
             settings ??= GameSettings.CreateDefault();
-            if (useHighFrameRateCap != null)
-                useHighFrameRateCap.SetIsOnWithoutNotify(settings.UseHighFrameRateCap);
+            if (frameRateSlider != null)
+                frameRateSlider.SetValueWithoutNotify(ModeToStep(settings.FrameRateMode));
+            SetLabel(settings.FrameRateMode);
             if (batterySaver != null)
                 batterySaver.SetIsOnWithoutNotify(settings.BatterySaverEnabled);
         }
 
-#if UNITY_EDITOR
-        public void SetAuthoringReferences(Toggle frameRateCap, Toggle battery)
+        private void SetLabel(FrameRateMode mode)
         {
-            useHighFrameRateCap = frameRateCap;
+            if (frameRateValueLabel != null)
+            {
+                frameRateValueLabel.text = DisplayName(mode);
+            }
+        }
+
+        private static string DisplayName(FrameRateMode mode)
+        {
+            switch (mode)
+            {
+                case FrameRateMode.Thirty: return "30 FPS";
+                case FrameRateMode.Auto: return "Otomatik";
+                default: return "60 FPS";
+            }
+        }
+
+        private static int ModeToStep(FrameRateMode mode)
+        {
+            switch (mode)
+            {
+                case FrameRateMode.Thirty: return 0;
+                case FrameRateMode.Auto: return 2;
+                default: return 1;
+            }
+        }
+
+        private static FrameRateMode StepToMode(int step)
+        {
+            switch (step)
+            {
+                case 0: return FrameRateMode.Thirty;
+                case 2: return FrameRateMode.Auto;
+                default: return FrameRateMode.Sixty;
+            }
+        }
+
+#if UNITY_EDITOR
+        public void SetAuthoringReferences(Slider frameRate, TMP_Text frameRateLabel, Toggle battery)
+        {
+            frameRateSlider = frameRate;
+            frameRateValueLabel = frameRateLabel;
             batterySaver = battery;
         }
 #endif

@@ -9,6 +9,7 @@ using RoyalDecisions.Presentation;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace RoyalDecisions.Tests.PlayMode
 {
@@ -38,6 +39,9 @@ namespace RoyalDecisions.Tests.PlayMode
         private CardSwipeController swipe;
         private CardView cardView;
         private GameOverView gameOverView;
+        private TapChoiceButtonsView tapChoices;
+        private Button tapChoiceLeftButton;
+        private Button tapChoiceRightButton;
         private StubRunSaveStore store;
 
         [TearDown]
@@ -112,7 +116,7 @@ namespace RoyalDecisions.Tests.PlayMode
         }
 
         /// <summary>Builds the scene inactive, configures it, then activates it.</summary>
-        private void BuildScene()
+        private void BuildScene(GameSettings settingsSeed = null)
         {
             root = new GameObject("GameRoot");
             root.SetActive(false);
@@ -144,11 +148,23 @@ namespace RoyalDecisions.Tests.PlayMode
                 .AddComponent<GameOverView>();
             gameOverView.SetAuthoringReferences(null, null, null);
 
+            tapChoiceLeftButton = Child(root.transform, "TapLeft").gameObject.AddComponent<Button>();
+            tapChoiceRightButton = Child(root.transform, "TapRight").gameObject.AddComponent<Button>();
+            tapChoices = Child(root.transform, "TapChoices").gameObject
+                .AddComponent<TapChoiceButtonsView>();
+            tapChoices.SetAuthoringReferences(swipe, tapChoiceLeftButton, tapChoiceRightButton);
+
             controller = root.AddComponent<GameSceneController>();
-            controller.SetAuthoringReferences(BuildCatalogue(), cardView, null, gameOverView, swipe);
+            controller.SetAuthoringReferences(
+                BuildCatalogue(), cardView, null, gameOverView, swipe, tapChoices: tapChoices);
 
             store = new StubRunSaveStore();
-            controller.Configure(store, new StubSettingsStore(), new StubSeedProvider(99));
+            StubSettingsStore settingsStore = new StubSettingsStore();
+            if (settingsSeed != null)
+            {
+                settingsStore.Save(settingsSeed);
+            }
+            controller.Configure(store, settingsStore, new StubSeedProvider(99));
 
             root.SetActive(true);
         }
@@ -336,6 +352,52 @@ namespace RoyalDecisions.Tests.PlayMode
             yield return null;
 
             Assert.That(session.State, Is.EqualTo(GameSessionState.Uninitialized));
+        }
+
+        // --- Settings: Kaydırmayı Devre Dışı Bırak -------------------------------------------
+
+        [UnityTest]
+        public IEnumerator DisablingSwipeInSettingsBlocksTheDragButTapButtonsStillResolveTheCard()
+        {
+            GameSettings settings = GameSettings.CreateDefault();
+            settings.SetDisableSwipe(true);
+            settings.SetTapButtonsEnabled(false); // even off, DisableSwipe must force buttons visible
+            BuildScene(settings);
+            yield return null;
+
+            Assert.That(tapChoices.gameObject.activeSelf, Is.True,
+                "with swipe disabled, decision buttons must be forced visible regardless of their own toggle");
+
+            int savesBefore = store.SaveCount;
+            SwipeRight();
+            yield return null;
+
+            Assert.That(store.SaveCount, Is.EqualTo(savesBefore),
+                "a real drag must not resolve a card while swipe is disabled");
+            Assert.That(controller.Session.CurrentRun.Turn, Is.EqualTo(0));
+
+            tapChoiceRightButton.onClick.Invoke();
+
+            Assert.That(store.SaveCount, Is.EqualTo(savesBefore + 1),
+                "the tap-button path must still resolve the card even though swipe is disabled");
+        }
+
+        [UnityTest]
+        public IEnumerator LeavingSwipeEnabledKeepsTapButtonsVisibilityDrivenByItsOwnToggle()
+        {
+            GameSettings settings = GameSettings.CreateDefault();
+            settings.SetTapButtonsEnabled(false);
+            BuildScene(settings);
+            yield return null;
+
+            Assert.That(tapChoices.gameObject.activeSelf, Is.False,
+                "swipe is enabled, so tap buttons should follow their own (off) toggle");
+
+            int savesBefore = store.SaveCount;
+            SwipeRight();
+
+            Assert.That(store.SaveCount, Is.EqualTo(savesBefore + 1),
+                "swipe must still resolve the card when DisableSwipe is off");
         }
     }
 }

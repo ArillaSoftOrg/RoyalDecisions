@@ -209,6 +209,30 @@ namespace RoyalDecisions.Tests.EditMode
             Assert.That(service.MusicVolume, Is.EqualTo(1f));
         }
 
+        [Test]
+        public void MasterVolumeDefaultsToFullSoExistingRawVolumesAreUnaffected()
+        {
+            AudioService service = Service(Source(), Library());
+
+            service.SetSfxVolume(0.4f);
+
+            Assert.That(service.MasterVolume, Is.EqualTo(1f));
+            Assert.That(service.Volume, Is.EqualTo(0.4f),
+                "the raw per-channel setting must read back unscaled, independent of the master");
+        }
+
+        [Test]
+        public void MasterVolumeIsClamped()
+        {
+            AudioService service = Service(Source(), Library());
+
+            service.SetMasterVolume(3f);
+            Assert.That(service.MasterVolume, Is.EqualTo(1f));
+
+            service.SetMasterVolume(-1f);
+            Assert.That(service.MasterVolume, Is.EqualTo(0f));
+        }
+
         // --- The silent implementation --------------------------------------------------
 
         [Test]

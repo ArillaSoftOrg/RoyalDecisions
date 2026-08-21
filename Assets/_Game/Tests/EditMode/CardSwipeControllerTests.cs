@@ -509,6 +509,66 @@ namespace RoyalDecisions.Tests.EditMode
                 "inversion is purely visual — CLAUDE.md §9 pins the swipe-to-choice mapping");
         }
 
+        [Test]
+        public void MaximumSensitivityShortensTheConfirmThreshold()
+        {
+            controller.SetSwipeSensitivity(1f);
+
+            Assert.That(controller.ThresholdDistance, Is.LessThan(Threshold),
+                "the most sensitive setting must need less drag than the authored default");
+        }
+
+        [Test]
+        public void MinimumSensitivityLengthensTheConfirmThreshold()
+        {
+            controller.SetSwipeSensitivity(0f);
+
+            Assert.That(controller.ThresholdDistance, Is.GreaterThan(Threshold),
+                "the least sensitive setting must need more drag than the authored default");
+        }
+
+        [Test]
+        public void DefaultSensitivityReproducesTheAuthoredThreshold()
+        {
+            controller.SetSwipeSensitivity(0.5f);
+
+            Assert.That(controller.ThresholdDistance, Is.EqualTo(Threshold).Within(0.001f));
+        }
+
+        [Test]
+        public void DisablingSwipeInputSuppressesDragConfirmation()
+        {
+            controller.SetSwipeInputEnabled(false);
+
+            Swipe(PressX + Threshold + 50f);
+
+            Assert.That(confirmed, Is.Empty,
+                "with swipe disabled, a drag must never resolve the card");
+            Assert.That(controller.State, Is.EqualTo(CardSwipeState.Idle));
+        }
+
+        [Test]
+        public void DisablingSwipeInputStillAllowsConfirmSide()
+        {
+            controller.SetSwipeInputEnabled(false);
+
+            controller.ConfirmSide(ChoiceSide.Left);
+
+            Assert.That(confirmed, Is.EqualTo(new[] { ChoiceSide.Left }),
+                "a tap-button decision must keep working even with the swipe gesture disabled");
+        }
+
+        [Test]
+        public void ReEnablingSwipeInputRestoresDragConfirmation()
+        {
+            controller.SetSwipeInputEnabled(false);
+            controller.SetSwipeInputEnabled(true);
+
+            Swipe(PressX + Threshold + 50f);
+
+            Assert.That(confirmed, Is.EqualTo(new[] { ChoiceSide.Right }));
+        }
+
         // --- Reset and cancel -------------------------------------------------------------
 
         [Test]

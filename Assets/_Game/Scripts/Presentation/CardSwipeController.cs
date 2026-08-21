@@ -24,6 +24,12 @@ namespace RoyalDecisions.Presentation
     {
         private const int NoPointer = int.MinValue;
 
+        /// <summary>At sensitivity 0, the confirm threshold is this many times the authored default.</summary>
+        private const float LeastSensitiveRatioScale = 1.4f;
+
+        /// <summary>At sensitivity 1, the confirm threshold is this many times the authored default.</summary>
+        private const float MostSensitiveRatioScale = 0.6f;
+
         [Header("References")]
         [SerializeField] private CardView cardView;
 
@@ -89,6 +95,9 @@ namespace RoyalDecisions.Presentation
         private float defaultExitDuration;
         private bool controlsDefaultsCaptured;
         private bool defaultRotateClockwiseOnRightDrag;
+        private bool sensitivityDefaultCaptured;
+        private float defaultThresholdRatio;
+        private bool swipeInputEnabled = true;
 
         public CardSwipeState State { get; private set; } = CardSwipeState.Idle;
 
@@ -134,7 +143,10 @@ namespace RoyalDecisions.Presentation
 
         public void OnBeginDrag(PointerEventData eventData)
         {
-            if (eventData == null || State != CardSwipeState.Idle || activePointerId != NoPointer)
+            if (!swipeInputEnabled
+                || eventData == null
+                || State != CardSwipeState.Idle
+                || activePointerId != NoPointer)
             {
                 return;
             }
@@ -295,6 +307,43 @@ namespace RoyalDecisions.Presentation
 
             defaultRotateClockwiseOnRightDrag = rotateClockwiseOnRightDrag;
             controlsDefaultsCaptured = true;
+        }
+
+        /// <summary>
+        /// Maps a normalized 0..1 sensitivity onto the confirm threshold: 0 needs the widest drag
+        /// to confirm, 1 the shortest. The authored inspector value is captured once and treated as
+        /// the midpoint (0.5, the settings default), so the default setting reproduces today's
+        /// authored feel exactly instead of a hardcoded absolute.
+        /// </summary>
+        public void SetSwipeSensitivity(float normalizedValue)
+        {
+            CaptureSensitivityDefaultOnce();
+
+            float clamped = Mathf.Clamp01(normalizedValue);
+            float leastSensitiveRatio = defaultThresholdRatio * LeastSensitiveRatioScale;
+            float mostSensitiveRatio = defaultThresholdRatio * MostSensitiveRatioScale;
+            thresholdRatio = Mathf.Clamp(
+                Mathf.Lerp(leastSensitiveRatio, mostSensitiveRatio, clamped), 0.05f, 0.9f);
+        }
+
+        /// <summary>
+        /// Suppresses drag-driven decisions entirely; <see cref="ConfirmSide"/> (a tap button, say)
+        /// keeps working regardless, since it does not go through <see cref="OnBeginDrag"/>.
+        /// </summary>
+        public void SetSwipeInputEnabled(bool enabled)
+        {
+            swipeInputEnabled = enabled;
+        }
+
+        private void CaptureSensitivityDefaultOnce()
+        {
+            if (sensitivityDefaultCaptured)
+            {
+                return;
+            }
+
+            defaultThresholdRatio = thresholdRatio;
+            sensitivityDefaultCaptured = true;
         }
 
         // --- Confirmation --------------------------------------------------------

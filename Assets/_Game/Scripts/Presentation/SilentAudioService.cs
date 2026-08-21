@@ -19,6 +19,8 @@ namespace RoyalDecisions.Presentation
 
         public float MusicVolume { get; private set; } = 1f;
 
+        public float MasterVolume { get; private set; } = 1f;
+
         public AudioPlayResult Play(string audioEventId)
         {
             return string.IsNullOrEmpty(audioEventId)
@@ -44,6 +46,8 @@ namespace RoyalDecisions.Presentation
         public void SetSfxVolume(float value) => SetVolume(value);
 
         public void SetMusicVolume(float value) => MusicVolume = Mathf.Clamp01(value);
+
+        public void SetMasterVolume(float value) => MasterVolume = Mathf.Clamp01(value);
 
         public void SetMasterMuted(bool muted) => SetMuted(muted);
     }

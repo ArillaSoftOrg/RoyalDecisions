@@ -34,10 +34,12 @@ namespace RoyalDecisions.Tests.EditMode
         private static GameSettings CustomSettingsWithGraphicsAndControls()
         {
             GameSettings settings = CustomSettings();
-            settings.SetUseHighFrameRateCap(false);
+            settings.SetFrameRateMode(FrameRateMode.Thirty);
             settings.SetBatterySaverEnabled(true);
             settings.SetTapButtonsEnabled(false);
             settings.SetInvertSwipeRotation(true);
+            settings.SetSwipeSensitivity(0.9f);
+            settings.SetDisableSwipe(true);
             return settings;
         }
 
@@ -137,7 +139,7 @@ namespace RoyalDecisions.Tests.EditMode
             Assert.That(loaded.SfxVolume, Is.EqualTo(0.75f));
             Assert.That(loaded.MasterMuted, Is.False);
             Assert.That(loaded.ReducedMotion, Is.False);
-            Assert.That(loaded.LargerText, Is.False);
+            Assert.That(loaded.TextSizeMode, Is.EqualTo(TextSizeMode.Normal));
             Assert.That(loaded.HighContrast, Is.False);
             Assert.That(loaded.TutorialCompleted, Is.False);
             Assert.That(SettingsSaveService.CurrentSettingsVersion, Is.EqualTo(1));
@@ -152,11 +154,28 @@ namespace RoyalDecisions.Tests.EditMode
 
             GameSettings loaded = service.Load();
 
-            Assert.That(loaded.UseHighFrameRateCap, Is.True);
+            Assert.That(loaded.FrameRateMode, Is.EqualTo(FrameRateMode.Sixty));
             Assert.That(loaded.BatterySaverEnabled, Is.False);
             Assert.That(loaded.TapButtonsEnabled, Is.True);
             Assert.That(loaded.InvertSwipeRotation, Is.False);
             Assert.That(SettingsSaveService.CurrentSettingsVersion, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void OlderJsonMissingMasterVolumeControlsAndLanguage_LoadsSafeDefaults()
+        {
+            fileSystem.Seed(paths.SettingsSavePath,
+                "{\"saveVersion\":1,\"settings\":{\"musicVolume\":0.25,"
+                + "\"sfxVolume\":0.75,\"hapticsEnabled\":true}}");
+
+            GameSettings loaded = service.Load();
+
+            Assert.That(loaded.MasterVolume, Is.EqualTo(GameSettings.MaxVolume),
+                "a preferences file saved before the master slider existed must sound exactly as "
+                    + "loud as it always did, not silenced");
+            Assert.That(loaded.SwipeSensitivity, Is.EqualTo(GameSettings.DefaultSwipeSensitivity));
+            Assert.That(loaded.DisableSwipe, Is.False);
+            Assert.That(loaded.Language, Is.EqualTo(GameSettings.DefaultLanguage));
         }
 
         [Test]
@@ -166,10 +185,50 @@ namespace RoyalDecisions.Tests.EditMode
 
             GameSettings loaded = service.Load();
 
-            Assert.That(loaded.UseHighFrameRateCap, Is.False);
+            Assert.That(loaded.FrameRateMode, Is.EqualTo(FrameRateMode.Thirty));
             Assert.That(loaded.BatterySaverEnabled, Is.True);
             Assert.That(loaded.TapButtonsEnabled, Is.False);
             Assert.That(loaded.InvertSwipeRotation, Is.True);
+            Assert.That(loaded.SwipeSensitivity, Is.EqualTo(0.9f).Within(0.0001f));
+            Assert.That(loaded.DisableSwipe, Is.True);
+        }
+
+        [Test]
+        public void SaveThenLoad_PreservesMasterVolumeAndLanguage()
+        {
+            GameSettings settings = GameSettings.CreateDefault();
+            settings.SetMasterVolume(0.6f);
+            settings.SetLanguage("tr");
+
+            Assert.That(service.Save(settings).Succeeded, Is.True);
+
+            GameSettings loaded = service.Load();
+
+            Assert.That(loaded.MasterVolume, Is.EqualTo(0.6f).Within(0.0001f));
+            Assert.That(loaded.Language, Is.EqualTo("tr"));
+        }
+
+        [Test]
+        public void OutOfRangeMasterVolumeAndSensitivity_AreClamped()
+        {
+            fileSystem.Seed(paths.SettingsSavePath,
+                "{\"saveVersion\":1,\"settings\":{\"masterVolume\":9.5,\"swipeSensitivity\":-4.0}}");
+
+            GameSettings loaded = service.Load();
+
+            Assert.That(loaded.MasterVolume, Is.EqualTo(GameSettings.MaxVolume));
+            Assert.That(loaded.SwipeSensitivity, Is.EqualTo(GameSettings.MinVolume));
+        }
+
+        [Test]
+        public void UnknownFrameRateModeValue_FallsBackToSixty()
+        {
+            fileSystem.Seed(paths.SettingsSavePath,
+                "{\"saveVersion\":1,\"settings\":{\"frameRateMode\":99}}");
+
+            GameSettings loaded = service.Load();
+
+            Assert.That(loaded.FrameRateMode, Is.EqualTo(FrameRateMode.Sixty));
         }
 
         [Test]
