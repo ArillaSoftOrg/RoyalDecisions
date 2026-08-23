@@ -2402,7 +2402,7 @@ namespace RoyalDecisions.Editor
             Toggle tapButtons = EnsureToggleControl(
                 tab, "TapButtonsEnabled", "Dokunma ile Karar Butonları", font, report);
             Toggle invert = EnsureToggleControl(
-                tab, "InvertSwipeRotation", "Kaydırma Eğimini Ters Çevir", font, report);
+                tab, "InvertSwipeRotation", "Kaydırma Yönünü Ters Çevir", font, report);
             Toggle disableSwipe = EnsureToggleControl(
                 tab, "DisableSwipe", "Kaydırmayı Devre Dışı Bırak", font, report);
             Toggle haptics = EnsureToggleControl(tab, "Haptics", "Titreşim", font, report);

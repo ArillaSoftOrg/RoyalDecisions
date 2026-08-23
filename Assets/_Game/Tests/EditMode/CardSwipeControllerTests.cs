@@ -499,14 +499,65 @@ namespace RoyalDecisions.Tests.EditMode
         }
 
         [Test]
-        public void SetInvertRotationDoesNotChangeWhichSideConfirms()
+        public void SetInvertRotationFlipsWhichSideConfirms()
         {
             controller.SetInvertRotation(true);
 
             Swipe(PressX + Threshold + 50f);
 
-            Assert.That(confirmed, Is.EqualTo(new[] { ChoiceSide.Right }),
-                "inversion is purely visual — CLAUDE.md §9 pins the swipe-to-choice mapping");
+            Assert.That(confirmed, Is.EqualTo(new[] { ChoiceSide.Left }),
+                "Invert Swipe Direction: a right drag must resolve as the Left choice");
+        }
+
+        [Test]
+        public void InvertedDragPreviewShowsTheSideThatWillActuallyBeConfirmed()
+        {
+            controller.SetInvertRotation(true);
+
+            PointerEventData data = Pointer(0, PressX);
+            controller.OnBeginDrag(data);
+            data.position = new Vector2(PressX + (Threshold * 0.5f), PressY);
+            controller.OnDrag(data);
+
+            Assert.That(cardView.GetChoicePreviewStrength(ChoiceSide.Left),
+                Is.EqualTo(0.5f).Within(0.001f),
+                "a right drag must preview Left, matching what release will confirm");
+            Assert.That(cardView.GetChoicePreviewStrength(ChoiceSide.Right), Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void InvertedDragStillExitsTowardsThePhysicalDragDirection()
+        {
+            controller.SetInvertRotation(true);
+
+            Swipe(PressX + Threshold + 50f);
+
+            float trailingEdge = card.anchoredPosition.x - (CardWidth * 0.5f);
+            Assert.That(trailingEdge, Is.GreaterThan(ParentWidth * 0.5f),
+                "the card must keep flying off to the right it was dragged towards, even though "
+                    + "the Left choice was confirmed — reversing mid-flight would look broken");
+        }
+
+        [Test]
+        public void InvertingTwiceRestoresTheOriginalMapping()
+        {
+            controller.SetInvertRotation(true);
+            controller.SetInvertRotation(false);
+
+            Swipe(PressX + Threshold + 50f);
+
+            Assert.That(confirmed, Is.EqualTo(new[] { ChoiceSide.Right }));
+        }
+
+        [Test]
+        public void ConfirmSideIgnoresInversion()
+        {
+            controller.SetInvertRotation(true);
+
+            controller.ConfirmSide(ChoiceSide.Left);
+
+            Assert.That(confirmed, Is.EqualTo(new[] { ChoiceSide.Left }),
+                "a tapped side already says exactly what it means, regardless of the swipe setting");
         }
 
         [Test]

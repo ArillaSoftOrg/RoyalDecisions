@@ -123,7 +123,7 @@ namespace RoyalDecisions.Tests.PlayMode
             graphicsTab.SetParent(panelRoot.transform, false);
             frameRateSlider = Child<Slider>(graphicsTab, "FrameRate");
             frameRateSlider.minValue = 0f;
-            frameRateSlider.maxValue = 2f;
+            frameRateSlider.maxValue = 3f;
             frameRateSlider.wholeNumbers = true;
             frameRateLabel = Child<TextMeshProUGUI>(graphicsTab, "FrameRateLabel");
             batterySaver = Child<Toggle>(graphicsTab, "Battery");
@@ -296,7 +296,7 @@ namespace RoyalDecisions.Tests.PlayMode
         // --- 4. Frame rate is a real mutually-exclusive choice, and it persists -------------
 
         [UnityTest]
-        public IEnumerator FrameRateSliderStepsThroughAllThreeModesAndPersists()
+        public IEnumerator FrameRateSliderStepsThroughAllFourModesAndPersists()
         {
             BuildScene(GameSettings.CreateDefault());
             yield return null;
@@ -315,18 +315,71 @@ namespace RoyalDecisions.Tests.PlayMode
 
             frameRateSlider.value = 2f;
             yield return null;
-            Assert.That(graphicsPanel.FrameRateMode, Is.EqualTo(FrameRateMode.Auto));
-            Assert.That(frameRateLabel.text, Is.EqualTo("Otomatik"));
+            Assert.That(graphicsPanel.FrameRateMode, Is.EqualTo(FrameRateMode.Ninety));
+            Assert.That(frameRateLabel.text, Is.EqualTo("90 FPS"));
+
+            frameRateSlider.value = 3f;
+            yield return null;
+            Assert.That(graphicsPanel.FrameRateMode, Is.EqualTo(FrameRateMode.OneTwenty));
+            Assert.That(frameRateLabel.text, Is.EqualTo("120 FPS"));
 
             applyButton.onClick.Invoke();
             yield return null;
-            Assert.That(store.Load().FrameRateMode, Is.EqualTo(FrameRateMode.Auto));
+            Assert.That(store.Load().FrameRateMode, Is.EqualTo(FrameRateMode.OneTwenty));
+            Assert.That(UnityEngine.Application.targetFrameRate, Is.EqualTo(120),
+                "Application.targetFrameRate must reflect the applied selection");
+            Assert.That(QualitySettings.vSyncCount, Is.EqualTo(0),
+                "vSyncCount must be 0 or targetFrameRate is ignored by the engine");
 
             controller.Open();
             yield return null;
-            Assert.That(frameRateSlider.value, Is.EqualTo(2f).Within(0.001f),
+            Assert.That(frameRateSlider.value, Is.EqualTo(3f).Within(0.001f),
                 "reopening must reflect the persisted selection");
-            Assert.That(frameRateLabel.text, Is.EqualTo("Otomatik"));
+            Assert.That(frameRateLabel.text, Is.EqualTo("120 FPS"));
+        }
+
+        // --- 4b. Battery Saver temporarily overrides the applied rate without losing the pick --
+
+        [UnityTest]
+        public IEnumerator BatterySaverCapsFrameRateAndRestoresTheChosenValueWhenTurnedOff()
+        {
+            BuildScene(GameSettings.CreateDefault());
+            yield return null;
+            controller.Open();
+            yield return null;
+            view.ShowGraphicsTab();
+            yield return null;
+
+            frameRateSlider.value = 3f; // 120 FPS
+            batterySaver.isOn = true;
+            applyButton.onClick.Invoke();
+            yield return null;
+
+            Assert.That(UnityEngine.Application.targetFrameRate, Is.EqualTo(30),
+                "Battery Saver caps the applied rate to 30 while enabled");
+            Assert.That(store.Load().FrameRateMode, Is.EqualTo(FrameRateMode.OneTwenty),
+                "the player's own FPS pick must not be overwritten by Battery Saver");
+
+            controller.Open();
+            yield return null;
+            view.ShowGraphicsTab();
+            yield return null;
+            Assert.That(frameRateSlider.value, Is.EqualTo(3f).Within(0.001f),
+                "the FPS slider selection must survive while Battery Saver is on");
+            Assert.That(batterySaver.isOn, Is.True);
+
+            batterySaver.isOn = false;
+            applyButton.onClick.Invoke();
+            yield return null;
+
+            Assert.That(UnityEngine.Application.targetFrameRate, Is.EqualTo(120),
+                "turning Battery Saver off must restore the previously chosen FPS");
+            Assert.That(store.Load().BatterySaverEnabled, Is.False);
+
+            controller.Open();
+            yield return null;
+            Assert.That(UnityEngine.Application.targetFrameRate, Is.EqualTo(120),
+                "a fresh Open() (simulating relaunch) must re-apply the persisted, restored FPS");
         }
 
         // --- 5. Swipe sensitivity slider persists --------------------------------------------

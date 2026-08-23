@@ -98,6 +98,7 @@ namespace RoyalDecisions.Presentation
         private bool sensitivityDefaultCaptured;
         private float defaultThresholdRatio;
         private bool swipeInputEnabled = true;
+        private bool decisionMappingInverted;
 
         public CardSwipeState State { get; private set; } = CardSwipeState.Idle;
 
@@ -196,7 +197,12 @@ namespace RoyalDecisions.Presentation
 
             if (!HasDecision && SwipeMath.IsConfirmed(currentDisplacement, ThresholdDistance))
             {
-                Confirm(SwipeMath.SideFor(currentDisplacement));
+                // The card keeps flying off in the direction it was physically dragged (exitSide);
+                // which ChoiceDefinition that resolves to (logicalSide) is what Invert Swipe
+                // Direction flips. Splitting the two keeps the exit animation and the confirmed
+                // decision each internally consistent instead of the card reversing mid-flight.
+                ChoiceSide physicalSide = SwipeMath.SideFor(currentDisplacement);
+                Confirm(LogicalSide(physicalSide), physicalSide);
                 return;
             }
 
@@ -272,8 +278,9 @@ namespace RoyalDecisions.Presentation
 
         /// <summary>
         /// Confirms a choice directly — an alternate input to a physical drag, e.g. an on-screen
-        /// tap button. Reuses the same single-resolution <see cref="Confirm"/> path as a completed
-        /// drag, so a tap and a swipe can never both resolve the same card.
+        /// tap button. Reuses the same single-resolution <see cref="Confirm(ChoiceSide)"/> path as
+        /// a completed drag, so a tap and a swipe can never both resolve the same card. Never
+        /// affected by Invert Swipe Direction: a tapped side already says exactly what it means.
         /// </summary>
         public void ConfirmSide(ChoiceSide side)
         {
@@ -287,8 +294,12 @@ namespace RoyalDecisions.Presentation
         }
 
         /// <summary>
-        /// Flips the card's visual lean direction only. Which side a drag confirms is unaffected —
-        /// that mapping lives in <see cref="SwipeMath.SideFor"/> and CLAUDE.md §9 pins it down.
+        /// Invert Swipe Direction: flips the card's visual lean <em>and</em> which
+        /// <see cref="ChoiceSide"/> a drag confirms (a right drag confirms Left, and vice versa),
+        /// so the tilt and the outcome always agree with each other. The card's physical position
+        /// and exit trajectory stay tied to the actual drag direction regardless — inverting where
+        /// the card itself moves relative to the player's finger would feel broken, not accessible.
+        /// See <see cref="LogicalSide"/> and <see cref="Confirm(ChoiceSide, ChoiceSide)"/>.
         /// </summary>
         public void SetInvertRotation(bool invert)
         {
@@ -296,6 +307,18 @@ namespace RoyalDecisions.Presentation
             rotateClockwiseOnRightDrag = invert
                 ? !defaultRotateClockwiseOnRightDrag
                 : defaultRotateClockwiseOnRightDrag;
+            decisionMappingInverted = invert;
+        }
+
+        /// <summary>Applies the Invert Swipe Direction setting to a raw (physical) drag side.</summary>
+        private ChoiceSide LogicalSide(ChoiceSide physicalSide)
+        {
+            if (!decisionMappingInverted)
+            {
+                return physicalSide;
+            }
+
+            return physicalSide == ChoiceSide.Left ? ChoiceSide.Right : ChoiceSide.Left;
         }
 
         private void CaptureControlsDefaultsOnce()
@@ -348,24 +371,34 @@ namespace RoyalDecisions.Presentation
 
         // --- Confirmation --------------------------------------------------------
 
-        private void Confirm(ChoiceSide side)
+        /// <summary>Single-side entry point: the same side is both the confirmed decision and the
+        /// exit direction. Used by <see cref="ConfirmSide"/> (a tap button), where there is no
+        /// physical drag direction for Invert Swipe Direction to act on.</summary>
+        private void Confirm(ChoiceSide side) => Confirm(side, side);
+
+        /// <param name="logicalSide">The <see cref="ChoiceDefinition"/> this decision resolves to —
+        /// what is reported via <see cref="DecisionConfirmed"/> and lit up on the card.</param>
+        /// <param name="exitSide">Which edge the card physically exits towards. Equal to
+        /// <paramref name="logicalSide"/> unless Invert Swipe Direction is on, in which case it is
+        /// the side the player actually dragged towards.</param>
+        private void Confirm(ChoiceSide logicalSide, ChoiceSide exitSide)
         {
             // Locked before any external handler runs: a subscriber that calls back in finds a
             // controller that has already left Idle and already recorded its decision.
-            confirmedSide = side;
+            confirmedSide = logicalSide;
             State = CardSwipeState.Exiting;
 
             // The confirmed side stays lit while the card flies out.
             if (cardView != null)
             {
                 cardView.SetChoicePreviews(
-                    side == ChoiceSide.Left ? 1f : 0f,
-                    side == ChoiceSide.Right ? 1f : 0f);
+                    logicalSide == ChoiceSide.Left ? 1f : 0f,
+                    logicalSide == ChoiceSide.Right ? 1f : 0f);
             }
 
             ClearPublishedChoicePreview();
 
-            DecisionConfirmed?.Invoke(side);
+            DecisionConfirmed?.Invoke(logicalSide);
 
             // A handler may have reset or disabled us; do not start an exit we no longer own.
             if (State != CardSwipeState.Exiting)
@@ -373,7 +406,7 @@ namespace RoyalDecisions.Presentation
                 return;
             }
 
-            BeginExit(side);
+            BeginExit(exitSide);
         }
 
         // --- Animation ------------------------------------------------------------
@@ -545,6 +578,14 @@ namespace RoyalDecisions.Presentation
             }
 
             SwipeMath.PreviewStrengths(displacement, threshold, out float left, out float right);
+
+            // The preview must show what will actually be confirmed, not just which way the
+            // finger is moving — otherwise a right drag would light up "Right" while Invert Swipe
+            // Direction is about to resolve it as the Left choice on release.
+            if (decisionMappingInverted)
+            {
+                (left, right) = (right, left);
+            }
 
             if (cardView != null)
             {

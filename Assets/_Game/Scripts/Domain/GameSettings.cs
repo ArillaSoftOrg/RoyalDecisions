@@ -17,7 +17,13 @@ namespace RoyalDecisions.Domain
         public const float MinVolume = 0f;
         public const float MaxVolume = 1f;
         public const float DefaultVolume = 0.8f;
-        public const float DefaultSwipeSensitivity = 0.5f;
+        /// <summary>
+        /// 100%: sensitivity sliders conventionally default to "full/normal", not a hidden
+        /// midpoint. <see cref="RoyalDecisions.Presentation.CardSwipeController.SetSwipeSensitivity"/>
+        /// still treats 0.5 as the authored-threshold midpoint internally — this constant only
+        /// controls what ships as the player's starting preference.
+        /// </summary>
+        public const float DefaultSwipeSensitivity = 1f;
         public const string DefaultLanguage = "tr";
 
         [SerializeField] private float musicVolume = DefaultVolume;

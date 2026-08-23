@@ -9,9 +9,9 @@ namespace RoyalDecisions.Composition
     /// <summary>Owns staged settings edits and applies them only on explicit confirmation.</summary>
     public sealed class SettingsController : MonoBehaviour
     {
-        private const int HighFrameRate = 60;
-        private const int LowFrameRate = 30;
-        private const int AutoFrameRate = -1;
+        /// <summary>Battery Saver's temporary cap — independent of, and never overwriting, the
+        /// player's own <see cref="FrameRateMode"/> choice.</summary>
+        private const int BatterySaverFrameRate = 30;
 
         [SerializeField] private SettingsPanelView view;
         [SerializeField] private AudioService audioService;
@@ -193,29 +193,24 @@ namespace RoyalDecisions.Composition
             haptics?.SetEnabled(settings.HapticsEnabled);
             accessibility?.Apply(settings);
 
-            // Global engine setting: takes effect immediately and needs no scene-local reference.
+            // Global engine settings: take effect immediately and need no scene-local reference.
             // The card's own swipe sensitivity/rotation live in the Game scene's CardSwipeController
             // and are re-applied there by GameSceneController when that scene loads its settings.
+            //
+            // vSyncCount must be 0 or targetFrameRate is ignored and the display's own refresh rate
+            // (or a fixed divisor of it) wins instead.
+            UnityEngine.QualitySettings.vSyncCount = 0;
             UnityEngine.Application.targetFrameRate = ResolveTargetFrameRate(settings);
         }
 
+        /// <summary>
+        /// Battery Saver only ever overrides the applied rate, never the stored
+        /// <see cref="FrameRateMode"/> — so turning it back off restores exactly the FPS the player
+        /// had chosen, and the Graphics tab's slider selection is never disturbed by it.
+        /// </summary>
         private static int ResolveTargetFrameRate(GameSettings settings)
         {
-            if (settings.BatterySaverEnabled)
-            {
-                return LowFrameRate;
-            }
-            switch (settings.FrameRateMode)
-            {
-                case FrameRateMode.Thirty:
-                    return LowFrameRate;
-                case FrameRateMode.Auto:
-                    // Unity's own "no target frame rate" value: the platform's default cadence is
-                    // used as-is. Deliberately not a fabricated device-performance heuristic.
-                    return AutoFrameRate;
-                default:
-                    return HighFrameRate;
-            }
+            return settings.BatterySaverEnabled ? BatterySaverFrameRate : (int)settings.FrameRateMode;
         }
 
         private void HandleResetTutorialRequested()

@@ -12,7 +12,7 @@ namespace RoyalDecisions.Presentation
     /// </summary>
     public sealed class GraphicsSettingsPanelView : MonoBehaviour
     {
-        /// <summary>A three-step slider: 0 = 30 FPS, 1 = 60 FPS, 2 = Otomatik.</summary>
+        /// <summary>A four-step slider: 0 = 30 FPS, 1 = 60 FPS, 2 = 90 FPS, 3 = 120 FPS.</summary>
         [SerializeField] private Slider frameRateSlider;
 
         [Tooltip("Optional. Shows the current step's name (e.g. \"60 FPS\") next to the slider.")]
@@ -72,7 +72,8 @@ namespace RoyalDecisions.Presentation
             switch (mode)
             {
                 case FrameRateMode.Thirty: return "30 FPS";
-                case FrameRateMode.Auto: return "Otomatik";
+                case FrameRateMode.Ninety: return "90 FPS";
+                case FrameRateMode.OneTwenty: return "120 FPS";
                 default: return "60 FPS";
             }
         }
@@ -82,7 +83,8 @@ namespace RoyalDecisions.Presentation
             switch (mode)
             {
                 case FrameRateMode.Thirty: return 0;
-                case FrameRateMode.Auto: return 2;
+                case FrameRateMode.Ninety: return 2;
+                case FrameRateMode.OneTwenty: return 3;
                 default: return 1;
             }
         }
@@ -92,7 +94,8 @@ namespace RoyalDecisions.Presentation
             switch (step)
             {
                 case 0: return FrameRateMode.Thirty;
-                case 2: return FrameRateMode.Auto;
+                case 2: return FrameRateMode.Ninety;
+                case 3: return FrameRateMode.OneTwenty;
                 default: return FrameRateMode.Sixty;
             }
         }

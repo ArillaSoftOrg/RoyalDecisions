@@ -232,6 +232,34 @@ namespace RoyalDecisions.Tests.EditMode
         }
 
         [Test]
+        public void PreThreeWayNumbering_FallsBackToSixty()
+        {
+            // frameRateMode values 0/1/2 used to mean Sixty/Thirty/Auto; none of them lands on a
+            // defined member under the current FPS-numbered enum, so this must be treated the
+            // same as any other unknown value rather than silently reinterpreted.
+            fileSystem.Seed(paths.SettingsSavePath,
+                "{\"saveVersion\":1,\"settings\":{\"frameRateMode\":2}}");
+
+            GameSettings loaded = service.Load();
+
+            Assert.That(loaded.FrameRateMode, Is.EqualTo(FrameRateMode.Sixty));
+        }
+
+        [TestCase(FrameRateMode.Thirty)]
+        [TestCase(FrameRateMode.Sixty)]
+        [TestCase(FrameRateMode.Ninety)]
+        [TestCase(FrameRateMode.OneTwenty)]
+        public void SaveThenLoad_PreservesEveryFrameRateMode(FrameRateMode mode)
+        {
+            GameSettings settings = GameSettings.CreateDefault();
+            settings.SetFrameRateMode(mode);
+
+            Assert.That(service.Save(settings).Succeeded, Is.True);
+
+            Assert.That(service.Load().FrameRateMode, Is.EqualTo(mode));
+        }
+
+        [Test]
         public void CorruptSettings_RecoverFromTheBackup()
         {
             service.Save(CustomSettings());
