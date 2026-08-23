@@ -1,0 +1,113 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: story_k120
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: story_k120
+  speaker: "Anlat\u0131c\u0131"
+  bodyText: "Yaral\u0131 bir kad\u0131n kap\u0131ya geliyor, eski bir Vertak \xE7al\u0131\u015Fan\u0131.
+    \u0130\xE7eri al m\u0131, uzak tut mu?"
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "\u0130\xE7eri al"
+    deltas:
+      authority: 0
+      people: 0
+      security: 0
+      wealth: 0
+    flagsToAdd:
+    - eski_vertak_calisan
+    flagsToRemove: []
+    forcedNextCardId: story_k124
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options: []
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  rightChoice:
+    previewText: Uzak tut
+    deltas:
+      authority: 0
+      people: 0
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: story_k121
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options: []
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+    numericConditions: []
+  selectionWeight: 1
+  oncePerRun: 1
+  cooldownTurns: 0
+  forcedNextCardId: 
+  forcedChainOnly: 1
+  variants: []

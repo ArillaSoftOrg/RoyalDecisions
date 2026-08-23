@@ -20,15 +20,20 @@ namespace RoyalDecisions.Data
         [Tooltip("Every range listed here must contain the run's current value for that stat.")]
         [SerializeField] private StatRange[] statRanges = Array.Empty<StatRange>();
 
+        [Tooltip("Every numeric condition listed here (counters, leader health) must hold.")]
+        [SerializeField] private NumericCondition[] numericConditions = Array.Empty<NumericCondition>();
+
         public CardConditions()
         {
         }
 
-        public CardConditions(string[] requiredFlags, string[] forbiddenFlags, StatRange[] statRanges)
+        public CardConditions(string[] requiredFlags, string[] forbiddenFlags, StatRange[] statRanges,
+            NumericCondition[] numericConditions = null)
         {
             this.requiredFlags = requiredFlags ?? Array.Empty<string>();
             this.forbiddenFlags = forbiddenFlags ?? Array.Empty<string>();
             this.statRanges = statRanges ?? Array.Empty<StatRange>();
+            this.numericConditions = numericConditions ?? Array.Empty<NumericCondition>();
         }
 
         public IReadOnlyList<string> RequiredFlags => requiredFlags ?? Array.Empty<string>();
@@ -37,8 +42,12 @@ namespace RoyalDecisions.Data
 
         public IReadOnlyList<StatRange> StatRanges => statRanges ?? Array.Empty<StatRange>();
 
+        public IReadOnlyList<NumericCondition> NumericConditions =>
+            numericConditions ?? Array.Empty<NumericCondition>();
+
         /// <summary>True when the card places no restriction on the run at all.</summary>
         public bool IsEmpty =>
-            RequiredFlags.Count == 0 && ForbiddenFlags.Count == 0 && StatRanges.Count == 0;
+            RequiredFlags.Count == 0 && ForbiddenFlags.Count == 0 && StatRanges.Count == 0
+            && NumericConditions.Count == 0;
     }
 }

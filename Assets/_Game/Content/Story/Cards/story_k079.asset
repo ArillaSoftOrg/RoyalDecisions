@@ -1,0 +1,127 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: story_k079
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: story_k079
+  speaker: "Anlat\u0131c\u0131"
+  bodyText: "K\u0131\u015F\u0131n ilk haftas\u0131 ge\xE7iyor."
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: Devam et
+    deltas:
+      authority: 0
+      people: 0
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: story_k080
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options:
+      - authority: 0
+        people: 1
+        security: 1
+        wealth: 0
+      - authority: 0
+        people: -1
+        security: -1
+        wealth: 0
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  rightChoice:
+    previewText: Dayan
+    deltas:
+      authority: 0
+      people: 0
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: story_k080
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options:
+      - authority: 0
+        people: 1
+        security: 1
+        wealth: 0
+      - authority: 0
+        people: -1
+        security: -1
+        wealth: 0
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+    numericConditions: []
+  selectionWeight: 1
+  oncePerRun: 1
+  cooldownTurns: 0
+  forcedNextCardId: 
+  forcedChainOnly: 1
+  variants: []

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 782c0c0ca6232504995d012e52fb15bb, type: 3}
+  m_Name: story_ending_wealth_min
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.EndingDefinition
+  id: story_ending_wealth_min
+  title: Son Konserve
+  bodyText: "Ambarlar bo\u015Fald\u0131; tek bir kutu bile kalmad\u0131. S\u0131\u011F\u0131nak
+    sessizli\u011Fe g\xF6m\xFCld\xFC."
+  image: {fileID: 0}
+  triggerStat: 3
+  boundary: 0
+  priority: 0

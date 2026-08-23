@@ -1,0 +1,113 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: story_k066
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: story_k066
+  speaker: "Kemal (M\xFChendis)"
+  bodyText: "Malzeme eksik. Ba\u015Fka s\u0131\u011F\u0131naktan m\u0131, kendi kayna\u011F\u0131m\u0131zla
+    m\u0131?"
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "Ba\u015Fka s\u0131\u011F\u0131naktan iste"
+    deltas:
+      authority: 0
+      people: 0
+      security: 0
+      wealth: -1
+    flagsToAdd:
+    - ittifak_baslangic
+    flagsToRemove: []
+    forcedNextCardId: story_k069
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options: []
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  rightChoice:
+    previewText: "Kendi kayna\u011F\u0131m\u0131z"
+    deltas:
+      authority: 0
+      people: 0
+      security: -1
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: story_k067
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options: []
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+    numericConditions: []
+  selectionWeight: 1
+  oncePerRun: 1
+  cooldownTurns: 0
+  forcedNextCardId: 
+  forcedChainOnly: 1
+  variants: []

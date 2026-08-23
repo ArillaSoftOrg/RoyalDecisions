@@ -1,4 +1,5 @@
 using RoyalDecisions.Data;
+using RoyalDecisions.Domain;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -59,10 +60,26 @@ namespace RoyalDecisions.Presentation
             SetVisible(HasCard);
         }
 
+        /// <summary>
+        /// Renders <paramref name="card"/> as resolved for the current run (variant text, effective
+        /// choices, availability) and makes it visible.
+        /// </summary>
+        public void Show(CardDefinition card, ResolvedCard resolved)
+        {
+            Render(card, resolved);
+            SetVisible(HasCard);
+        }
+
         /// <summary>Re-renders without touching visibility — for a card whose content changed.</summary>
         public void UpdateCard(CardDefinition card)
         {
             Render(card);
+        }
+
+        /// <summary>As <see cref="UpdateCard(CardDefinition)"/>, but from a resolved presentation.</summary>
+        public void UpdateCard(CardDefinition card, ResolvedCard resolved)
+        {
+            Render(card, resolved);
         }
 
         /// <summary>Blanks every field, drops the card, and hides the view.</summary>
@@ -156,8 +173,16 @@ namespace RoyalDecisions.Presentation
 
         private void Render(CardDefinition card)
         {
-            CardPresentation presentation = CardPresenter.Create(card);
+            RenderPresentation(CardPresenter.Create(card));
+        }
 
+        private void Render(CardDefinition card, ResolvedCard resolved)
+        {
+            RenderPresentation(CardPresenter.Create(card, resolved));
+        }
+
+        private void RenderPresentation(CardPresentation presentation)
+        {
             SetText(speakerText, presentation.Speaker);
             SetText(bodyText, presentation.BodyText);
 

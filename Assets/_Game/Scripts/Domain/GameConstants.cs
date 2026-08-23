@@ -15,5 +15,15 @@ namespace RoyalDecisions.Domain
 
         /// <summary>Turn number of a new run, before its first decision is resolved.</summary>
         public const int FirstTurn = 0;
+
+        /// <summary>The first leader of a new run.</summary>
+        public const int FirstReignNumber = 1;
+
+        /// <summary>
+        /// The value a statistic is reset to when it triggers a reign succession rather than a
+        /// game-over ending. Fixed by design, not authored per card: see
+        /// <see cref="RoyalDecisions.Data.ConditionalChoiceEffect"/>.
+        /// </summary>
+        public const int ReignSuccessionResetStatValue = 3;
     }
 }

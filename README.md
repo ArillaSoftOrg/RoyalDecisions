@@ -61,6 +61,16 @@ It only writes under `Assets/_Game/Content/Placeholder/`, never overwrites user 
 and validates duplicate or missing IDs. Final story content is meant to be replaced without any
 gameplay code changes.
 
+### The "Sığınak" story
+
+A full 250-card branching narrative (`Hıkaye.md` at the repo root) ships alongside the placeholder
+content, generated the same way via `Tools > Royal Decisions > Generate Story Content` into
+`Assets/_Game/Content/Story/`. See [`STORY_CONTENT_GUIDE.md`](STORY_CONTENT_GUIDE.md) for how it is
+authored (forced chains, flags, counters, conditional variants, leader-risk/reign-succession
+choices, variable outcomes) and how to extend it, and
+`Tools > Royal Decisions > Scene Setup > Use Story Catalogue In Game Scene` to play it instead of
+the placeholder deck.
+
 ## Repository layout
 
 ```

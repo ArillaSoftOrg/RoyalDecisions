@@ -41,6 +41,12 @@ namespace RoyalDecisions.Application
         InvalidStateForCommand = 11,
 
         /// <summary>The domain refused the decision — usually its own duplicate guard.</summary>
-        DecisionRejected = 12
+        DecisionRejected = 12,
+
+        /// <summary>
+        /// The chosen side is not currently available (see
+        /// <see cref="RoyalDecisions.Data.ChoiceDefinition.Availability"/>).
+        /// </summary>
+        ChoiceUnavailable = 13
     }
 }

@@ -21,6 +21,8 @@ namespace RoyalDecisions.Tests.EditMode
 
         public CardDefinition LastShownCard { get; private set; }
 
+        public ResolvedCard LastResolvedCard { get; private set; }
+
         public StatValues LastStats { get; private set; }
 
         public GameOverResult LastGameOver { get; private set; }
@@ -37,9 +39,10 @@ namespace RoyalDecisions.Tests.EditMode
 
         public int LastTurn { get; private set; }
 
-        public void ShowCard(CardDefinition card)
+        public void ShowCard(CardDefinition card, ResolvedCard resolved)
         {
             LastShownCard = card;
+            LastResolvedCard = resolved;
             ShownCards.Add(card);
             Calls.Add("ShowCard:" + (card != null ? card.Id : "<null>"));
         }

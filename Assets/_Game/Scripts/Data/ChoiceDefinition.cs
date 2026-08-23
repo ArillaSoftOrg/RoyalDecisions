@@ -26,6 +26,18 @@ namespace RoyalDecisions.Data
         [Tooltip("Optional audio event ID; missing or unmapped IDs fall back to silence.")]
         [SerializeField] private string audioEventId = string.Empty;
 
+        [Tooltip("Counters this choice increments or decrements, such as an investigation level.")]
+        [SerializeField] private CounterDelta[] counterDeltas = Array.Empty<CounterDelta>();
+
+        [Tooltip("Optional. When set, this replaces Deltas with a branch on a numeric condition.")]
+        [SerializeField] private ConditionalChoiceEffect conditionalEffect;
+
+        [Tooltip("Optional. When set, one of several deltas is picked at random on top of Deltas.")]
+        [SerializeField] private RandomStatOutcome randomOutcome;
+
+        [Tooltip("Optional. When set, this side is unavailable unless these conditions hold.")]
+        [SerializeField] private CardConditions availability;
+
         public ChoiceDefinition()
         {
         }
@@ -36,7 +48,11 @@ namespace RoyalDecisions.Data
             string[] flagsToAdd = null,
             string[] flagsToRemove = null,
             string forcedNextCardId = "",
-            string audioEventId = "")
+            string audioEventId = "",
+            CounterDelta[] counterDeltas = null,
+            ConditionalChoiceEffect conditionalEffect = null,
+            RandomStatOutcome randomOutcome = null,
+            CardConditions availability = null)
         {
             this.previewText = previewText ?? string.Empty;
             this.deltas = deltas;
@@ -44,6 +60,10 @@ namespace RoyalDecisions.Data
             this.flagsToRemove = flagsToRemove ?? Array.Empty<string>();
             this.forcedNextCardId = forcedNextCardId ?? string.Empty;
             this.audioEventId = audioEventId ?? string.Empty;
+            this.counterDeltas = counterDeltas ?? Array.Empty<CounterDelta>();
+            this.conditionalEffect = conditionalEffect;
+            this.randomOutcome = randomOutcome;
+            this.availability = availability;
         }
 
         public string PreviewText => previewText ?? string.Empty;
@@ -58,8 +78,23 @@ namespace RoyalDecisions.Data
 
         public string AudioEventId => audioEventId ?? string.Empty;
 
+        public IReadOnlyList<CounterDelta> CounterDeltas => counterDeltas ?? Array.Empty<CounterDelta>();
+
+        public ConditionalChoiceEffect ConditionalEffect => conditionalEffect;
+
+        public RandomStatOutcome RandomOutcome => randomOutcome;
+
+        /// <summary>Null means always available.</summary>
+        public CardConditions Availability => availability;
+
+        public bool HasAvailabilityCondition => availability != null && !availability.IsEmpty;
+
         public bool HasForcedNextCard => !string.IsNullOrEmpty(forcedNextCardId);
 
         public bool HasAudioEvent => !string.IsNullOrEmpty(audioEventId);
+
+        public bool HasConditionalEffect => conditionalEffect != null;
+
+        public bool HasRandomOutcome => randomOutcome != null && randomOutcome.HasOptions;
     }
 }

@@ -330,7 +330,7 @@ namespace RoyalDecisions.Editor
         private sealed class SimulationPresenter : IGamePresenter
         {
             public GameOverResult LastGameOver { get; private set; }
-            public void ShowCard(CardDefinition card) { }
+            public void ShowCard(CardDefinition card, ResolvedCard resolved) { }
             public void ClearCard() { }
             public void PrepareForInput() { }
             public void CancelInput() { }

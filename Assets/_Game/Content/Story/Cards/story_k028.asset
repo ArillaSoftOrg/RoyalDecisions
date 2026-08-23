@@ -1,0 +1,203 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: story_k028
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: story_k028
+  speaker: "\xD6mer (G\xF6zc\xFC)"
+  bodyText: "Ses kesildi. Devriyeyi art\u0131r m\u0131, gerek yok mu?"
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: "Art\u0131r"
+    deltas:
+      authority: 0
+      people: 0
+      security: 1
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: story_k030
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options: []
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  rightChoice:
+    previewText: Gerek yok
+    deltas:
+      authority: 0
+      people: 0
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: story_k031
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options: []
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+    numericConditions: []
+  selectionWeight: 1
+  oncePerRun: 1
+  cooldownTurns: 0
+  forcedNextCardId: 
+  forcedChainOnly: 1
+  variants:
+  - conditions:
+      requiredFlags:
+      - cit_yaklastik_evet
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+    speaker: "\xD6mer (G\xF6zc\xFC)"
+    bodyText: "\"Yard\u0131m\" diyor ama g\xF6zleri insan g\xF6z\xFC de\u011Fil.
+      Ate\u015F mi, dinle mi?"
+    leftChoice:
+      previewText: "Ate\u015F et"
+      deltas:
+        authority: -1
+        people: 0
+        security: 0
+        wealth: 0
+      flagsToAdd: []
+      flagsToRemove: []
+      forcedNextCardId: story_k031
+      audioEventId: 
+      counterDeltas: []
+      conditionalEffect:
+        condition:
+          source: 0
+          stat: 0
+          counterId: 
+          comparison: 0
+          threshold: 0
+        deltasWhenTrue:
+          authority: 0
+          people: 0
+          security: 0
+          wealth: 0
+        deltasWhenFalse:
+          authority: 0
+          people: 0
+          security: 0
+          wealth: 0
+        leaderHealthDeltaWhenTrue: 0
+        leaderHealthDeltaWhenFalse: 0
+        triggersSuccessionWhenTrue: 0
+        hasSuccessionResetStat: 0
+        successionResetStat: 0
+      randomOutcome:
+        options: []
+      availability:
+        requiredFlags: []
+        forbiddenFlags: []
+        statRanges: []
+        numericConditions: []
+    rightChoice:
+      previewText: Dinle
+      deltas:
+        authority: -2
+        people: 0
+        security: 0
+        wealth: 0
+      flagsToAdd:
+      - zombi_konustu
+      flagsToRemove: []
+      forcedNextCardId: story_k031
+      audioEventId: 
+      counterDeltas: []
+      conditionalEffect:
+        condition:
+          source: 0
+          stat: 0
+          counterId: 
+          comparison: 0
+          threshold: 0
+        deltasWhenTrue:
+          authority: 0
+          people: 0
+          security: 0
+          wealth: 0
+        deltasWhenFalse:
+          authority: 0
+          people: 0
+          security: 0
+          wealth: 0
+        leaderHealthDeltaWhenTrue: 0
+        leaderHealthDeltaWhenFalse: 0
+        triggersSuccessionWhenTrue: 0
+        hasSuccessionResetStat: 0
+        successionResetStat: 0
+      randomOutcome:
+        options: []
+      availability:
+        requiredFlags: []
+        forbiddenFlags: []
+        statRanges: []
+        numericConditions: []

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace RoyalDecisions.Data
@@ -40,6 +42,15 @@ namespace RoyalDecisions.Data
         [Tooltip("Optional card ID drawn next regardless of which side the player chose.")]
         [SerializeField] private string forcedNextCardId = string.Empty;
 
+        [Tooltip(
+            "When set, normal (non-forced) selection never draws this card — it can only be " +
+            "reached by a forced-next chain. Use for hand-authored branching content where the " +
+            "cards a given run does not visit must not surface out of narrative order later.")]
+        [SerializeField] private bool forcedChainOnly;
+
+        [Tooltip("Ordered alternative presentations. The first whose conditions match wins.")]
+        [SerializeField] private CardVariant[] variants = Array.Empty<CardVariant>();
+
         public string Id => id ?? string.Empty;
 
         public string Speaker => speaker ?? string.Empty;
@@ -70,6 +81,10 @@ namespace RoyalDecisions.Data
 
         public bool HasForcedNextCard => !string.IsNullOrEmpty(forcedNextCardId);
 
+        public bool ForcedChainOnly => forcedChainOnly;
+
+        public IReadOnlyList<CardVariant> Variants => variants ?? Array.Empty<CardVariant>();
+
 #if UNITY_EDITOR
         /// <summary>
         /// Editor-only authoring seam used by the placeholder content generator and by tests.
@@ -86,7 +101,9 @@ namespace RoyalDecisions.Data
             bool isOncePerRun = false,
             int cooldown = 0,
             string forcedNext = "",
-            Sprite cardPortrait = null)
+            Sprite cardPortrait = null,
+            bool isForcedChainOnly = false,
+            CardVariant[] cardVariants = null)
         {
             id = cardId ?? string.Empty;
             speaker = cardSpeaker ?? string.Empty;
@@ -99,6 +116,8 @@ namespace RoyalDecisions.Data
             cooldownTurns = cooldown;
             forcedNextCardId = forcedNext ?? string.Empty;
             portrait = cardPortrait;
+            forcedChainOnly = isForcedChainOnly;
+            variants = cardVariants ?? Array.Empty<CardVariant>();
         }
 #endif
     }

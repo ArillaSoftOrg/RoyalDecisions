@@ -255,5 +255,112 @@ namespace RoyalDecisions.Tests.EditMode
             Assert.That(restored.Stats.People, Is.EqualTo(StatBounds.Min));
             Assert.That(restored.Stats.Security, Is.EqualTo(50));
         }
+
+        // --- Leader health and reign number -----------------------------------
+
+        [Test]
+        public void CreateNew_StartsWithFullLeaderHealthAndTheFirstReign()
+        {
+            RunState state = RunState.CreateNew(TestSeed);
+
+            Assert.That(state.LeaderHealth, Is.EqualTo(LeaderHealthBounds.Initial));
+            Assert.That(state.ReignNumber, Is.EqualTo(GameConstants.FirstReignNumber));
+        }
+
+        [Test]
+        public void AdjustLeaderHealth_ClampsAtBothBounds()
+        {
+            RunState state = RunState.CreateNew(TestSeed);
+
+            state.AdjustLeaderHealth(-999);
+            Assert.That(state.LeaderHealth, Is.EqualTo(LeaderHealthBounds.Min));
+
+            state.AdjustLeaderHealth(999);
+            Assert.That(state.LeaderHealth, Is.EqualTo(LeaderHealthBounds.Max));
+        }
+
+        [Test]
+        public void SetLeaderHealth_ReplacesTheValueClamped()
+        {
+            RunState state = RunState.CreateNew(TestSeed);
+
+            state.SetLeaderHealth(4);
+            Assert.That(state.LeaderHealth, Is.EqualTo(4));
+
+            state.SetLeaderHealth(-1);
+            Assert.That(state.LeaderHealth, Is.EqualTo(LeaderHealthBounds.Min));
+        }
+
+        [Test]
+        public void IncrementReignNumber_AdvancesToTheNextLeader()
+        {
+            RunState state = RunState.CreateNew(TestSeed);
+
+            state.IncrementReignNumber();
+            state.IncrementReignNumber();
+
+            Assert.That(state.ReignNumber, Is.EqualTo(GameConstants.FirstReignNumber + 2));
+        }
+
+        [Test]
+        public void SanitizeAfterLoad_ClampsLeaderHealthAndFloorsReignNumber()
+        {
+            RunState restored = JsonUtility.FromJson<RunState>(
+                "{\"leaderHealth\":999,\"reignNumber\":-3}");
+
+            restored.SanitizeAfterLoad();
+
+            Assert.That(restored.LeaderHealth, Is.EqualTo(LeaderHealthBounds.Max));
+            Assert.That(restored.ReignNumber, Is.EqualTo(GameConstants.FirstReignNumber));
+        }
+
+        // --- Story counters -----------------------------------------------------
+
+        [Test]
+        public void GetCounter_IsZeroUntilTouched()
+        {
+            RunState state = RunState.CreateNew(TestSeed);
+
+            Assert.That(state.GetCounter("pharma_arastirma"), Is.Zero);
+        }
+
+        [Test]
+        public void AddToCounter_AccumulatesAcrossCalls()
+        {
+            RunState state = RunState.CreateNew(TestSeed);
+
+            state.AddToCounter("pharma_arastirma", 1);
+            state.AddToCounter("pharma_arastirma", 2);
+
+            Assert.That(state.GetCounter("pharma_arastirma"), Is.EqualTo(3));
+            Assert.That(state.StoryCounters.Count, Is.EqualTo(1), "one entry per counter id");
+        }
+
+        [Test]
+        public void AddToCounter_IgnoresEmptyIdsAndZeroDeltas()
+        {
+            RunState state = RunState.CreateNew(TestSeed);
+
+            state.AddToCounter(string.Empty, 5);
+            state.AddToCounter(null, 5);
+            state.AddToCounter("real_counter", 0);
+
+            Assert.That(state.StoryCounters, Is.Empty);
+        }
+
+        [Test]
+        public void RunState_WithLeaderStateAndCounters_SurvivesAJsonRoundTrip()
+        {
+            RunState original = RunState.CreateNew(TestSeed);
+            original.SetLeaderHealth(3);
+            original.IncrementReignNumber();
+            original.AddToCounter("pharma_arastirma", 2);
+
+            RunState restored = JsonUtility.FromJson<RunState>(JsonUtility.ToJson(original));
+
+            Assert.That(restored.LeaderHealth, Is.EqualTo(3));
+            Assert.That(restored.ReignNumber, Is.EqualTo(GameConstants.FirstReignNumber + 1));
+            Assert.That(restored.GetCounter("pharma_arastirma"), Is.EqualTo(2));
+        }
     }
 }

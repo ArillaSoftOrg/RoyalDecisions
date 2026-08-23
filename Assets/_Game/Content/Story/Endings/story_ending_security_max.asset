@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 782c0c0ca6232504995d012e52fb15bb, type: 3}
+  m_Name: story_ending_security_max
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.EndingDefinition
+  id: story_ending_security_max
+  title: "M\xFCh\xFCrlenmi\u015F S\u0131\u011F\u0131nak"
+  bodyText: "Her a\xE7\u0131kl\u0131k kapat\u0131ld\u0131, her giri\u015F m\xFCh\xFCrlendi.
+    \u0130\xE7eride kalanlar da bir daha \xE7\u0131kmad\u0131."
+  image: {fileID: 0}
+  triggerStat: 2
+  boundary: 1
+  priority: 0

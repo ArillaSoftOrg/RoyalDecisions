@@ -53,6 +53,9 @@ namespace RoyalDecisions.Domain
             ValidateEndings(endings, issues);
             ValidateOptionalEndingArt(endings, issues, options);
             ValidateOpeningCard(openingCardId, cardsById, issues);
+            ValidateForcedChainOnlyReachability(cards, openingCardId, issues);
+            ValidateOncePerRunConvergence(cards, issues);
+            ValidateDeadEndTerminals(cards, options, issues);
 
             return new ContentValidationReport(issues);
         }
@@ -437,6 +440,28 @@ namespace RoyalDecisions.Domain
                 {
                     CheckTarget(card, card.RightChoice.ForcedNextCardId, "right choice", cardsById, issues);
                 }
+
+                IReadOnlyList<CardVariant> variants = card.Variants;
+                for (int v = 0; v < variants.Count; v++)
+                {
+                    CardVariant variant = variants[v];
+                    if (variant == null)
+                    {
+                        continue;
+                    }
+
+                    if (variant.LeftChoice != null)
+                    {
+                        CheckTarget(card, variant.LeftChoice.ForcedNextCardId,
+                            "variant " + v + " left choice", cardsById, issues);
+                    }
+
+                    if (variant.RightChoice != null)
+                    {
+                        CheckTarget(card, variant.RightChoice.ForcedNextCardId,
+                            "variant " + v + " right choice", cardsById, issues);
+                    }
+                }
             }
         }
 
@@ -526,21 +551,50 @@ namespace RoyalDecisions.Domain
 
             if (cardsById.TryGetValue(cardId, out CardDefinition card))
             {
-                string left = ResolveForcedTarget(card, card.LeftChoice);
-                if (!string.IsNullOrEmpty(left))
+                foreach (string target in CollectForcedTargets(card))
                 {
-                    Walk(left, cardsById, settled, onPath, reported, issues);
-                }
-
-                string right = ResolveForcedTarget(card, card.RightChoice);
-                if (!string.IsNullOrEmpty(right) && !string.Equals(right, left, StringComparison.Ordinal))
-                {
-                    Walk(right, cardsById, settled, onPath, reported, issues);
+                    Walk(target, cardsById, settled, onPath, reported, issues);
                 }
             }
 
             onPath.Remove(cardId);
             settled.Add(cardId);
+        }
+
+        /// <summary>
+        /// Every card this card's forced chain could possibly continue to: its own two sides, plus
+        /// every <see cref="CardVariant"/>'s two sides (a variant's null side inherits the base
+        /// card's, exactly as <see cref="CardVariantResolver"/> resolves it at runtime).
+        /// </summary>
+        private static HashSet<string> CollectForcedTargets(CardDefinition card)
+        {
+            HashSet<string> targets = new HashSet<string>(StringComparer.Ordinal);
+
+            AddIfPresent(targets, ResolveForcedTarget(card, card.LeftChoice));
+            AddIfPresent(targets, ResolveForcedTarget(card, card.RightChoice));
+
+            IReadOnlyList<CardVariant> variants = card.Variants;
+            for (int v = 0; v < variants.Count; v++)
+            {
+                CardVariant variant = variants[v];
+                if (variant == null)
+                {
+                    continue;
+                }
+
+                AddIfPresent(targets, ResolveForcedTarget(card, variant.LeftChoice ?? card.LeftChoice));
+                AddIfPresent(targets, ResolveForcedTarget(card, variant.RightChoice ?? card.RightChoice));
+            }
+
+            return targets;
+        }
+
+        private static void AddIfPresent(HashSet<string> targets, string target)
+        {
+            if (!string.IsNullOrEmpty(target))
+            {
+                targets.Add(target);
+            }
         }
 
         /// <summary>
@@ -832,6 +886,160 @@ namespace RoyalDecisions.Domain
                 ContentIssueCode.OpeningCardMissing,
                 openingCardId,
                 "The opening card ID matches no card, so a new run would open on a normal draw."));
+        }
+
+        // --- Forced-chain-only reachability, convergence and dead ends -------------------
+
+        /// <summary>
+        /// A <see cref="CardDefinition.ForcedChainOnly"/> card is, by design, never drawn by normal
+        /// selection — the only way into it is a forced-next edge from some other card (or being the
+        /// opening card). One with no such edge pointing at it can never be shown at all: a
+        /// hand-authored card that is quietly unreachable.
+        /// </summary>
+        private static void ValidateForcedChainOnlyReachability(
+            IReadOnlyList<CardDefinition> cards,
+            string openingCardId,
+            List<ContentValidationIssue> issues)
+        {
+            if (cards == null)
+            {
+                return;
+            }
+
+            HashSet<string> referenced = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < cards.Count; i++)
+            {
+                CardDefinition card = cards[i];
+                if (card != null)
+                {
+                    referenced.UnionWith(CollectForcedTargets(card));
+                }
+            }
+
+            for (int i = 0; i < cards.Count; i++)
+            {
+                CardDefinition card = cards[i];
+                if (card == null || string.IsNullOrWhiteSpace(card.Id) || !card.ForcedChainOnly)
+                {
+                    continue;
+                }
+
+                if (referenced.Contains(card.Id)
+                    || string.Equals(card.Id, openingCardId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                issues.Add(ContentValidationIssue.Warning(
+                    ContentIssueCode.UnreachableForcedChainOnlyCard,
+                    card.Id,
+                    "Marked forced-chain-only, but no card's forced-next (base or variant) points " +
+                    "at it and it is not the opening card, so normal selection will never draw it " +
+                    "and no forced chain reaches it either."));
+            }
+        }
+
+        /// <summary>
+        /// Not necessarily wrong — a branching story frequently has several paths rejoin at one
+        /// card. That risk is real only for a card normal (non-forced) selection can also draw: a
+        /// <see cref="CardDefinition.ForcedChainOnly"/> card is reached exclusively by being forced,
+        /// which happens at most once per run along whichever single path that run actually takes —
+        /// two of its incoming edges converging is therefore the ordinary, safe shape of a branching
+        /// story rejoining itself, not a risk, and is not reported. For a card selection can also
+        /// draw normally, though, more than one incoming forced edge genuinely is worth a human
+        /// glance: if a path that forces it can be live in the same run as normal selection drawing
+        /// it independently, the second arrival would silently find the card already shown.
+        /// </summary>
+        private static void ValidateOncePerRunConvergence(
+            IReadOnlyList<CardDefinition> cards,
+            List<ContentValidationIssue> issues)
+        {
+            if (cards == null)
+            {
+                return;
+            }
+
+            Dictionary<string, HashSet<string>> incomingSources =
+                new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+
+            for (int i = 0; i < cards.Count; i++)
+            {
+                CardDefinition card = cards[i];
+                if (card == null || string.IsNullOrWhiteSpace(card.Id))
+                {
+                    continue;
+                }
+
+                foreach (string target in CollectForcedTargets(card))
+                {
+                    if (!incomingSources.TryGetValue(target, out HashSet<string> sources))
+                    {
+                        sources = new HashSet<string>(StringComparer.Ordinal);
+                        incomingSources[target] = sources;
+                    }
+
+                    sources.Add(card.Id);
+                }
+            }
+
+            for (int i = 0; i < cards.Count; i++)
+            {
+                CardDefinition card = cards[i];
+                if (card == null || string.IsNullOrWhiteSpace(card.Id)
+                    || !card.OncePerRun || card.ForcedChainOnly)
+                {
+                    continue;
+                }
+
+                if (incomingSources.TryGetValue(card.Id, out HashSet<string> sources)
+                    && sources.Count > 1)
+                {
+                    issues.Add(ContentValidationIssue.Warning(
+                        ContentIssueCode.MultipleForcedChainsConvergeOnOncePerRunCard,
+                        card.Id,
+                        string.Format(
+                            "{0} different cards force a chain into this once-per-run card ({1}). " +
+                            "Confirm at most one of those paths can be live in a single run.",
+                            sources.Count,
+                            string.Join(", ", sources))));
+                }
+            }
+        }
+
+        /// <summary>
+        /// A <see cref="CardDefinition.ForcedChainOnly"/> card with no forced-next on either side
+        /// (base or every variant) ends the story there: once a run resolves it, no further card is
+        /// forced and — being forced-chain-only — none will be drawn normally either. Reported as
+        /// information, not a defect: a story's true ending is exactly this shape. It is worth
+        /// surfacing anyway, since the same shape also covers "an author forgot to set forced-next".
+        /// </summary>
+        private static void ValidateDeadEndTerminals(
+            IReadOnlyList<CardDefinition> cards,
+            ContentValidationOptions options,
+            List<ContentValidationIssue> issues)
+        {
+            if (!options.IncludeInformation || cards == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < cards.Count; i++)
+            {
+                CardDefinition card = cards[i];
+                if (card == null || string.IsNullOrWhiteSpace(card.Id) || !card.ForcedChainOnly)
+                {
+                    continue;
+                }
+
+                if (CollectForcedTargets(card).Count == 0)
+                {
+                    issues.Add(ContentValidationIssue.Information(
+                        ContentIssueCode.TerminalForcedChainOnlyCard,
+                        card.Id,
+                        "No choice, base or variant, sets a forced-next card, and this card is " +
+                        "forced-chain-only: resolving either side ends the story here."));
+                }
+            }
         }
     }
 }

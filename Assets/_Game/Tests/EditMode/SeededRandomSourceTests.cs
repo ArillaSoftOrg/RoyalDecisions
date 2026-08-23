@@ -139,5 +139,37 @@ namespace RoyalDecisions.Tests.EditMode
 
             Assert.That(seen, Is.All.True);
         }
+
+        // --- ForChoiceResolution ----------------------------------------------
+
+        [Test]
+        public void ForChoiceResolution_IsStableForTheSameSeedAndTurn()
+        {
+            int[] first = Take(SeededRandomSource.ForChoiceResolution(777, 4), SampleCount, Range);
+            int[] second = Take(SeededRandomSource.ForChoiceResolution(777, 4), SampleCount, Range);
+
+            Assert.That(second, Is.EqualTo(first));
+        }
+
+        [Test]
+        public void ForChoiceResolution_DivergesFromCardSelectionOnTheSameTurn()
+        {
+            // Deliberately salted differently from ForTurn: a card-selection draw and a choice's
+            // random outcome must not silently share one stream just because they land on the same
+            // turn number.
+            int[] cardSelection = Take(SeededRandomSource.ForTurn(777, 4), SampleCount, Range);
+            int[] choiceResolution = Take(SeededRandomSource.ForChoiceResolution(777, 4), SampleCount, Range);
+
+            Assert.That(choiceResolution, Is.Not.EqualTo(cardSelection));
+        }
+
+        [Test]
+        public void ForChoiceResolution_GivesEachTurnItsOwnStream()
+        {
+            int[] turn4 = Take(SeededRandomSource.ForChoiceResolution(777, 4), SampleCount, Range);
+            int[] turn5 = Take(SeededRandomSource.ForChoiceResolution(777, 5), SampleCount, Range);
+
+            Assert.That(turn5, Is.Not.EqualTo(turn4));
+        }
     }
 }

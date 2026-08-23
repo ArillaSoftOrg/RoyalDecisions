@@ -1,0 +1,112 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: story_k148
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: story_k148
+  speaker: "Sabiha (Erzak\xE7\u0131)"
+  bodyText: "Sabiha'n\u0131n ticaret a\u011F\u0131 b\xFCy\xFCyor. Destekle mi, s\u0131n\u0131rl\u0131
+    m\u0131 tut?"
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: Destekle
+    deltas:
+      authority: 0
+      people: 0
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: story_k152
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options: []
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  rightChoice:
+    previewText: "S\u0131n\u0131rl\u0131 tut"
+    deltas:
+      authority: 0
+      people: 0
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: story_k149
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options: []
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+    numericConditions: []
+  selectionWeight: 1
+  oncePerRun: 1
+  cooldownTurns: 0
+  forcedNextCardId: 
+  forcedChainOnly: 1
+  variants: []

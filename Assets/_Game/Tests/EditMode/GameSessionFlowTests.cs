@@ -57,6 +57,35 @@ namespace RoyalDecisions.Tests.EditMode
             session.NotifyCardExitCompleted();
         }
 
+        // --- Choice availability -------------------------------------------------
+
+        [Test]
+        public void ConfirmDecision_OnAnUnavailableSide_IsRejectedAndAppliesNothing()
+        {
+            GameSession session = StartedSession(GameSessionTestContent.WithUnavailableLeftChoice());
+            StatValues before = session.CurrentRun.Stats;
+
+            SessionResult result = session.ConfirmDecision(ChoiceSide.Left);
+
+            Assert.That(result.Accepted, Is.False);
+            Assert.That(result.Error.Code, Is.EqualTo(SessionErrorCode.ChoiceUnavailable));
+            Assert.That(session.State, Is.EqualTo(GameSessionState.AwaitingDecision),
+                "the card must still be awaiting a decision, not stranded");
+            Assert.That(session.CurrentRun.Stats.Authority, Is.EqualTo(before.Authority));
+        }
+
+        [Test]
+        public void ConfirmDecision_OnAnUnavailableSide_StillAllowsTheOtherSide()
+        {
+            GameSession session = StartedSession(GameSessionTestContent.WithUnavailableLeftChoice());
+
+            session.ConfirmDecision(ChoiceSide.Left);
+            SessionResult result = session.ConfirmDecision(ChoiceSide.Right);
+
+            Assert.That(result.Accepted, Is.True);
+            Assert.That(session.CurrentRun.Stats.People, Is.EqualTo(StatBounds.Initial + 5));
+        }
+
         [Test]
         public void DevelopmentChoiceUsesRealExactlyOnceSessionFlow()
         {

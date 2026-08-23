@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using RoyalDecisions.Data;
 using UnityEngine;
 
 namespace RoyalDecisions.Domain
@@ -25,6 +26,9 @@ namespace RoyalDecisions.Domain
         [SerializeField] private string forcedNextCardId;
         [SerializeField] private string currentCardId;
         [SerializeField] private bool isRunActive;
+        [SerializeField] private int leaderHealth;
+        [SerializeField] private int reignNumber;
+        [SerializeField] private List<StoryCounterEntry> storyCounters;
 
         public RunState()
         {
@@ -36,6 +40,9 @@ namespace RoyalDecisions.Domain
             cooldowns = new List<CardCooldownEntry>();
             forcedNextCardId = string.Empty;
             currentCardId = string.Empty;
+            leaderHealth = LeaderHealthBounds.Initial;
+            reignNumber = GameConstants.FirstReignNumber;
+            storyCounters = new List<StoryCounterEntry>();
         }
 
         /// <summary>Starts a fresh run driven by the given seed.</summary>
@@ -69,9 +76,79 @@ namespace RoyalDecisions.Domain
 
         public bool HasForcedNextCard => !string.IsNullOrEmpty(forcedNextCardId);
 
+        /// <summary>The current leader's health, 0..10. See <see cref="LeaderHealthBounds"/>.</summary>
+        public int LeaderHealth => leaderHealth;
+
+        /// <summary>How many leaders (including the current one) this run has had.</summary>
+        public int ReignNumber => reignNumber;
+
+        public IReadOnlyList<StoryCounterEntry> StoryCounters => storyCounters;
+
         public void SetStats(StatValues value)
         {
             stats = value;
+        }
+
+        /// <summary>Moves leader health by <paramref name="delta"/>, clamped to its legal range.</summary>
+        public void AdjustLeaderHealth(int delta)
+        {
+            leaderHealth = Mathf.Clamp(
+                leaderHealth + delta, LeaderHealthBounds.Min, LeaderHealthBounds.Max);
+        }
+
+        /// <summary>Replaces leader health outright, clamped to its legal range.</summary>
+        public void SetLeaderHealth(int value)
+        {
+            leaderHealth = Mathf.Clamp(value, LeaderHealthBounds.Min, LeaderHealthBounds.Max);
+        }
+
+        /// <summary>Advances to the next leader. Called once per reign succession.</summary>
+        public void IncrementReignNumber()
+        {
+            reignNumber++;
+        }
+
+        /// <summary>Adds (or subtracts) from a named counter, creating it at zero if it is new.</summary>
+        public void AddToCounter(string counterId, int delta)
+        {
+            if (string.IsNullOrEmpty(counterId) || delta == 0)
+            {
+                return;
+            }
+
+            StoryCounterEntry existing = FindCounter(counterId);
+            if (existing != null)
+            {
+                existing.Add(delta);
+                return;
+            }
+
+            storyCounters.Add(new StoryCounterEntry(counterId, delta));
+        }
+
+        /// <summary>The counter's current value, or zero if it has never been touched.</summary>
+        public int GetCounter(string counterId)
+        {
+            StoryCounterEntry existing = FindCounter(counterId);
+            return existing?.Value ?? 0;
+        }
+
+        private StoryCounterEntry FindCounter(string counterId)
+        {
+            if (string.IsNullOrEmpty(counterId))
+            {
+                return null;
+            }
+
+            for (int i = 0; i < storyCounters.Count; i++)
+            {
+                if (string.Equals(storyCounters[i].Id, counterId, StringComparison.Ordinal))
+                {
+                    return storyCounters[i];
+                }
+            }
+
+            return null;
         }
 
         /// <summary>Adds a flag. Returns false when the run already carried it.</summary>
@@ -214,6 +291,28 @@ namespace RoyalDecisions.Domain
                 repaired = true;
             }
 
+            if (storyCounters == null)
+            {
+                storyCounters = new List<StoryCounterEntry>();
+                repaired = true;
+            }
+
+            int clampedLeaderHealth = Mathf.Clamp(
+                leaderHealth, LeaderHealthBounds.Min, LeaderHealthBounds.Max);
+            if (clampedLeaderHealth != leaderHealth)
+            {
+                leaderHealth = clampedLeaderHealth;
+                repaired = true;
+            }
+
+            if (reignNumber < GameConstants.FirstReignNumber)
+            {
+                reignNumber = GameConstants.FirstReignNumber;
+                repaired = true;
+            }
+
+            repaired |= CompactCounters();
+
             if (forcedNextCardId == null)
             {
                 forcedNextCardId = string.Empty;
@@ -319,6 +418,48 @@ namespace RoyalDecisions.Domain
             if (write != cooldowns.Count)
             {
                 cooldowns.RemoveRange(write, cooldowns.Count - write);
+            }
+
+            return repaired;
+        }
+
+        /// <summary>
+        /// Drops null and ID-less counter entries, and collapses duplicates by summing their
+        /// values, since a counter has no direction to prefer the way a cooldown prefers "later".
+        /// </summary>
+        private bool CompactCounters()
+        {
+            Dictionary<string, StoryCounterEntry> kept =
+                new Dictionary<string, StoryCounterEntry>(StringComparer.Ordinal);
+
+            bool repaired = false;
+            int write = 0;
+
+            for (int read = 0; read < storyCounters.Count; read++)
+            {
+                StoryCounterEntry entry = storyCounters[read];
+
+                if (entry == null || string.IsNullOrWhiteSpace(entry.Id))
+                {
+                    repaired = true;
+                    continue;
+                }
+
+                if (kept.TryGetValue(entry.Id, out StoryCounterEntry existing))
+                {
+                    existing.Add(entry.Value);
+                    repaired = true;
+                    continue;
+                }
+
+                kept.Add(entry.Id, entry);
+                storyCounters[write] = entry;
+                write++;
+            }
+
+            if (write != storyCounters.Count)
+            {
+                storyCounters.RemoveRange(write, storyCounters.Count - write);
             }
 
             return repaired;

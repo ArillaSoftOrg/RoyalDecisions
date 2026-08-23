@@ -16,7 +16,14 @@ namespace RoyalDecisions.Application
     /// </remarks>
     public interface IGamePresenter
     {
-        void ShowCard(CardDefinition card);
+        /// <summary>
+        /// Shows <paramref name="card"/> as resolved for the current run: <paramref name="resolved"/>
+        /// carries the effective speaker/body text and effective choices (a matched
+        /// <see cref="RoyalDecisions.Data.CardVariant"/>'s, or the base card's if none matched),
+        /// plus each side's availability. <paramref name="card"/> itself is kept only for identity
+        /// and its portrait, which variants do not override.
+        /// </summary>
+        void ShowCard(CardDefinition card, ResolvedCard resolved);
 
         void ClearCard();
 

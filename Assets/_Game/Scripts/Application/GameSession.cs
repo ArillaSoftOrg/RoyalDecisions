@@ -25,11 +25,13 @@ namespace RoyalDecisions.Application
 
         private readonly CardDeckService deckService = new CardDeckService(new ConditionEvaluator());
         private readonly GameOverEvaluator gameOverEvaluator = new GameOverEvaluator();
+        private readonly CardVariantResolver variantResolver = new CardVariantResolver(new ConditionEvaluator());
 
         private RunState runState;
         private StatSystem statSystem;
         private ChoiceResolver choiceResolver;
         private CardDefinition currentCard;
+        private ResolvedCard currentResolved;
 
         private GameOverResult pendingGameOver;
         private bool hasPendingGameOver;
@@ -157,14 +159,21 @@ namespace RoyalDecisions.Application
                 return Reject("No card is awaiting a decision.");
             }
 
+            CardDefinition card = currentCard;
+
+            if (card != null && !currentResolved.IsAvailable(side))
+            {
+                // Still awaiting: an unavailable side is a no-op, not a state transition — the
+                // player can still confirm the other side of the same card.
+                return Rejected(
+                    SessionErrorCode.ChoiceUnavailable, "That choice is not currently available.");
+            }
+
             SetState(GameSessionState.ResolvingDecision);
 
-            CardDefinition card = currentCard;
-            ChoiceDefinition choice = card == null
-                ? null
-                : (side == ChoiceSide.Left ? card.LeftChoice : card.RightChoice);
+            ChoiceDefinition choice = card != null ? currentResolved.Choice(side) : null;
 
-            ChoiceResolution resolution = choiceResolver.Resolve(runState, card, side);
+            ChoiceResolution resolution = choiceResolver.Resolve(runState, card, choice, side);
 
             if (!resolution.Succeeded)
             {
@@ -206,6 +215,7 @@ namespace RoyalDecisions.Application
 
             presenter.ClearCard();
             currentCard = null;
+            currentResolved = ResolvedCard.Empty;
 
             if (hasPendingGameOver)
             {
@@ -234,6 +244,7 @@ namespace RoyalDecisions.Application
 
             hasPendingGameOver = false;
             currentCard = null;
+            currentResolved = ResolvedCard.Empty;
 
             return BeginRun(null);
         }
@@ -279,6 +290,7 @@ namespace RoyalDecisions.Application
             statSystem = null;
             choiceResolver = null;
             currentCard = null;
+            currentResolved = ResolvedCard.Empty;
             hasPendingGameOver = false;
 
             SetState(GameSessionState.Uninitialized);
@@ -480,12 +492,13 @@ namespace RoyalDecisions.Application
             }
 
             currentCard = selection.Card;
+            currentResolved = variantResolver.Resolve(currentCard, runState);
 
             // Armed before input is enabled: this is the token the domain's duplicate guard reads.
             runState.SetCurrentCardId(currentCard.Id);
 
             presenter.ShowTurn(runState.Turn + 1);
-            presenter.ShowCard(currentCard);
+            presenter.ShowCard(currentCard, currentResolved);
             CardPresented?.Invoke(currentCard);
             presenter.PrepareForInput();
 

@@ -236,5 +236,119 @@ namespace RoyalDecisions.Tests.EditMode
         {
             Assert.That(evaluator.AreConditionsMet(CardTestFactory.Conditions(), null), Is.False);
         }
+
+        // --- Numeric conditions ----------------------------------------------
+
+        [Test]
+        public void EvaluateNumeric_AlwaysIsTrueRegardlessOfState()
+        {
+            Assert.That(evaluator.EvaluateNumeric(NumericCondition.Always(), runState), Is.True);
+        }
+
+        [Test]
+        public void EvaluateNumeric_ReadsAStatByTheConfiguredComparison()
+        {
+            NumericCondition condition = new NumericCondition(
+                NumericSource.Stat, NumericComparison.GreaterOrEqual, 60, stat: StatType.Wealth);
+
+            Assert.That(evaluator.EvaluateNumeric(condition, runState), Is.False, "wealth starts at 50");
+
+            runState.SetStats(runState.Stats.With(StatType.Wealth, 60));
+            Assert.That(evaluator.EvaluateNumeric(condition, runState), Is.True);
+        }
+
+        [Test]
+        public void EvaluateNumeric_ReadsACounterAsZeroUntilTouched()
+        {
+            NumericCondition condition = new NumericCondition(
+                NumericSource.Counter, NumericComparison.GreaterOrEqual, 2, counterId: "pharma_arastirma");
+
+            Assert.That(evaluator.EvaluateNumeric(condition, runState), Is.False);
+
+            runState.AddToCounter("pharma_arastirma", 2);
+            Assert.That(evaluator.EvaluateNumeric(condition, runState), Is.True);
+        }
+
+        [Test]
+        public void EvaluateNumeric_ReadsLeaderHealth()
+        {
+            NumericCondition condition = new NumericCondition(
+                NumericSource.LeaderHealth, NumericComparison.LessThan, LeaderHealthBounds.CriticalThreshold);
+
+            Assert.That(evaluator.EvaluateNumeric(condition, runState), Is.False, "leader health starts full");
+
+            runState.SetLeaderHealth(LeaderHealthBounds.CriticalThreshold - 1);
+            Assert.That(evaluator.EvaluateNumeric(condition, runState), Is.True);
+        }
+
+        [Test]
+        public void EvaluateNumeric_RejectsANullConditionOrRun()
+        {
+            Assert.That(evaluator.EvaluateNumeric(null, runState), Is.False);
+            Assert.That(evaluator.EvaluateNumeric(NumericCondition.Always(), null), Is.False);
+        }
+
+        // --- Forced-chain-only cards ------------------------------------------
+
+        [Test]
+        public void ForcedChainOnlyCard_IsIneligibleForNormalSelection()
+        {
+            CardDefinition card = CardTestFactory.Card(forcedChainOnly: true);
+
+            Assert.That(evaluator.IsEligible(card, runState), Is.False);
+        }
+
+        [Test]
+        public void RegularCard_WithoutForcedChainOnly_StaysEligible()
+        {
+            CardDefinition card = CardTestFactory.Card(forcedChainOnly: false);
+
+            Assert.That(evaluator.IsEligible(card, runState), Is.True);
+        }
+
+        // --- Choice availability ----------------------------------------------
+
+        [Test]
+        public void IsChoiceAvailable_WithNoAvailabilityCondition_IsTrue()
+        {
+            ChoiceDefinition choice = CardTestFactory.Choice("Always");
+
+            Assert.That(evaluator.IsChoiceAvailable(choice, runState), Is.True);
+        }
+
+        [Test]
+        public void IsChoiceAvailable_RequiresItsFlagLikeACardCondition()
+        {
+            ChoiceDefinition choice = CardTestFactory.Choice("Gated",
+                availability: CardTestFactory.Conditions(requiredFlags: new[] { "has_key" }));
+
+            Assert.That(evaluator.IsChoiceAvailable(choice, runState), Is.False);
+
+            runState.AddFlag("has_key");
+            Assert.That(evaluator.IsChoiceAvailable(choice, runState), Is.True);
+        }
+
+        [Test]
+        public void IsChoiceAvailable_RejectsANullChoice()
+        {
+            Assert.That(evaluator.IsChoiceAvailable(null, runState), Is.False);
+        }
+
+        [Test]
+        public void CardConditions_NumericConditionCanBlockEligibility()
+        {
+            CardDefinition card = CardTestFactory.Card(
+                conditions: new CardConditions(null, null, null, new[]
+                {
+                    new NumericCondition(
+                        NumericSource.Counter, NumericComparison.GreaterOrEqual, 3,
+                        counterId: "pharma_arastirma")
+                }));
+
+            Assert.That(evaluator.IsEligible(card, runState), Is.False);
+
+            runState.AddToCounter("pharma_arastirma", 3);
+            Assert.That(evaluator.IsEligible(card, runState), Is.True);
+        }
     }
 }

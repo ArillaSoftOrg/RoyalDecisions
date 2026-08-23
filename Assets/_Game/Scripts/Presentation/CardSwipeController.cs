@@ -99,6 +99,8 @@ namespace RoyalDecisions.Presentation
         private float defaultThresholdRatio;
         private bool swipeInputEnabled = true;
         private bool decisionMappingInverted;
+        private bool leftSideAvailable = true;
+        private bool rightSideAvailable = true;
 
         public CardSwipeState State { get; private set; } = CardSwipeState.Idle;
 
@@ -202,8 +204,15 @@ namespace RoyalDecisions.Presentation
                 // Direction flips. Splitting the two keeps the exit animation and the confirmed
                 // decision each internally consistent instead of the card reversing mid-flight.
                 ChoiceSide physicalSide = SwipeMath.SideFor(currentDisplacement);
-                Confirm(LogicalSide(physicalSide), physicalSide);
-                return;
+                ChoiceSide logicalSide = LogicalSide(physicalSide);
+
+                // An unavailable side never confirms, drag or not — it always snaps back, the same
+                // as a drag that never reached the threshold.
+                if (IsSideAvailable(logicalSide))
+                {
+                    Confirm(logicalSide, physicalSide);
+                    return;
+                }
             }
 
             BeginSnapBack();
@@ -284,7 +293,7 @@ namespace RoyalDecisions.Presentation
         /// </summary>
         public void ConfirmSide(ChoiceSide side)
         {
-            if (!IsInteractable)
+            if (!IsInteractable || !IsSideAvailable(side))
             {
                 return;
             }
@@ -356,6 +365,26 @@ namespace RoyalDecisions.Presentation
         public void SetSwipeInputEnabled(bool enabled)
         {
             swipeInputEnabled = enabled;
+        }
+
+        /// <summary>
+        /// Tells the controller which sides of the current card may currently be confirmed (see
+        /// <c>ChoiceDefinition.Availability</c>). An unavailable side never confirms — a drag or tap
+        /// towards it always snaps back — regardless of distance or a tap button's own state.
+        /// Defaults to both available, and is meant to be set once per presented card, before
+        /// <see cref="ResetForNextCard"/> arms input for it; it is deliberately untouched by
+        /// <see cref="ResetForNextCard"/> itself; so the caller that just set it is not undone by
+        /// the very call that follows it in the normal present-card sequence.
+        /// </summary>
+        public void SetSideAvailability(bool leftAvailable, bool rightAvailable)
+        {
+            leftSideAvailable = leftAvailable;
+            rightSideAvailable = rightAvailable;
+        }
+
+        private bool IsSideAvailable(ChoiceSide side)
+        {
+            return side == ChoiceSide.Left ? leftSideAvailable : rightSideAvailable;
         }
 
         private void CaptureSensitivityDefaultOnce()

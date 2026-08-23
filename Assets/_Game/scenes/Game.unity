@@ -8669,7 +8669,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 23fd83a2d264bcf4280cfe07f80b60f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: RoyalDecisions.Composition::RoyalDecisions.Composition.GameSceneController
-  catalogue: {fileID: 11400000, guid: 02c96f5f24b0aad49989686c3e68cda3, type: 2}
+  catalogue: {fileID: 11400000, guid: d0bbd0becab0c81439eed8367cf68086, type: 2}
   cardView: {fileID: 569737569}
   hudView: {fileID: 1890239428}
   gameOverView: {fileID: 715438309}

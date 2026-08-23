@@ -38,13 +38,17 @@ namespace RoyalDecisions.Composition
             this.footerView = footerView;
         }
 
-        public void ShowCard(CardDefinition card)
+        public void ShowCard(CardDefinition card, ResolvedCard resolved)
         {
             hudView?.ClearChoiceImpact();
             if (cardView != null)
             {
-                cardView.Show(card);
+                cardView.Show(card, resolved);
             }
+
+            // Set before PrepareForInput's ResetForNextCard arms the controller for this card —
+            // see SetSideAvailability's remarks on ordering.
+            swipeController?.SetSideAvailability(resolved.LeftAvailable, resolved.RightAvailable);
         }
 
         public void ClearCard()

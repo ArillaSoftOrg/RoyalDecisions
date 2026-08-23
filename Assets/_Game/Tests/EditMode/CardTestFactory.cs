@@ -27,7 +27,11 @@ namespace RoyalDecisions.Tests.EditMode
             string[] flagsToAdd = null,
             string[] flagsToRemove = null,
             string forcedNextCardId = "",
-            string audioEventId = "")
+            string audioEventId = "",
+            CounterDelta[] counterDeltas = null,
+            ConditionalChoiceEffect conditionalEffect = null,
+            RandomStatOutcome randomOutcome = null,
+            CardConditions availability = null)
         {
             return new ChoiceDefinition(
                 previewText,
@@ -35,7 +39,11 @@ namespace RoyalDecisions.Tests.EditMode
                 flagsToAdd,
                 flagsToRemove,
                 forcedNextCardId,
-                audioEventId);
+                audioEventId,
+                counterDeltas,
+                conditionalEffect,
+                randomOutcome,
+                availability);
         }
 
         public static CardDefinition Card(
@@ -48,7 +56,9 @@ namespace RoyalDecisions.Tests.EditMode
             int selectionWeight = CardDefinition.DefaultSelectionWeight,
             bool oncePerRun = false,
             int cooldownTurns = 0,
-            string forcedNextCardId = "")
+            string forcedNextCardId = "",
+            bool forcedChainOnly = false,
+            CardVariant[] variants = null)
         {
             CardDefinition card = ScriptableObject.CreateInstance<CardDefinition>();
             card.name = id;
@@ -62,7 +72,9 @@ namespace RoyalDecisions.Tests.EditMode
                 selectionWeight,
                 oncePerRun,
                 cooldownTurns,
-                forcedNextCardId);
+                forcedNextCardId,
+                isForcedChainOnly: forcedChainOnly,
+                cardVariants: variants);
 
             Created.Add(card);
             return card;

@@ -39,6 +39,23 @@ namespace RoyalDecisions.Domain
             return new SeededRandomSource(unchecked((int)mixed));
         }
 
+        /// <summary>
+        /// Distinct salt for <see cref="ForTurn"/>'s <c>turn</c> input, so a choice's random outcome
+        /// draws from a different stream than the same turn's card selection despite sharing a turn
+        /// number.
+        /// </summary>
+        private const uint ChoiceResolutionSalt = 0x5BD1E995u;
+
+        /// <summary>
+        /// Builds the stream used to resolve a "variable" choice outcome (see
+        /// <see cref="RoyalDecisions.Data.RandomStatOutcome"/>) on one turn of one run.
+        /// </summary>
+        public static SeededRandomSource ForChoiceResolution(int runSeed, int turn)
+        {
+            uint mixed = Mix(unchecked((uint)runSeed), unchecked((uint)turn) ^ ChoiceResolutionSalt);
+            return new SeededRandomSource(unchecked((int)mixed));
+        }
+
         /// <summary>Current internal state, exposed so a later phase could persist a stream.</summary>
         public uint State => state;
 

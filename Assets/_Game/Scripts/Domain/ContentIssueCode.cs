@@ -39,10 +39,13 @@ namespace RoyalDecisions.Domain
         ExcessiveStatDelta = 107,
         ExcessiveTextLength = 108,
         ShadowedEnding = 109,
+        UnreachableForcedChainOnlyCard = 110,
+        MultipleForcedChainsConvergeOnOncePerRunCard = 111,
 
         // --- Information ---
         OptionalPortraitMissing = 200,
         OptionalEndingImageMissing = 201,
-        FlagWrittenNeverRead = 202
+        FlagWrittenNeverRead = 202,
+        TerminalForcedChainOnlyCard = 203
     }
 }

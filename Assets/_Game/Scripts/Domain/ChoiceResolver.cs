@@ -17,6 +17,7 @@ namespace RoyalDecisions.Domain
         private const int CooldownOffset = 1;
 
         private readonly StatSystem statSystem;
+        private readonly ConditionEvaluator conditionEvaluator = new ConditionEvaluator();
 
         public ChoiceResolver(StatSystem statSystem)
         {
@@ -33,7 +34,28 @@ namespace RoyalDecisions.Domain
         /// returns <see cref="ChoiceResolutionStatus.NoActiveCard"/> and changes nothing, even if
         /// the swipe controller misbehaves or the app is backgrounded mid-animation.
         /// </remarks>
-        public ChoiceResolution Resolve(RunState runState, CardDefinition card, ChoiceSide side)
+        public ChoiceResolution Resolve(
+            RunState runState, CardDefinition card, ChoiceSide side, IRandomSource random = null)
+        {
+            ChoiceDefinition choice = card != null
+                ? (side == ChoiceSide.Left ? card.LeftChoice : card.RightChoice)
+                : null;
+
+            return Resolve(runState, card, choice, side, random);
+        }
+
+        /// <summary>
+        /// Resolves against <paramref name="effectiveChoice"/> rather than deriving it from
+        /// <paramref name="card"/> — the seam a caller that has already resolved a
+        /// <see cref="ResolvedCard"/> (a matched <see cref="Data.CardVariant"/>, possibly) uses, so a
+        /// variant's overridden deltas/flags/forced-next apply exactly like the base card's would.
+        /// </summary>
+        public ChoiceResolution Resolve(
+            RunState runState,
+            CardDefinition card,
+            ChoiceDefinition effectiveChoice,
+            ChoiceSide side,
+            IRandomSource random = null)
         {
             if (runState == null || card == null || string.IsNullOrEmpty(card.Id))
             {
@@ -55,7 +77,7 @@ namespace RoyalDecisions.Domain
                 return ChoiceResolution.Rejected(ChoiceResolutionStatus.CardMismatch);
             }
 
-            ChoiceDefinition choice = side == ChoiceSide.Left ? card.LeftChoice : card.RightChoice;
+            ChoiceDefinition choice = effectiveChoice;
             if (choice == null)
             {
                 return ChoiceResolution.Rejected(ChoiceResolutionStatus.InvalidCard);
@@ -66,6 +88,21 @@ namespace RoyalDecisions.Domain
             // none of it.
             StatValues statsBefore = statSystem.Current;
             statSystem.Apply(choice.Deltas);
+
+            if (choice.HasRandomOutcome)
+            {
+                IRandomSource resolutionRandom =
+                    random ?? SeededRandomSource.ForChoiceResolution(runState.Seed, runState.Turn);
+                ApplyRandomOutcome(choice.RandomOutcome, resolutionRandom);
+            }
+
+            if (choice.HasConditionalEffect)
+            {
+                ApplyConditionalEffect(runState, choice.ConditionalEffect);
+            }
+
+            ApplyCounters(runState, choice);
+
             StatValues statsAfter = statSystem.Current;
 
             ApplyFlags(runState, choice);
@@ -107,6 +144,61 @@ namespace RoyalDecisions.Domain
             for (int i = 0; i < toRemove.Count; i++)
             {
                 runState.RemoveFlag(toRemove[i]);
+            }
+        }
+
+        private void ApplyRandomOutcome(RandomStatOutcome outcome, IRandomSource random)
+        {
+            IReadOnlyList<StatDeltas> options = outcome.Options;
+            int index = random.NextInt(options.Count);
+            statSystem.Apply(options[index]);
+        }
+
+        /// <summary>
+        /// Branches on <paramref name="effect"/>'s condition, then — only on the branch that
+        /// triggers a reign succession — resets the affected statistic and leader health together,
+        /// atomically with everything else this decision does. This is what keeps
+        /// <see cref="GameOverEvaluator"/> from ever seeing the statistic sitting at a boundary: by
+        /// the time it runs, the succession has already happened.
+        /// </summary>
+        private void ApplyConditionalEffect(RunState runState, ConditionalChoiceEffect effect)
+        {
+            bool conditionMet = conditionEvaluator.EvaluateNumeric(effect.Condition, runState);
+
+            if (conditionMet)
+            {
+                statSystem.Apply(effect.DeltasWhenTrue);
+                runState.AdjustLeaderHealth(effect.LeaderHealthDeltaWhenTrue);
+
+                if (effect.TriggersSuccessionWhenTrue)
+                {
+                    if (effect.HasSuccessionResetStat)
+                    {
+                        statSystem.Set(statSystem.Current.With(
+                            effect.SuccessionResetStat, GameConstants.ReignSuccessionResetStatValue));
+                    }
+
+                    runState.SetLeaderHealth(LeaderHealthBounds.Initial);
+                    runState.IncrementReignNumber();
+                }
+            }
+            else
+            {
+                statSystem.Apply(effect.DeltasWhenFalse);
+                runState.AdjustLeaderHealth(effect.LeaderHealthDeltaWhenFalse);
+            }
+        }
+
+        private static void ApplyCounters(RunState runState, ChoiceDefinition choice)
+        {
+            IReadOnlyList<CounterDelta> deltas = choice.CounterDeltas;
+            for (int i = 0; i < deltas.Count; i++)
+            {
+                CounterDelta delta = deltas[i];
+                if (delta != null)
+                {
+                    runState.AddToCounter(delta.CounterId, delta.Delta);
+                }
             }
         }
     }

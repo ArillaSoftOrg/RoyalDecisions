@@ -1917,3 +1917,191 @@ could not click a rendered screen, only drive the real components programmatical
       reverted (see above) rather than reviewed by eye.
 - [ ] The slider-tick preview fix: with Ana Ses around 20–30%, drag Ses Efektleri — the tick
       should now sound quiet, matching what Uygula will actually commit, not full volume.
+
+## Story integration — "Sığınak: Saltanat Günlükleri" Chapter I (2026-08-23)
+
+Integrated the narrative specification in `Hıkaye.md` (root of the repo) into the existing card
+system as real, data-driven content — not decorative text. See the chat report for the full
+architecture write-up; this section covers only what needs manual attention in the Editor.
+
+### What changed (summary — full detail in the session report)
+
+- New Data types: `NumericCondition`/`NumericSource`/`NumericComparison`, `ConditionalChoiceEffect`,
+  `RandomStatOutcome`, `CounterDelta`, `LeaderHealthBounds`. `CardConditions` gained numeric
+  conditions; `ChoiceDefinition` gained counter deltas, a conditional effect, and a random outcome
+  — all optional, all backward compatible with the twenty existing placeholder cards.
+- `RunState` gained `LeaderHealth`, `ReignNumber`, and named story counters (`AddToCounter`/
+  `GetCounter`), all covered by `SanitizeAfterLoad` and JSON round-trip tests. No save-version bump:
+  a save from before this pass simply deserialises these as the constructor's defaults (full leader
+  health, first reign, no counters) — verified by test, matching how every earlier additive field
+  in `RunState` already behaves.
+- `ChoiceResolver` gained support for the three new effect types, applied atomically alongside the
+  existing flag/delta/cooldown/forced-next handling — a reign succession triggered by a choice never
+  leaves a statistic sitting at a boundary for `GameOverEvaluator` to see.
+- New `Tools/Royal Decisions/Generate Story Content` Editor command (mirrors the existing
+  placeholder generator's safety rules exactly: writes only under `Assets/_Game/Content/Story/`,
+  never overwrites hand-authored content, validates before writing). Generates 25 cards (K1-K25 of
+  the specification) plus one closing card of our own, and 8 boundary endings themed to the
+  setting.
+
+### Manual step required
+
+The generator writes `Assets/_Game/Content/Story/StoryContentCatalogue.asset` but does **not**
+wire it into the Game scene — `GameSceneController.catalogue` still points at
+`PlaceholderContentCatalogue.asset`, and switching it is an Inspector change on a `.unity` scene,
+which this pass does not touch per CLAUDE.md §11.
+
+To play the real story instead of the twenty placeholder cards:
+
+- [ ] Run `Tools > Royal Decisions > Generate Story Content` once (idempotent; safe to re-run).
+- [ ] Open `Assets/_Game/scenes/Game.unity`, select the object carrying `GameSceneController`,
+      and drag `Assets/_Game/Content/Story/StoryContentCatalogue.asset` onto its `Catalogue` field
+      (replacing `PlaceholderContentCatalogue`).
+- [ ] If you want both available side by side (e.g. a menu choice), that selection logic does not
+      exist yet — see "Remaining issues" in the session report.
+
+### Known, deliberate content-validation warnings
+
+`Tools > Royal Decisions > Content Authoring` (or `ProjectContentAudit`) will show ~27 warnings on
+the Story catalogue, all `UnreachableRequiredFlag` / `FlagReadNeverProduced` for the same flag
+(`story_forced_chain_only`). This is intentional — see the doc comment on
+`StoryContentLibrary.ForcedChainOnlyFlag` — and is why `ReleaseValidationAutomation.ValidateContent`
+(which currently demands zero warnings, not just zero errors) would fail if the Story catalogue
+were ever wired in as the release catalogue as-is. Not fixed this pass; flagged for whoever wires
+it in for real.
+
+### Verified this session
+
+- Full `EditMode -runTests` (Unity 6000.3.18f1 via CLI): **817/817 passed, 0 failed** (764 baseline
+  + 53 new: `RunStateTests` leader/counter cases, `ConditionEvaluatorTests` numeric-condition cases,
+  `SeededRandomSourceTests.ForChoiceResolution` cases, the new `ChoiceResolverConditionalEffectTests`
+  and `StoryContentLibraryTests` fixtures).
+  - The first run of this pass surfaced a real regression, caught by the suite exactly as intended:
+    an earlier draft added `StatType.None` as a "no stat selected" sentinel, which broke every
+    existing test that iterates `Enum.GetValues(typeof(StatType))` (6 failures, all pre-existing
+    tests, none of the new ones). Fixed by not touching the shared enum at all — the "no stat"
+    case is now expressed as `StatType?` at the `ConditionalChoiceEffect` constructor only, backed
+    by a plain `bool hasSuccessionResetStat` field, which is how `RunState.LeaderHealth`-only
+    succession (leader-risk cards) is told apart from stat-resetting succession (destructive/Yıkıcı
+    cards) without adding a member to a shared, iterated-over enum. Re-ran after the fix: clean.
+  - `ProjectSettings/ProjectSettings.asset` picked up the same unrelated scripting-define-symbol
+    churn documented in earlier passes (`Standalone` losing `SENTIS_ANALYTICS_ENABLED`); reverted
+    (CLAUDE.md §11).
+- `PlayMode` was not run this pass (no Presentation/scene code changed; the new mechanisms are
+  exercised only through `GameSession`/`ChoiceResolver`, both already covered by EditMode).
+- The generator itself (`Tools > Royal Decisions > Generate Story Content`) was **not** run through
+  the Editor this pass — verified instead by an EditMode test (`StoryContentLibraryTests`) that
+  builds the same in-memory content and runs it through `ContentValidator`, `CardDeckService`,
+  `ChoiceResolver` and `GameOverEvaluator` exactly as the real game would, across 8 seeds, to the
+  chapter's end. Run the menu command yourself and check the Console log before shipping — first
+  run should report 26 "Created" cards, 8 "Created" endings, one catalogue, and the warnings above;
+  a second run should report everything "Unchanged".
+
+### Not verified — please check with your own eyes
+
+- [ ] Actually running the generator menu command and inspecting the created assets in the
+      Inspector (portraits/audio are intentionally blank — placeholder/fallback rendering should
+      apply exactly as it does for the twenty existing cards).
+- [ ] Playing Chapter I end-to-end with the catalogue swapped in, on a device or in the Editor Game
+      view — confirm the swipe/tap flow, HUD, and card text render correctly for this content
+      (nothing in Presentation changed, but it has not been *played*, only driven programmatically).
+- [ ] Leader health has no HUD indicator. It is tracked correctly (tests cover it) but is currently
+      invisible to the player; whether it needs one is a design call for whoever owns the UI.
+
+## Full 250-card story, conditional variants, and runtime wiring (2026-08-23, later same day)
+
+Completed the story integration from the previous pass's Chapter I (K1-K25) to the entire
+specification (K1-K250), added a general conditional-variant/choice-availability system, and
+wired the result into the actual playable Game scene. Full detail is in the session report; this
+section is the manual-steps and verification record.
+
+### What changed (summary)
+
+- `StoryContentLibrary.cs` split into six chapter partial-class files (`StoryChapter1Cards.cs` ..
+  `StoryChapter6Cards.cs`), all 250 specification cards, plus a `CardDefinition.ForcedChainOnly`
+  field replacing the previous pass's flag-based hack for keeping story content out of normal
+  weighted selection (cleaner, and it eliminated ~27 false-positive validator warnings outright).
+- New `CardVariant` (Data) / `CardVariantResolver` (Domain) / `ResolvedCard` (Domain): a card's
+  text and choices can now depend on earlier flags/counters ("*Eğer X ise:*" in the specification),
+  resolved once per presentation and consumed by `IGamePresenter.ShowCard` — signature changed to
+  take the resolved card, not the raw `CardDefinition` (see report for the full call-site list).
+- New choice-level `availability` (a `CardConditions`): `ConditionEvaluator.IsChoiceAvailable` →
+  `GameSession.ConfirmDecision` refuses an unavailable side (new `SessionErrorCode.
+  ChoiceUnavailable`) → `CardSwipeController.SetSideAvailability` stops a drag or tap from ever
+  confirming it in the first place (wired from `UnityGamePresenter.ShowCard`).
+- `ContentValidator` gained forced-chain reachability, once-per-run convergence, and dead-end
+  checks — all variant-aware (they walk every `CardVariant`'s targets, not just the base card's).
+- New `StorySceneWiring.cs`: `Tools > Royal Decisions > Scene Setup > Use Story Catalogue In Game
+  Scene` (and its `Use Placeholder Catalogue...` counterpart) repoints `GameSceneController.
+  catalogue` and saves the scene, through `SerializedObject` exactly like `ContentAuthoringWindow`
+  already does — **already run this session** (see below), so `Game.unity` now ships the story.
+
+### A real bug this pass's own verification caught (worth knowing about)
+
+The first two attempts at `StorySceneWiring` reported success while actually writing `catalogue:
+{fileID: 0}` (null) into the scene — a classic Unity gotcha: the catalogue asset was loaded
+*before* `EditorSceneManager.OpenScene(..., Single)`, and opening a scene in Single mode unloads
+assets nothing currently references; a local C# variable is not a keep-alive root, so the
+reference went stale ("fake null") the moment the scene finished loading, and everything downstream
+(including the log message, which echoed the input path string rather than the actual result)
+looked fine. Fixed by loading the catalogue *after* opening the scene, and by adding real
+verification: reopening the saved scene fresh afterward and reading the field back from disk
+before ever reporting success. Both bad attempts were caught before being left in the repo — see
+the session report's Executive Summary for why this matters as a general lesson (scene/asset
+tooling code needs the same "verify what you actually did, not what you asked for" discipline as
+any other automation).
+
+### Manual step required
+
+None. `Tools > Royal Decisions > Scene Setup > Use Story Catalogue In Game Scene` was run this
+session, and the change is verified (`git diff Assets/_Game/scenes/Game.unity` — one line,
+`catalogue`'s GUID, confirmed to match `Assets/_Game/Content/Story/StoryContentCatalogue.asset.meta`,
+confirmed again by reopening the saved scene and reading the field back from disk). Opening the
+project and pressing Play should now start the real story at K1.
+
+To go back to the twenty placeholder cards instead, run `Tools > Royal Decisions > Scene Setup >
+Use Placeholder Catalogue In Game Scene`.
+
+### Verified this session (Unity 6000.3.18f1 via CLI for this whole pass)
+
+- Full `EditMode -runTests`: **835/835 passed, 0 failed** — run twice more after the Chapter I
+  pass's own 818/818 baseline (once after adding the six chapters and the variant/availability
+  architecture, once again after the two `ContentValidator` fixes below), both clean.
+- `Tools > Royal Decisions > Generate Story Content` (`StoryContentGenerator.GenerateBatch`, a new
+  CLI-safe entry point) run for real, twice: first run created all 250 cards + 8 endings + the
+  catalogue (259 created, 0 errors, then 163 warnings); second run (after the convergence-check fix
+  below) reported 259 unchanged, 0 errors, **2 warnings** (`ExcessiveTextLength` on K150 and K250,
+  the two longest narrative-closer cards — harmless).
+  - The first generator run's 161 `MultipleForcedChainsConvergeOnOncePerRunCard` warnings turned out
+    to be a false-positive in the check itself, not a content problem: for a
+    `CardDefinition.ForcedChainOnly` card, converging forced-next edges from mutually-exclusive
+    earlier branches is the normal, safe shape of a branching story rejoining itself (a single run
+    can only ever have taken one of those edges), not a risk. Fixed the validator to skip
+    `ForcedChainOnly` cards for that specific check, rather than suppressing the warning generally —
+    it remains meaningful for content that mixes forced chains with normal selection.
+- `Tools > Royal Decisions > Scene Setup > Use Story Catalogue In Game Scene`
+  (`StorySceneWiring.UseStoryCatalogueBatch`) run for real, three times (see the bug note above for
+  why): the first two were caught by verification and did **not** save; the third succeeded and was
+  independently confirmed (GUID match against the asset's own `.meta`, plus a fresh scene reopen).
+- Full `PlayMode -runTests`: **55/54 baseline → 55/55 passed, 0 failed** — run once, after the scene
+  wiring, specifically because this pass (unlike the Chapter I pass) touched Presentation/
+  Composition code (`CardView`, `CardPresenter`, `CardSwipeController`, `UnityGamePresenter`) for the
+  variant/availability system; confirms real Unity components (not fakes) still work end to end.
+- `ProjectSettings/ProjectSettings.asset` picked up the same unrelated scripting-define-symbol churn
+  as every earlier CLI pass, every time the Editor ran; reverted every time (CLAUDE.md §11).
+
+### Not verified — please check with your own eyes
+
+- [ ] Actually playing the story on a device or in the Editor Game view, swiping/tapping through
+      several turns — the CLI passes above drive `GameSession`/`ChoiceResolver` and the real
+      Presentation/Composition components directly and via PlayMode's real-component fixtures, but
+      nothing in this session watched a rendered screen or made a physical swipe gesture.
+- [ ] A flag-dependent `CardVariant`'s text and choices actually rendering correctly on `CardView`
+      in a live scene (covered by unit/PlayMode tests against the mechanism, not by eyes on the
+      screen).
+- [ ] An unavailable choice's absence of preview text and un-confirmable drag, live, on a card that
+      actually uses `availability` — no shipped story card uses it yet (see the session report's
+      Known Limitations), so there is nothing to look at today, but it is worth a look the first
+      time a card does use it.
+- [ ] See `STORY_CONTENT_GUIDE.md` for the authoring reference this pass added; worth a read before
+      extending the story further.

@@ -98,6 +98,21 @@ namespace RoyalDecisions.Tests.EditMode
             return Build(new List<CardDefinition>(), CardTestFactory.AllBoundaryEndings(), string.Empty);
         }
 
+        /// <summary>A catalogue whose opening card's left choice is never available.</summary>
+        public static ContentCatalogue WithUnavailableLeftChoice()
+        {
+            List<CardDefinition> cards = new List<CardDefinition>
+            {
+                CardTestFactory.Card(
+                    id: OpeningCardId,
+                    left: CardTestFactory.Choice("Locked", authority: 5,
+                        availability: CardTestFactory.Conditions(requiredFlags: new[] { "never_set" })),
+                    right: CardTestFactory.Choice("Right", people: 5))
+            };
+
+            return Build(cards, CardTestFactory.AllBoundaryEndings(), OpeningCardId);
+        }
+
         public static ContentCatalogue WithUnknownOpeningCard()
         {
             List<CardDefinition> cards = new List<CardDefinition>

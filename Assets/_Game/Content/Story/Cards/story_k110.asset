@@ -1,0 +1,202 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ceabaaccd30b094aa01aab2e3c0419e, type: 3}
+  m_Name: story_k110
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.CardDefinition
+  id: story_k110
+  speaker: "Sabiha (Erzak\xE7\u0131)"
+  bodyText: "Sabiha yeni bir b\xF6lge \xF6neriyor. Git mi, kal m\u0131?"
+  portrait: {fileID: 0}
+  leftChoice:
+    previewText: Git
+    deltas:
+      authority: 0
+      people: 0
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: story_k112
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options: []
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  rightChoice:
+    previewText: Kal
+    deltas:
+      authority: 0
+      people: 0
+      security: 0
+      wealth: 0
+    flagsToAdd: []
+    flagsToRemove: []
+    forcedNextCardId: story_k111
+    audioEventId: 
+    counterDeltas: []
+    conditionalEffect:
+      condition:
+        source: 0
+        stat: 0
+        counterId: 
+        comparison: 0
+        threshold: 0
+      deltasWhenTrue:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      deltasWhenFalse:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      leaderHealthDeltaWhenTrue: 0
+      leaderHealthDeltaWhenFalse: 0
+      triggersSuccessionWhenTrue: 0
+      hasSuccessionResetStat: 0
+      successionResetStat: 0
+    randomOutcome:
+      options: []
+    availability:
+      requiredFlags: []
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+  conditions:
+    requiredFlags: []
+    forbiddenFlags: []
+    statRanges: []
+    numericConditions: []
+  selectionWeight: 1
+  oncePerRun: 1
+  cooldownTurns: 0
+  forcedNextCardId: 
+  forcedChainOnly: 1
+  variants:
+  - conditions:
+      requiredFlags:
+      - vertak_yolda
+      forbiddenFlags: []
+      statRanges: []
+      numericConditions: []
+    speaker: 
+    bodyText: "Bir ara\xE7 yak\u0131nda duruyor, kap\u0131y\u0131 \xE7al\u0131yorlar.
+      A\xE7 m\u0131, silahlan m\u0131?"
+    leftChoice:
+      previewText: "A\xE7"
+      deltas:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      flagsToAdd: []
+      flagsToRemove: []
+      forcedNextCardId: story_k112
+      audioEventId: 
+      counterDeltas: []
+      conditionalEffect:
+        condition:
+          source: 0
+          stat: 0
+          counterId: 
+          comparison: 0
+          threshold: 0
+        deltasWhenTrue:
+          authority: 0
+          people: 0
+          security: 0
+          wealth: 0
+        deltasWhenFalse:
+          authority: 0
+          people: 0
+          security: 0
+          wealth: 0
+        leaderHealthDeltaWhenTrue: 0
+        leaderHealthDeltaWhenFalse: 0
+        triggersSuccessionWhenTrue: 0
+        hasSuccessionResetStat: 0
+        successionResetStat: 0
+      randomOutcome:
+        options: []
+      availability:
+        requiredFlags: []
+        forbiddenFlags: []
+        statRanges: []
+        numericConditions: []
+    rightChoice:
+      previewText: Silahlan
+      deltas:
+        authority: 0
+        people: 0
+        security: 0
+        wealth: 0
+      flagsToAdd: []
+      flagsToRemove: []
+      forcedNextCardId: story_k111
+      audioEventId: 
+      counterDeltas: []
+      conditionalEffect:
+        condition:
+          source: 0
+          stat: 0
+          counterId: 
+          comparison: 0
+          threshold: 0
+        deltasWhenTrue:
+          authority: 0
+          people: 0
+          security: 0
+          wealth: 0
+        deltasWhenFalse:
+          authority: 0
+          people: 0
+          security: 0
+          wealth: 0
+        leaderHealthDeltaWhenTrue: 0
+        leaderHealthDeltaWhenFalse: 0
+        triggersSuccessionWhenTrue: 0
+        hasSuccessionResetStat: 0
+        successionResetStat: 0
+      randomOutcome:
+        options: []
+      availability:
+        requiredFlags: []
+        forbiddenFlags: []
+        statRanges: []
+        numericConditions: []
