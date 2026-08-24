@@ -65,6 +65,7 @@ namespace RoyalDecisions.Presentation
             }
         }
 
+#if UNITY_EDITOR
         protected override void OnValidate()
         {
             base.OnValidate();
@@ -73,5 +74,6 @@ namespace RoyalDecisions.Presentation
             raycastTarget = false;
             SetVerticesDirty();
         }
+#endif
     }
 }

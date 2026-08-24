@@ -124,6 +124,7 @@ namespace RoyalDecisions.Presentation
             return new Vector2(Mathf.Cos(radians), Mathf.Sin(radians));
         }
 
+#if UNITY_EDITOR
         protected override void OnValidate()
         {
             base.OnValidate();
@@ -134,5 +135,6 @@ namespace RoyalDecisions.Presentation
             toothWidthRatio = Mathf.Clamp(toothWidthRatio, 0.15f, 0.9f);
             SetVerticesDirty();
         }
+#endif
     }
 }

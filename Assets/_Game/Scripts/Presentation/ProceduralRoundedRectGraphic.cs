@@ -90,6 +90,7 @@ namespace RoyalDecisions.Presentation
             }
         }
 
+#if UNITY_EDITOR
         protected override void OnValidate()
         {
             base.OnValidate();
@@ -97,5 +98,6 @@ namespace RoyalDecisions.Presentation
             cornerSegments = Mathf.Clamp(cornerSegments, MinimumCornerSegments, MaximumCornerSegments);
             SetVerticesDirty();
         }
+#endif
     }
 }
