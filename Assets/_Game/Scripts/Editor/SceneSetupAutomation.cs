@@ -65,16 +65,20 @@ namespace RoyalDecisions.Editor
 
         private static readonly Color OverallBackgroundColour = new Color32(0x07, 0x11, 0x1B, 0xFF);
         private static readonly Color SurfaceColour = new Color32(0x12, 0x16, 0x20, 0xFF);
-        // Unity's own default camera background (never explicitly set before, just left implicit)
-        // — the actual colour MainMenu has always shown. Named here and applied to the camera
-        // explicitly so Settings/About can share the exact same source instead of picking their
-        // own tone independently. Value chosen to match that default precisely, so MainMenu's own
-        // appearance is unchanged by naming it.
-        private static readonly Color MainMenuBackgroundColour = new Color32(49, 77, 121, 0xFF);
+        // Zombie/post-apocalypse re-theme (MainMenu + Settings + About only): dark, ashen wasteland
+        // charcoal rather than a green tint, so the background itself doesn't read as monochrome
+        // "zombie green" — that note lives only in MenuToxicAccentColour below. Applied to the
+        // camera clear colour, which only these three screens ever actually show — the Game scene's
+        // own opaque Background (ConfigureBackground) always covers its camera, so repainting this
+        // tone has no visible effect there.
+        private static readonly Color MainMenuBackgroundColour = new Color32(0x18, 0x15, 0x10, 0xFF);
         private static readonly Color CardSurfaceColour = new Color32(0x21, 0x17, 0x1A, 0xFF);
         private static readonly Color BorderGoldColour = new Color32(0xB5, 0x8A, 0x4A, 0xFF);
         private static readonly Color StatBackgroundColour = new Color32(0x2A, 0x2F, 0x3A, 0xFF);
-        private static readonly Color ButtonColour = SettingsPanelTheme.ActiveTabColour;
+        // Game/GameOver gold — deliberately hardcoded rather than reading SettingsPanelTheme (as it
+        // did before the zombie re-theme below), so the Settings-only palette change below cannot
+        // change the Game scene's restart button or any other default-coloured menu button there.
+        private static readonly Color ButtonColour = new Color(0.78f, 0.58f, 0.18f, 1f);
         private static readonly Color SpeakerTextColour = new Color32(0xD9, 0xC2, 0x8B, 0xFF);
         private static readonly Color BodyTextColour = new Color32(0xF2, 0xE7, 0xCF, 0xFF);
         private static readonly Color SecondaryTextColour = new Color32(0xB9, 0xAA, 0x90, 0xFF);
@@ -85,6 +89,16 @@ namespace RoyalDecisions.Editor
             new Color32(0x3E, 0x56, 0x7D, 0xFF),
             new Color32(0xB3, 0x8A, 0x3D, 0xFF)
         };
+        // Settings/About-only text tones (zombie/post-apocalypse re-theme) — deliberately separate
+        // from SpeakerTextColour/SecondaryTextColour above, which the Game/Card scene still uses
+        // as-is. Ash/bone, not green-tinted, to match the wasteland background rather than repeat
+        // the toxic-green note used only for MenuToxicAccentColour below.
+        private static readonly Color MenuTitleTextColour = new Color32(0xC9, 0xC2, 0xA8, 0xFF);
+        private static readonly Color MenuMutedTextColour = new Color32(0x8B, 0x83, 0x77, 0xFF);
+        // The one deliberately "zombie" (toxic/infected) note in the palette above, rather than
+        // SettingsPanelTheme.ActiveTabColour's rust — kept to slider fills only (see
+        // EnsureSliderControl) so it reads as a distinct highlight, not the base of the whole panel.
+        private static readonly Color MenuToxicAccentColour = new Color32(0x5A, 0x73, 0x2C, 0xFF);
 
         [MenuItem("Tools/Royal Decisions/Scene Setup/Audit")]
         public static void AuditMenu()
@@ -1379,8 +1393,10 @@ namespace RoyalDecisions.Editor
             RectTransform transform = EnsureUiChild(parent, name, report);
             SetRect(transform, anchor, anchor, anchoredPosition, new Vector2(size, size), anchor);
 
+            // Game scene only: uses the Game palette's own neutral chip tone directly (not
+            // SettingsPanelTheme), so the Settings-only zombie re-theme cannot change this button.
             ProceduralRoundedRectGraphic graphic = ConfigureRoundedButtonGraphic(
-                transform.gameObject, SettingsPanelTheme.InactiveTabColour, size * 0.5f, report);
+                transform.gameObject, StatBackgroundColour, size * 0.5f, report);
             Button button = EnsureSingleComponent<Button>(transform.gameObject, report);
             if (button != null && graphic != null)
             {
@@ -1981,10 +1997,13 @@ namespace RoyalDecisions.Editor
             ConfigureReadableText(title, font, 64f, 52f, 68f, true, true, 2f);
             title.text = interfaceText != null ? interfaceText.MainMenuTitle : "Royal Decisions";
 
-            Button newGame = EnsureMenuButton(panel, "NewGameButton", "Yeni Oyun", 40f, report);
+            Button newGame = EnsureMenuButton(panel, "NewGameButton", "Yeni Oyun", 40f, report,
+                colourOverride: SettingsPanelTheme.ActiveTabColour);
             Button continueButton = EnsureMenuButton(
-                panel, "ContinueButton", "Devam Et", -120f, report);
-            Button settingsButton = EnsureSettingsIconButton(panel, report);
+                panel, "ContinueButton", "Devam Et", -120f, report,
+                colourOverride: SettingsPanelTheme.ActiveTabColour);
+            Button settingsButton = EnsureSettingsIconButton(
+                panel, report, iconColourOverride: SettingsPanelTheme.ActiveTabColour);
             TextMeshProUGUI saveError = EnsureText(panel, "SaveError", new Vector2(0f, -430f),
                 new Vector2(850f, 150f), 30f, report);
             TextMeshProUGUI newGameText = newGame != null
@@ -2316,8 +2335,10 @@ namespace RoyalDecisions.Editor
             MigrateChildIfNeeded(bottomActions, content, "CancelButton", report);
 
             // İptal (secondary/neutral) on the left, Uygula (primary) on the right.
-            Button cancel = EnsureMenuButton(bottomActions, "CancelButton", "İptal", 0f, report);
-            Button apply = EnsureMenuButton(bottomActions, "ApplyButton", "Uygula", 0f, report);
+            Button cancel = EnsureMenuButton(bottomActions, "CancelButton", "İptal", 0f, report,
+                colourOverride: SettingsPanelTheme.ActiveTabColour);
+            Button apply = EnsureMenuButton(bottomActions, "ApplyButton", "Uygula", 0f, report,
+                colourOverride: SettingsPanelTheme.ActiveTabColour);
             ConfigureButtonFont(cancel, font, 36f, 30f, 40f);
             ConfigureButtonFont(apply, font, 36f, 30f, 40f);
             // Apply is the primary action; a heavier weight distinguishes it from İptal without
@@ -2428,7 +2449,8 @@ namespace RoyalDecisions.Editor
             }
             ConfigureReadableText(body, font, 32f, 26f, 36f, true, true, 2f);
 
-            Button close = EnsureMenuButton(content, "CloseButton", "Kapat", -710f, report);
+            Button close = EnsureMenuButton(content, "CloseButton", "Kapat", -710f, report,
+                colourOverride: SettingsPanelTheme.ActiveTabColour);
             ConfigureButtonFont(close, font, 40f, 34f, 42f);
             ConfigureMinimumTouchTarget(close, report);
 
@@ -2622,7 +2644,7 @@ namespace RoyalDecisions.Editor
             // as any other settings row, not big CTA buttons — so they read as routine actions
             // rather than competing with Uygula for attention.
             EnsureActionSectionLabel(
-                tab, "OtherSectionLabel", "Diğer", SpeakerTextColour, font, report);
+                tab, "OtherSectionLabel", "Diğer", MenuTitleTextColour, font, report);
 
             Button resetTutorial = EnsureActionRow(
                 tab, "ResetTutorialButton", "Öğreticiyi Tekrar Göster", font, report);
@@ -2748,20 +2770,25 @@ namespace RoyalDecisions.Editor
             RectTransform track = EnsureUiChild(root, "Track", report);
             SetRect(track, new Vector2(trackStartAnchor, 0.30f), new Vector2(trackEndAnchor, 0.70f),
                 Vector2.zero, Vector2.zero, Center);
-            ConfigureRoundedFill(track.gameObject, StatBackgroundColour, 40f, false, report);
+            ConfigureRoundedFill(
+                track.gameObject, SettingsPanelTheme.InactiveTabColour, 40f, false, report);
             RectTransform fillArea = EnsureUiChild(root, "FillArea", report);
             SetRect(fillArea, new Vector2(trackStartAnchor, 0.30f), new Vector2(trackEndAnchor, 0.70f),
                 Vector2.zero, Vector2.zero, Center);
             RectTransform fillTransform = EnsureUiChild(fillArea, "Fill", report);
             Stretch(fillTransform);
-            ConfigureRoundedFill(fillTransform.gameObject, BorderGoldColour, 40f, false, report);
+            // Deliberately the toxic-green accent, not the rust button colour — gives the panel a
+            // second wasteland tone instead of one colour repeated on every element.
+            ConfigureRoundedFill(
+                fillTransform.gameObject, MenuToxicAccentColour, 40f, false, report);
             RectTransform handleArea = EnsureUiChild(root, "HandleArea", report);
             SetRect(handleArea, new Vector2(trackStartAnchor, 0.15f), new Vector2(trackEndAnchor, 0.85f),
                 Vector2.zero, Vector2.zero, Center);
             RectTransform handleTransform = EnsureUiChild(handleArea, "Handle", report);
             SetRect(handleTransform, Center, Center, Vector2.zero, new Vector2(48f, 48f), Center);
             ProceduralRoundedRectGraphic handle = ConfigureRoundedFill(
-                handleTransform.gameObject, BodyTextColour, 40f, true, report);
+                handleTransform.gameObject, SettingsPanelTheme.InactiveTabTextColour, 40f, true,
+                report);
             SetSiblingIndex(track, 0);
             SetSiblingIndex(fillArea, 1);
             SetSiblingIndex(handleArea, 2);
@@ -2832,7 +2859,8 @@ namespace RoyalDecisions.Editor
 
             RectTransform knob = EnsureUiChild(track, "Knob", report);
             SetRect(knob, Center, Center, Vector2.zero, new Vector2(40f, 40f), Center);
-            ConfigureRoundedFill(knob.gameObject, BodyTextColour, 40f, false, report);
+            ConfigureRoundedFill(
+                knob.gameObject, SettingsPanelTheme.InactiveTabTextColour, 40f, false, report);
 
             RemoveUnexpectedChildren(root, report, "Track", "Label");
 
@@ -2851,6 +2879,11 @@ namespace RoyalDecisions.Editor
                 root.gameObject, report);
             SetObjectProperty(visual, "track", trackGraphic, report);
             SetObjectProperty(visual, "knob", knob, report);
+            // The component's own [SerializeField] defaults are stale gold/navy from before this
+            // re-theme; without setting these explicitly every toggle would still flash the old
+            // gold the instant it's switched on.
+            SetColorProperty(visual, "onColour", SettingsPanelTheme.ActiveTabColour, report);
+            SetColorProperty(visual, "offColour", SettingsPanelTheme.InactiveTabColour, report);
 
             if (toggle != null)
             {
@@ -2919,7 +2952,7 @@ namespace RoyalDecisions.Editor
                 Undo.RecordObject(chevron, "Set action row chevron");
                 chevron.text = ">";
             }
-            SetTextColour(chevron, SecondaryTextColour);
+            SetTextColour(chevron, MenuMutedTextColour);
 
             // Drops the old "Text (TMP)" child EnsureMenuButton left behind when this object used
             // to be a big filled CTA button, if it was ever authored as one.
@@ -4218,7 +4251,7 @@ namespace RoyalDecisions.Editor
             ConfigureReadableText(titleText, font, 32f, 26f, 36f, true, false, 2f);
             titleText.alignment = TextAlignmentOptions.MidlineLeft;
             titleText.text = title;
-            SetTextColour(titleText, SpeakerTextColour);
+            SetTextColour(titleText, MenuTitleTextColour);
 
             RectTransform descriptionTransform = EnsureUiChild(tab, "SectionDescription", report);
             SetRect(descriptionTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
@@ -4229,7 +4262,7 @@ namespace RoyalDecisions.Editor
             ConfigureReadableText(descriptionText, font, 24f, 20f, 26f, true, true, 2f);
             descriptionText.alignment = TextAlignmentOptions.TopLeft;
             descriptionText.text = description;
-            SetTextColour(descriptionText, SecondaryTextColour);
+            SetTextColour(descriptionText, MenuMutedTextColour);
 
             SetSiblingIndex(titleTransform, 0);
             SetSiblingIndex(descriptionTransform, 1);
@@ -4238,7 +4271,8 @@ namespace RoyalDecisions.Editor
         /// <summary>Compact top-right icon-only button that opens Settings from MainMenu.</summary>
         private static Button EnsureSettingsIconButton(
             RectTransform parent, SceneSetupReport report,
-            float size = SettingsIconButtonSize, float margin = SettingsIconButtonMargin)
+            float size = SettingsIconButtonSize, float margin = SettingsIconButtonMargin,
+            Color? iconColourOverride = null)
         {
             RectTransform transform = EnsureUiChild(parent, "SettingsButton", report);
             Vector2 topRight = new Vector2(1f, 1f);
@@ -4276,7 +4310,7 @@ namespace RoyalDecisions.Editor
             if (gear != null)
             {
                 Undo.RecordObject(gear, "Configure settings gear icon");
-                gear.color = BorderGoldColour;
+                gear.color = iconColourOverride ?? BorderGoldColour;
                 gear.raycastTarget = false;
             }
 
@@ -4739,6 +4773,22 @@ namespace RoyalDecisions.Editor
             }
             Undo.RecordObject(target, "Set " + propertyName);
             property.boolValue = value;
+            property.serializedObject.ApplyModifiedProperties();
+        }
+
+        private static void SetColorProperty(
+            Object target,
+            string propertyName,
+            Color value,
+            SceneSetupReport report)
+        {
+            SerializedProperty property = FindProperty(target, propertyName, report);
+            if (property == null || ColoursMatch(property.colorValue, value))
+            {
+                return;
+            }
+            Undo.RecordObject(target, "Set " + propertyName);
+            property.colorValue = value;
             property.serializedObject.ApplyModifiedProperties();
         }
 
