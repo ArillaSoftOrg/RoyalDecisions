@@ -15,7 +15,7 @@ MonoBehaviour:
   id: story_k040
   speaker: "\u0130smet (Telsizci)"
   bodyText: "\u0130smet tuhaf bir sinyal yakalar. Cevap ver mi, tuzak m\u0131?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 080b9f3a76de2844cbc5abec36f04b6d, type: 3}
   leftChoice:
     previewText: Cevap ver
     deltas:

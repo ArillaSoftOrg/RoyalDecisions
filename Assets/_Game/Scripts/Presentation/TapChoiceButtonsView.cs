@@ -15,8 +15,27 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private CardSwipeController swipeController;
         [SerializeField] private Button leftButton;
         [SerializeField] private Button rightButton;
+        [SerializeField] private CanvasGroup canvasGroup;
 
         public void SetVisible(bool visible) => gameObject.SetActive(visible);
+
+        /// <summary>
+        /// Visual prominence only — never touches whether the buttons exist or can be tapped
+        /// (<see cref="SetVisible"/> alone governs that). Normal swipe-first gameplay keeps the
+        /// graphics invisible while the hit target stays fully active; callers restore prominence
+        /// when a setting makes tapping the only or explicit way to play.
+        /// </summary>
+        public void SetProminent(bool prominent)
+        {
+            if (canvasGroup == null)
+            {
+                return;
+            }
+
+            canvasGroup.alpha = prominent ? 1f : 0f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
 
         private void OnEnable()
         {
@@ -35,11 +54,13 @@ namespace RoyalDecisions.Presentation
         private void HandleRightClicked() => swipeController?.ConfirmSide(ChoiceSide.Right);
 
 #if UNITY_EDITOR
-        public void SetAuthoringReferences(CardSwipeController swipe, Button left, Button right)
+        public void SetAuthoringReferences(
+            CardSwipeController swipe, Button left, Button right, CanvasGroup group = null)
         {
             swipeController = swipe;
             leftButton = left;
             rightButton = right;
+            canvasGroup = group;
         }
 #endif
     }

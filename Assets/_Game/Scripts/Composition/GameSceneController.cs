@@ -212,6 +212,13 @@ namespace RoyalDecisions.Composition
             // With swipe disabled, decision buttons are the only way to play — forced visible
             // regardless of the toggle, or a player who also had tap buttons off would be stuck.
             tapChoiceButtonsView?.SetVisible(settings.TapButtonsEnabled || settings.DisableSwipe);
+            // Prominence (graphics alpha) is separate from existence/hit-target above: normal
+            // swipe-first play keeps the buttons invisible-but-tappable; DisableSwipe is the one
+            // signal that unambiguously means tapping is no longer optional, so only it restores
+            // full visibility. TapButtonsEnabled alone (the default-on accessibility toggle) does
+            // not, since always defaulting to prominent would contradict the new art direction's
+            // "swipe first" composition for every player who has not changed anything.
+            tapChoiceButtonsView?.SetProminent(settings.DisableSwipe);
         }
 
         private void PlayGameplayMusic()

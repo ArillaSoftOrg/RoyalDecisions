@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\xD6mer (G\xF6zc\xFC)"
   bodyText: "\xD6mer \xE7itte yine bir ses duyar: \"Biz de... insand\u0131k.\" Dinle
     mi, uzakla\u015F m\u0131?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 356fc806c45f4904b9418104638d1863, type: 3}
   leftChoice:
     previewText: Dinle
     deltas:

@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\u0130smet (Telsizci)"
   bodyText: "\u0130smet eski bir Vertak dosyas\u0131 buluyor. Payla\u015F m\u0131,
     sakla m\u0131?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 080b9f3a76de2844cbc5abec36f04b6d, type: 3}
   leftChoice:
     previewText: "Payla\u015F"
     deltas:

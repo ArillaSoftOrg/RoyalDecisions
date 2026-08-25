@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "Aziz (Tar\u0131mc\u0131)"
   bodyText: "Aziz'in tar\u0131m miras\u0131 art\u0131k s\u0131\u011F\u0131na\u011F\u0131n
     temel ge\xE7im kayna\u011F\u0131. Fark et mi, s\u0131radan m\u0131?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 71f6939f9f555744d9bd244d39493d7f, type: 3}
   leftChoice:
     previewText: Fark et
     deltas:

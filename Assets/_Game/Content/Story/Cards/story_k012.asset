@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\xD6mer (G\xF6zc\xFC)"
   bodyText: "\xD6mer gelir, gururlu ama endi\u015Feli. Sald\u0131r\u0131 p\xFCsk\xFCrt\xFCld\xFC
     ama biri yaral\u0131, der. Zeynep'i \xE7a\u011F\u0131ral\u0131m m\u0131?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 356fc806c45f4904b9418104638d1863, type: 3}
   leftChoice:
     previewText: "\xC7a\u011F\u0131r"
     deltas:

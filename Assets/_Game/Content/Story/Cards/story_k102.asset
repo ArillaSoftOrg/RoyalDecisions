@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\u0130smet (Telsizci)"
   bodyText: "Vertak sinyalleri s\u0131kla\u015Ft\u0131. Karart m\u0131, a\xE7\u0131k
     m\u0131 b\u0131rak?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 080b9f3a76de2844cbc5abec36f04b6d, type: 3}
   leftChoice:
     previewText: Karart
     deltas:

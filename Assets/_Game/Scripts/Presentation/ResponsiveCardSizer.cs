@@ -9,10 +9,10 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private RectTransform nextCard;
         [Tooltip("Width is measured from this rect, normally SafeArea. Defaults to CardArea.")]
         [SerializeField] private RectTransform widthReference;
-        [Range(0.7f, 0.8f)]
+        [Range(0.7f, 0.85f)]
         [SerializeField] private float preferredWidthRatio = 0.78f;
         [Min(0.01f)]
-        [SerializeField] private float widthToHeightRatio = 0.68f;
+        [SerializeField] private float widthToHeightRatio = 1024f / 1536f;
         [Range(0.1f, 1f)]
         [SerializeField] private float maximumHeightRatio = 0.94f;
         [Min(1f)]

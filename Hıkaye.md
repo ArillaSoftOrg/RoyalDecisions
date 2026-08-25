@@ -1,5 +1,14 @@
 # SIĞINAK: SALTANAT GÜNLÜKLERİ
-### v11 — TEMİZ SÜRÜM: Sadece Gerçek Kart Numaralarıyla Dallanma
+### v12 — ONARILMIŞ SÜRÜM: Graf Bütünlüğü + Anlatı Kalitesi Geçişi
+
+**v12 değişiklik özeti** *(AŞAMA 1 denetiminin onaylanmış bulgularına dayanır; StoryChapter*.cs referans/karşılaştırma amaçlı kullanıldı, otorite olarak alınmadı)*:
+- 10 P0 graf hatası onarıldı (K20-24 barikat/saklanma çapraz bulaşması, K31-32/K40-44/K34-37/K45-47/K65-68 kopuk zincirler, K100/150/200 sezon geçiş kenarları, K199-202 ölü uç, K102-104-106 gizli kilitlenme, ve yazım sırasında bulunan onuncusu: K205-207 Karakol Krizi kopuk zinciri). Her biri script ile BFS doğrulaması geçti.
+- 16 belirsiz/rastgele ifade ("değişken", "swing", "çoğunlukla" vb.) bayrak/eşik tabanlı deterministik sonuçlara bağlandı; kalan 8 "ya da/etkisiz" geçişi ya zaten bayrağa bağlı ya da salt anlatı özeti (yeniden oynanabilirlik referansı).
+- 21 kart içindeki çiğ "*Etiket:*" varyant metni doğal, ayrık sahnelere dönüştürüldü; belirsiz-konuşmacı kartları (K7, K44, K213) netleştirildi.
+- Her "Nötr" başlıklı kart özel bir isim aldı; 250 karttan 93'ü hâlâ mekanik olarak etkisiz (bilinçli tempo/karakter kartları) — v11'de 107'ydi.
+- K226-250 bandında anlamlı kararlar 2/25'ten 9/25'e çıkarıldı; Ali/Veli büyüme beat'leri (13 kopya) farklı, ayırt edici içerikle yeniden yazıldı — kart sayısı hâlâ 250, hiçbir kart silinmedi.
+- A/B seçimi hiç olmayan 29 "sonuç" kartının tamamına gerçek karar eklendi (0 kart artık kararsız).
+- Kart numaralama şeması (K1-K250) korunmuştur — sadece hedef kenarları ve gövde metinleri değişti, yeni ara-etiket icat edilmedi.
 
 ---
 
@@ -10,16 +19,16 @@
 ## 1. SİSTEM
 🥫 Erzak · 🏠 Barınak · 🩺 Toplum Sağlığı · ☺ Toplum Morali *(0-10, başlangıç 5)* + 👑 Lider Sağlığı *(0-10, başlangıç 10, ayrı ölçü)*.
 
-**Saltanat Döngüsü:** Herhangi bir ölçü 0'a düşerse lider değişir. Hikaye **bir sonraki karttan** devam eder (asla geriye/baştan başlanmaz), sıfırlanan madde 3'e resetlenir, 👑 yeni lider için 10 olur, diğer her şey korunur. **Önemli:** kartlardaki her "→K(sayı)" oku, SALTANAT SONU tetiklense de tetiklenmese de geçerlidir — lider ölse de ölmese de hikaye aynı sonraki karta gider, sadece kim liderlik ettiği değişir.
+**Saltanat Döngüsü:** Herhangi bir ölçü 0'a düşerse lider değişir. Hikaye **bir sonraki karttan** devam eder (asla geriye/baştan başlanmaz), sıfırlanan madde 3'e resetlenir, 👑 yeni lider için 10 olur, diğer her şey korunur. Kartlardaki her "→K(sayı)" oku, SALTANAT SONU tetiklense de tetiklenmese de geçerlidir.
 
 ## 2. DALLANMA KURALI — BASİT VE NET
-**Hiçbir ara-etiket, hiçbir "K1a/K1b" yok.** Her kartta A ve B, doğrudan **gerçek kart numaralarına** gider. Nötr olmayan (madde etkisi olan) neredeyse her kartta A ve B **farklı numaralara** gider — biri hikayenin bir sonraki kartına, diğeri bir kartı atlayıp ilerisine. Atlanan kart, o an sadece diğer yolu seçenlerin gördüğü bir kart olur. Örnek: K1'de A seçilirse K2'ye, B seçilirse K3'e gidilir — iki farklı kart, iki farklı devam. Ölüm kuralı ve gecikmeli zincirler önceki sürümlerle aynıdır (bkz. Bölüm 3).
+**Hiçbir ara-etiket, hiçbir "K1a/K1b" yok.** Her kartta A ve B, doğrudan **gerçek kart numaralarına** gider. Bir kartın iki farklı bayrak durumuna göre iki ayrı sahne göstermesi gerektiğinde (ör. "temas edildiyse" / "izlendiyse"), bu artık düz metin içinde koşullu cümle olarak değil, **iki ayrı, kendi başına tamamlanmış sahne** olarak yazılır ve hangi bayrağın hangisini seçtiği sahnenin sonunda küçük bir editör notuyla belirtilir — motor tarafında bu `CardVariant` olarak karşılık bulur.
 
 ## 3. TEKNİK NOTLAR
-- **Ölüm kuralı (kesin):** Hikaye hiçbir zaman kendiliğinden, anlatı gereği lideri öldürmez. Lider yalnızca **oyuncunun seçimlerinin doğrudan sonucu** olarak ölür: (a) bir seçenek bilerek bir maddeyi sıfırlarsa (örn. K8'de tüm depoyu dağıtmak), ya da (b) "Lider Riski" kartlarında, önceki kararların birikimiyle 👑 zaten kritik düşükken (`<5`) yine de riskli seçenek seçilirse. Madde/👑 sağlıklıysa aynı seçenek asla ölümle sonuçlanmaz, sadece küçük bir bedeli olur. Şans, zar ya da "bazen ölürsün" gibi rastgelelik hiçbir yerde yoktur.
-- **Değişken gecikmeli zincirler:** bir zincirin kararı ile sonucu arasındaki mesafe oyuncunun izlediği yola göre biraz değişebilir — bu kasıtlıdır, öngörülemezliği artırır.
+- **Ölüm kuralı (kesin):** Hikaye hiçbir zaman kendiliğinden, anlatı gereği lideri öldürmez. Lider yalnızca **oyuncunun seçimlerinin doğrudan sonucu** olarak ölür: (a) bir seçenek bilerek bir maddeyi sıfırlarsa, ya da (b) "Lider Riski" kartlarında, önceki kararların birikimiyle 👑 zaten kritik düşükken (`<5`) yine de riskli seçenek seçilirse. Madde/👑 sağlıklıysa aynı seçenek asla ölümle sonuçlanmaz, sadece küçük bir bedeli olur. Şans, zar ya da "bazen ölürsün" gibi rastgelelik hiçbir yerde yoktur.
+- **Determinizm ilkesi (v12):** Hiçbir sonuç "değişken", "swing", "çoğunlukla" gibi belirsiz ifadeyle bırakılmaz. Her çok-değerli sonuç, ya önceden set edilmiş bir bayrağa, ya bir kaynak eşiğine, ya da doğrudan önceki bir oyuncu kararına bağlanır.
+- **Değişken gecikmeli zincirler:** bir zincirin kararı ile sonucu arasındaki mesafe oyuncunun izlediği yola göre değişebilir — kasıtlıdır. **v12 ek kuralı:** bir sonuç kartı, o rotada garanti şekilde set edilmemiş bir bayrağı asla talep etmez; her gecikmeli zincirin *her iki* dalı da kendi sonuç kartına mutlaka ulaşır.
 - **Çok kartlı olaylar:** bazı olaylar 2-4 kart boyunca sürer, her adımında yeni bir karar vardır; bu kartlar kendi aralarında sıralı ilerler.
-- **Ölüm kuralı:** asla şansa bağlı değil — madde zaten kritik düşükse (≤3) riskli seçim ölüme götürür, sağlıklıysa küçük bedelle geçilir.
 
 ---
 
@@ -28,1270 +37,1240 @@
 ### BÖLÜM I (K1-K25)
 
 **K1 — İlk Gün**
-Ömer kapıya koşar. Dışarıda kapıyı çalanlar var, der. Kapatalım mı, son şans mı verelim?
-A) Kapat, kapı gürültüyle kapanır. `🏠+1 ☺-1`→K2
-B) İçeri çek, son anda birkaç kişi daha girer. `☺+1 🥫-1 🏠-1`→K3
-
+Ömer kapıdan koşarak gelir. “Dışarıda hâlâ insanlar var. Şimdi kapatırsak bazıları dışarıda kalacak.”
+A) Kapıları kapat. `🏠+1 ☺-1`→K2
+B) Birkaç kişiyi daha içeri al. `☺+1 🥫-1 🏠-1`→K3
 **K2 — Vicdan**
-Atilla yanına gelir. Dışarıda kalanlar hâlâ akıllarda, der. Konuşalım mı, geçelim mi?
-A) Geç, suskunluk ağırlaşır. `☺-1`→K4
-B) Konuş, açık konuşma rahatlatır. `☺+1`→K5
-
+Atilla bir süre sessizce yanında durur. “Kapının dışında bıraktıklarımızı herkes gördü. Kimse konuşmuyor ama unutmuş da değiller.”
+A) Konuyu kapat. `☺-1`→K4
+B) Herkesi topla, konuşalım. `☺+1`→K5
 **K3 — Kalabalık**
-Sabiha elinde defterle gelir. Depo hızla azalıyor, der. Payları nasıl bölelim?
-A) Kısıtlı pay ver. `🥫-1 ☺+1` *(k3_yolu=evet)*→K6
-B) Sınırsız paylaş. `🥫-2 ☺+2`→K7
-
+Sabiha elindeki defteri açar. “İçeride planladığımızdan fazla insan var. Depo bu hızla uzun süre dayanmaz.”
+A) Porsiyonları küçült. `🥫-1 ☺+1` *(k3_yolu=evet)*→K6
+B) Kimseyi kısmadan dağıt. `🥫-2 ☺+2`→K7
 **K4 — Gerginlik**
-Mustafa gelir, yüzü asık. İki grup birbirine giriyor, der. Otorite mi, uzlaşma mı?
-A) Otorite kur. `🏠+1 ☺-1`→K7
-B) Uzlaşma dene. `☺+1 🏠-1`→K8💀
-
+Mustafa öfkeli bir hâlde gelir. “İki grup birbirine girdi. Biraz daha sürerse yumruklar konuşacak.”
+A) Araya gir, düzeni sağla. `🏠+1 ☺-1`→K7
+B) İki tarafı da masaya oturt. `☺+1 🏠-1`→K8💀
 **K5 — Karar Anı**
-Sabiha çantasını hazırlar. Keşfe mi çıkalım, önce mi güçlenelim?
-A) Keşfe çık. `☺0`→K9⚑
-B) Önce güçlen. `🏠+1`→K6
-
+Sabiha çantasını hazırlamış bekliyor. “Dışarı çıkıp çevreyi tarayabiliriz. Ama içeride toparlanacak çok iş var.”
+A) Keşif ekibini çıkar. `☺0`→K9⚑
+B) Önce sığınağı toparla. `🏠+1`→K6
 **K6 — Yüzleşme**
-Kemal kroki elinde gelir. Kalabalık tek bölmede tehlikeli, der. Ayıralım mı, bir arada mı tutalım?
-A) Ayır, duvarlar örülür. `🏠-1`→K7
-B) Bir arada tut, sıkışık ama birlik. `☺+1 🩺-1`→K13
-
+Kemal krokiyi masaya serer. “Bu kadar kişiyi tek bölmede tutmak güvenli değil. Araya duvar çekebilirim ama yer daha da daralır.”
+A) Bölmeleri ayır. `🏠-1` *(bolme_karari=evet)*→K7
+B) Herkesi bir arada tut. `☺+1 🩺-1`→K13
 **K7 — Bölme/Otorite Sonrası**
-*(K3-B veya K6-A'dan gelinir)* Kemal ya da Mustafa devam eder — ya yeni bölme kararı ya da otorite sonrası gerginlik. Yeni bölme mi/kararlı mı kal, geçici çözüm mü/yumuşa mı?
-A) Sağlam çöz. `🏠+1 🥫-1`→K10
-B) Hafif geç. `☺-1`→K10
+*(Sınırsız paylaşımdan gelindiyse — K3-B)*
+Mustafa yüzünü asar. “Kısıtlama olmayınca kimi iki pay aldı, kimi aç kaldı. Bir daha olmaması için bir düzen koymamız gerek.”
+A) Kesin kurallar koy. `🏠+1 🥫-1`→K10
+B) Bu kez uyarıyla geçiştir. `☺-1`→K10
 
+*(Bölme kararından gelindiyse — K6-A, varyant: bolme_karari)*
+Kemal ellerindeki tozu silkeler. “Duvar tamam ama ayrılanlar homurdanıyor. Bu düzen kalıcı mı olacak?”
+A) Kararın arkasında dur. `🏠+1 🥫-1`→K10
+B) Geçici olduğunu söyle. `☺-1`→K10
 **K8 — YIKICI 💀🥫**
-Rıza bağırır: "Hepsini yiyelim!" Sabiha itiraz eder: "Delilik bu!"
-A) Kısıtlamaya devam et. `🥫-1 ☺-1`→K11
-B) Dağıt, bir gecelik ziyafet. `🥫=0`→**SALTANAT SONU**→K11
-
+Rıza kalabalığın içinden bağırır: “Bir geceliğine de olsa karnımız doysun!” Sabiha hemen karşı çıkar: “Depoyu boşaltırsak yarını çıkaramayız.”
+A) Dağıtımı kısıtlı tut. `🥫-1 ☺-1`→K11
+B) Depoyu aç, bir gecelik ziyafet ver. `🥫=0`→**SALTANAT SONU**→K11
 **K9 — Nöbet Kararı ⚑**
-Ömer yorgun gelir. Nöbetçi az, der. Geniş-seyrek mi, dar-sıkı mı?
-A) Geniş-seyrek. `☺+1` *(nobet=gevşek)*→K11
-B) Dar-sıkı. `🏠+1` *(nobet=sıkı)*→K12
-
+Ömer gözlerini ovuşturarak gelir. “Nöbetçi az. Ya çevreyi geniş tutup seyrek gezeceğiz ya da girişlere yığılıp sıkı nöbet tutacağız.”
+A) Çevreyi geniş tut. `☺+1` *(nobet=gevsek)*→K11
+B) Girişleri sıkı tut. `🏠+1` *(nobet=siki)*→K12
 **K10 — Gece Yarısı**
-Zeynep fenerle gelir. Kaç gündür uyumadın, der. Dinlenecek misin, nöbete mi katılacaksın?
-A) Dinlen. `👑+1`→K14
+Zeynep elindeki feneri yüzüne tutar. “Kaç gecedir doğru dürüst uyumadın. Biraz daha zorlarsan ayakta duramayacaksın.”
+A) Bu gece dinlen. `👑+1`→K14
 B) Nöbete katıl. `👑-1 ☺+1`→K11
-
 **K11 — Sızıntı (Gevşek Nöbet Sonucu) ⚑**
-Ömer koşarak gelir. Biri sızmış, der. Sessizce mi hallederiz, herkesi mi uyandırırız?
-A) Sessizce hallet. `🩺-1 👑-1`→K14
+Ömer nefes nefese gelir. “Birisi içeri sızmış. Henüz kimse fark etmedi.”
+A) Sessizce etkisiz hâle getir. `🩺-1 👑-1`→K14
 B) Herkesi uyandır. `☺-1 🩺-1`→K15
-
 **K12 — Yaralı (Sıkı Nöbet Sonucu) ⚑**
-Ömer gelir, gururlu ama endişeli. Saldırı püskürtüldü ama biri yaralı, der. Zeynep'i çağıralım mı?
-A) Çağır. `🩺+1`→K14
-B) Bekler. `🩺-1`→K15
-
+Ömer bu kez gururlu ama gergindir. “Saldırıyı püskürttük. Bir nöbetçi yaralandı.”
+A) Zeynep’i hemen çağır. `🩺+1`→K14
+B) Şimdilik beklesin. `🩺-1`→K15
 **K13 — Hastalık Belirtisi ⚑**
-Zeynep telaşla gelir. Biri döküntülerle uyandı, der. Karantina mı, görmezden mi gelelim?
-A) Karantina ilan et. `🩺+1 ☺-1` *(karantina=evet)*→K17
-B) Görmezden gel. `☺+1 🩺-1` *(karantina=hayır)*→K18
-
+Zeynep aceleyle gelir. “Birinde döküntü başladı. Ne olduğunu bilmiyoruz; diğerlerinden ayırmazsak risk almış oluruz.”
+A) Karantinaya al. `🩺+1 ☺-1` *(karantina=evet)*→K17
+B) Şimdilik dokunma. `☺+1 🩺-1` *(karantina=hayir)*→K18
 **K14 — LİDER RİSKİ 💀👑**
-Mete gelir. Dışarıda bir gölge var, der. Bizzat mı gidiyorsun, nöbetçi mi gönderiyorsun?
-A) Bizzat git. *(👑<5 ise ANİ ÖLÜM; değilse 👑-3)*→K18
-B) Nöbetçi gönder. `👑0 ☺-1`→K15
-
+Mete kapıda bekler. “Dışarıda bir gölge dolaşıyor. Kim olduğunu göremedim.”
+A) Kendin kontrol et. *(👑<5 ise ANİ ÖLÜM; değilse 👑-3)*→K18
+B) Nöbetçiyi gönder. `👑0 ☺-1`→K15
 **K15 — Yaralı Yabancı**
-Zeynep yaralının yanına koşar. İçeri mi alalım, gözlemleyelim mi?
-A) Al. `🩺-1 ☺+1`→K19
-B) Gözlemle. *(etki yok)*→K16
-
-**K16 — Nötr**
-Ali ve Veli kart oyunu oynuyor. Atilla gülümser. Otur musun, işine mi dönersin?
-A) Otur. *(etki yok)*→K19
-B) İşe dön. *(etki yok)*→K17
-
+Zeynep kapının önündeki yaralı yabancıyı gösterir. “Durumu kötü. İçeri alırsak ne taşıdığını da içeri almış oluruz.”
+A) İçeri al. `🩺-1 ☺+1`→K19
+B) Dışarıda gözlem altında tut. *(etki yok)*→K16
+**K16 — Kart Gecesi**
+Ali ile Veli köşede kart oynuyor. Atilla boş bir sandalye çekip sana bakar. “Bir el sürer, hepsi bu.”
+A) Bir el otur. *(etki yok)*→K19
+B) İşinin başına dön. *(etki yok)*→K17
 **K17 — Sonuç (Karantina Evet) ⚑**
-Zeynep üzgün gelir. Hastalık durdu ama karantinadaki öldü, der. Tören mi, sessiz mi?
-A) Tören düzenle. `☺+1`→K19
-B) Sessizce göm. *(etki yok)*→K20
-
+Zeynep gözlerini kaçırır. “Hastalık yayılmadı. Ama karantinaya aldığımız kişi geceyi çıkaramadı.”
+A) Küçük bir tören düzenle. `☺+1`→K19
+B) Sessizce gömüp işlere dön. `🥫+1`→K20
 **K18 — Sonuç (Karantina Hayır) ⚑**
-Zeynep telaşla gelir. Hastalık yayıldı, der. Şimdi karantina mı, doğaçlama tedavi mi?
-A) Karantina uygula. `🩺-2 ☺-1`→K20
-B) Doğaçlama tedavi et. *(değişken 🩺+1/-1)*→K19
-
+Zeynep telaşla gelir. “Döküntü başkalarında da çıktı. Artık bekleyemeyiz.”
+A) Geç de olsa karantina uygula. `🩺-2 ☺-1`→K20
+B) Eldekilerle tedavi etmeye çalış. `🩺-1`→K19
 **K19 — Vertak İpucu**
-İsmet bir kimlik kartı bulur. Vertak yazıyor üstünde, der. Sorgulayalım mı, saklayalım mı?
-A) Sorgula. `☺-1` *(vertak_ipucu+1)*→K21
-B) Sakla. *(etki yok)*→K20
-
+İsmet yaralının eşyaları arasında bir kimlik kartı bulur. Kartın üzerinde tek bir isim okunuyor: “Vertak.”
+A) Sahibine sorular sor. `☺-1` *(vertak_ipucu+1)*→K21
+B) Kartı şimdilik sakla. *(etki yok)*→K20
 **K20 — Sürü Yaklaşıyor ⚑**
-Ömer koşarak gelir. Sürü sesi geliyor, der. Barikat mı, saklanma mı?
+Ömer koşarak içeri girer. “Sürü yaklaşıyor. Çok kalabalıklar; hazırlanmak için fazla vaktimiz yok.”
 A) Barikat kur. `🏠+1 🥫-1` *(savunma=barikat)*→K23
-B) Saklan. `☺-1` *(savunma=saklanma)*→K21
-
-**K21 — Nötr**
-Aziz son kahveyi demler. İçer misin, başkasına mı vereyim?
-A) İç. *(etki yok)*→K24
-B) Ver. *(etki yok)*→K22
-
-**K22 — Ara Kart**
-Mustafa silahını hazırlar. Herkesi içeri mi toplayalım, nöbetçileri mi konumlandırayım?
-A) Topla. `☺+1`→K24
-B) Konumlandır. `👑-1 🏠+1`→K23
-
+B) Işıkları söndür, herkes saklansın. `☺-1` *(savunma=saklanma)*→K21
+**K21 — Son Kahve**
+Aziz saklanırken kalan son kahveyi demler. Kupayı uzatır. “Böyle bir gecede işe yarar.”
+A) Kahveyi iç. *(etki yok)*→K24
+B) Başkasına ver. *(etki yok)*→K22
+**K22 — Sessizlik**
+Sığınak sessizliğe gömülür. Mustafa fısıldar: “Herkesi tek yerde tutabilirim. Ya da nöbetçileri girişlere dağıtırım.”
+A) Herkesi içeride topla. `☺+1`→K24
+B) Nöbetçileri girişlere yerleştir. `👑-1 🏠+1`→K24
 **K23 — Sonuç (Barikat) ⚑**
-Kemal gelir. Barikat tuttu ama hasar gördü, der. Hemen mi onaralım, sonra mı?
+Kemal hasarlı barikata bakar. “İşe yaradı ama bir darbeyi daha kaldırmaz.”
 A) Hemen onar. `🏠-1 🥫-1`→K26
-B) Sonra onar. `🏠-2`→K24
-
+B) Onarımı ertele. `🏠-2`→K26
 **K24 — Sonuç (Saklanma) ⚑**
-Ömer alçak sesle gelir. Sürü fark etmeden geçti, der. Az kalsın biri ses çıkarıyordu. Uyar mı, şansa mı bırak?
-A) Uyar. `☺-1`→K25
-B) Şansa bırak. *(değişken 🩺-2/etkisiz)*→K25
-
+Ömer sesini alçaltır. “Sürü bizi fark etmeden geçti. Ama içeriden biri az daha ses çıkarıyordu.”
+A) Herkesi açıkça uyar. `☺-1`→K25
+B) Konuyu büyütme. *(nöbet gevşekse `🩺-2`, sıkıysa etkisiz)*→K25
 **K25 — Eşik**
-İsmet kulaklığını çıkarır. Vertak'a sinyal mi, yalnız mı devam?
+İsmet kulaklığı çıkarıp masaya bırakır. “Vertak frekansı hâlâ açık. İstersek ilk teması şimdi kurabiliriz.”
 A) Sinyal gönder. →K26
-B) Yalnız devam et. →K29
-
+B) Sessiz kal, kendi yolumuzda devam et. →K29
 ---
 
 ### BÖLÜM II (K26-K60)
 
-**K26 — Nötr**
-Semra tozlu bir gitar bulur. Tamir edeyim mi, bırakayım mı?
-A) Tamir et. *(etki yok)*→K29
-B) Bırak. *(etki yok)*→K27
-
+**K26 — Tozlu Gitar**
+Semra depoda tozlanmış bir gitar bulur. Tellerini yoklayıp sana bakar. “Biraz uğraşırsam yine ses verir.”
+A) Tamir etmesine izin ver. *(etki yok)*→K29
+B) Şimdilik olduğu yerde kalsın. *(etki yok)*→K27
 **K27 — Çitteki Ses (1/2) ⚑🧟**
-Ömer nöbette gelir. Çitin ötesinde bir şey konuşuyor gibi, der. Yaklaşalım mı, uzaktan mı izleyelim?
-A) Yaklaş. `☺-1` *(cit_yaklastik=evet)*→K31
-B) Uzaktan izle. `☺0` *(cit_yaklastik=hayır)*→K28
-
+Ömer nöbetten inerken duraksar. “Çitin ötesinden bir ses geliyor. Kelimelere benziyor.”
+A) Yakından bak. `☺-1` *(cit_yaklastik=evet)*→K31
+B) Uzaktan izlemeye devam et. *(etki yok)* *(cit_yaklastik=hayir)*→K28
 **K28 — Çitteki Ses (2/2) Sonuç**
-*Yaklaşıldıysa:* "Yardım" diyor ama gözleri insan gözü değil. Ateş mi, dinle mi?
+*(Yaklaşıldıysa)*
+Çitin ötesindeki yaratık boğuk bir sesle “Yardım” der. Gözleri artık insana ait görünmüyor.
 A) Ateş et. `☺-1`→K31
-B) Dinle. `☺-2` *(zombi_konustu=evet)*→K31
-*Uzaktan izlendiyse:* Ses kesildi. Devriyeyi artır mı, gerek yok mu?
-A) Artır. `🏠+1`→K30
-B) Gerek yok. →K31
+B) Ne söyleyeceğini dinle. `☺-2` *(zombi_konustu=evet)*→K31
 
+*(Uzaktan izlendiyse — varyant: cit_yaklastik)*
+Ses bir anda kesilir. Ömer karanlığa bakar. “Yerini kaybettim.”
+A) Devriyeyi artır. `🏠+1`→K30
+B) Nöbet düzenini değiştirme. *(etki yok)*→K31
 **K29 — Zeynep'in Yorumu**
-Zeynep gelir. Bu ses Vertak'ın notlarındaki bir şeye benziyor, der. Araştıralım mı, unutalım mı?
-A) Araştır. `☺-1` *(pharma_arastirma=1)*→K32
-B) Unut. *(etki yok)*→K30
-
-**K30 — Nötr**
-Emine Teyze eski bir anısını anlatır. Dinler misin, vaktin yok mu?
-A) Dinle. *(etki yok)*→K33
-B) Yok. *(etki yok)*→K33
-
+Zeynep duyduklarını düşünür. “Vertak notlarında buna benzeyen bir vaka vardı. Aynı şeyse bilmemiz gereken çok şey var.”
+A) İzini araştır. `☺-1` *(pharma_arastirma+1)*→K34
+B) Konuyu kapat. *(etki yok)*→K30
+**K30 — Emine Teyze'nin Anısı**
+Emine Teyze eski günlerden bir hikâye anlatmaya başlar. Bir süreliğine sığınağın duvarları yokmuş gibi olur.
+A) Yanına oturup dinle. `☺+1`→K33
+B) İşine dön. *(etki yok)*→K33
 **K31 — Sabiha'nın Seferi (1/2) ⚑**
-Sabiha harita açar. 3 kişi mi göndereyim, 5 kişi mi?
-A) 3 kişi. `🥫0` *(sefer_ekip=kucuk)*→K34
-B) 5 kişi. `🥫0 🏠-1` *(sefer_ekip=buyuk)*→K35
-
+Sabiha haritayı masaya açar. “Yakındaki depoya ulaşabiliriz. Üç kişi daha sessiz olur; beş kişi daha çok yük taşır.”
+A) Üç kişilik ekip gönder. `🥫0` *(sefer_ekip=kucuk)*→K32
+B) Beş kişilik ekip gönder. `🥫0 🏠-1` *(sefer_ekip=buyuk)*→K32
 **K32 — Sabiha'nın Seferi (2/2) Sonuç**
-İsmet telsizden bağırır — sürüyle karşılaşmışlar. Geri mi, riske mi?
-A) Geri çekil. `☺+1 🥫+1`→K35
-B) Riske gir. *(kucuk: `🥫+1 🩺-1`; buyuk: `🥫+3 ☺-2`)*→K35
-
-**K33 — Nötr**
-Aziz topladığı sebzelerden bir yemek çıkarır. Ye mi, sakla mı?
-A) Ye. *(etki yok)*→K36
+İsmet telsizi sana uzatır. Hattın öbür ucunda bağrışmalar vardır: ekip bir sürüye yakalanmıştır.
+A) Hemen geri çekilmelerini emret. `☺+1 🥫+1`→K35
+B) Görevi tamamlamalarını iste. *(ekip küçükse `🥫+1 🩺-1`; büyükse `🥫+3 ☺-2`)*→K35
+**K33 — Aziz'in Yemeği**
+Aziz topladığı sebzelerden sıcak bir yemek çıkarır. “Bugün yiyebiliriz. Ya da yarına bırakırız.”
+A) Bugün ye. *(etki yok)*→K36
 B) Sakla. *(etki yok)*→K36
-
-**K34 — Kemal'in Şüphesi ⚑** *(3 kart sonra sonuçlanır)*
-Kemal duvara vurur. Temelde çatlak var, der. Şimdi mi, bekle mi?
+**K34 — Kemal'in Şüphesi ⚑**
+Kemal duvara birkaç kez vurup sesi dinler. “Temelde çatlak var. Beklersek büyüyebilir.”
 A) Şimdi onar. `🏠0 🥫-1` *(catlak=onarildi)*→K37
-B) Bekle. *(catlak=bekletildi)*→K36
-
-**K35 — Nötr**
-Ali ve Veli gitarla "konser" verir. Alkışla mı, izle mi?
+B) Şimdilik bekle. *(catlak=bekletildi)*→K36
+**K35 — Balkon Konseri**
+Ali ile Veli gitarı ele geçirip küçük bir “konser” verir. Sığınakta ilk kez birkaç kişi gerçekten güler.
 A) Alkışla. *(etki yok)*→K38
-B) İzle. *(etki yok)*→K38
-
+B) Kenardan izle. *(etki yok)*→K38
 **K36 — Salgının Kökeni**
-İsmet eski bir rapor bulur — Vertak'ın Suş-7 deneyi kontrolden çıkmış. Herkese mi, kadroya mı?
-A) Herkese açıkla. `☺-2`→K39
-B) Kadroya söyle. →K39
-
+İsmet eski bir Vertak raporunu masaya bırakır. Suş-7 deneyinin kontrolden çıktığı yazılıdır. Kemal’in sözünü ettiği nemli çatlak da rapordaki koşullarla ürkütücü biçimde örtüşür.
+A) Bildiklerini herkese anlat. `☺-2`→K37
+B) Şimdilik yalnızca kadroyla paylaş. *(etki yok)*→K37
 **K37 — Kemal'in Şüphesi Sonucu ⚑**
-*Onarıldıysa:* Duvar sağlam. Dinlen mi, kontrol mü et?
-A) Dinlen. `☺+1`→K40
-B) Kontrol et. `🏠+1 👑-1`→K40
-*Bekletildiyse:* Çatlak büyüdü, su alıyor! Onar mı, boşalt mı?
-A) Onar. `🏠-1 🥫-1`→K40
-B) Boşalt. `🏠-2 ☺-1`→K39
+*(Onarıldıysa)*
+Kemal duvarı yeniden kontrol eder. “Şimdilik sağlam. İstersen burada bırakırız, istersen son bir kez baştan sona bakarım.”
+A) İşi burada bitir. `☺+1`→K40
+B) Ayrıntılı kontrol yap. `🏠+1 👑-1`→K40
 
-**K38 — Nötr**
-Rıza ve Tarık tartışıyor. Atilla araya girer. Sen mi, o mu?
-A) Ben hallederim. *(etki yok)*→K41
-B) Atilla'ya bırak. *(etki yok)*→K40
-
+*(Bekletildiyse — varyant: catlak=bekletildi)*
+Çatlak büyümüş, içeri su almaya başlamıştır. Kemal küfreder. “Artık erteleyemeyiz.”
+A) Hasarlı bölümü onar. `🏠-1 🥫-1`→K40
+B) Bölmeyi boşalt. `🏠-2 ☺-1`→K39
+**K38 — Atilla Arada**
+Rıza ile Tarık birbirine girmiştir. Atilla ikisinin arasında durup sana bakar. “İstersen sen konuş. İstersen ben halledeyim.”
+A) Araya kendin gir. *(etki yok)*→K42
+B) Atilla’ya bırak. *(etki yok)*→K40
 **K39 — YIKICI 💀☺**
-Necati bağırır: "Lider bizi kandırıyor!" Açıkla mı, sustur mu?
-A) Açıkla. `☺+1`→K42
-B) Sustur. *(☺≤3 ise `☺=0`→SALTANAT SONU; ☺>3 ise `☺-1`)*→K43
-
+Necati kalabalığın ortasında sesini yükseltir: “Bize her şeyi anlatmıyor!” İnsanlar dönüp sana bakar.
+A) Bildiklerini açıkça anlat. `☺+1`→K42
+B) Tartışmayı zorla kes. *(☺≤3 ise `☺=0`→SALTANAT SONU; ☺>3 ise `☺-1`)*→K43
 **K40 — İsmet'in Sinyali (1/3) ⚑**
-İsmet tuhaf bir sinyal yakalar. Cevap ver mi, tuzak mı?
-A) Cevap ver. `☺+1` *(sinyal=cevaplandi)*→K43
-B) Verme. *(sinyal=sessiz)*→K42
-
+İsmet kulaklığını çıkarmaz. “Aynı frekanstan tekrar tekrar sinyal geliyor. Bizi özellikle arıyor olabilirler.”
+A) Cevap ver. `☺+1` *(sinyal=cevaplandi)*→K41
+B) Sessiz kal. *(sinyal=sessiz)*→K41
 **K41 — İsmet'in Sinyali (2/3)**
-*Cevaplandıysa:* Koordinat istiyorlar. Ver mi, verme mi?
-A) Ver. *(konum_paylasildi=evet)*→K44
-B) Verme. →K44
-*Sessizse:* Sinyal sıklaşıyor. Kapat mı, açık mı bırak?
-A) Kapat. `🥫-1`→K44
-B) Açık bırak. →K44
+*(Cevaplandıysa)*
+Karşı taraf doğrudan koordinat ister. İsmet eli vericinin üzerinde bekler.
+A) Konumu paylaş. *(konum_paylasildi=evet)*→K43
+B) Konumu verme. *(etki yok)*→K43
 
-**K42 — Nötr**
-Gül'ün bebeği ilk kez güler. Gülümse mi, işine mi dön?
+*(Sessiz bırakıldıysa — varyant: sinyal=sessiz)*
+Sinyal daha sık gelmeye başlar. Karşı taraf cevap almadan vazgeçmiyordur.
+A) Cihazı kapat. `🥫-1`→K43
+B) Frekansı açık bırak. *(etki yok)*→K43
+**K42 — Gül'ün Bebeği**
+Gül’ün bebeği ilk kez kahkaha atar. Tartışmaların ortasında herkes birkaç saniyeliğine susar.
 A) Gülümse. *(etki yok)*→K45
-B) İşe dön. *(etki yok)*→K43
-
+B) İşine dön. *(etki yok)*→K43
 **K43 — İsmet'in Sinyali (3/3) Sonuç**
-Ömer gelir — dışarıda bir araç var. Karşıla mı, kilitle mi?
-A) Karşıla. →K46
-B) Kilitle. →K44
-
-**K44 — Vertak Konuşması** *(Konum paylaşıldıysa Vertak gelir, aksi halde belirsiz bir grup ya da kimse.)*
-Konuş mu, mesafeli mi?
-A) Konuş. `☺+1 veya ☺-2`→K47
-B) Mesafeli kal. →K45
-
-**K45 — Bebeğin Ateşi ⚑** *(2 kart sonra sonuçlanır)*
-Zeynep endişeli gelir. Bebek ateşleniyor, der. Son ilacı mı, bekle mi?
-A) Kullan. `🥫-1` *(ates_ilac=evet)*→K48
-B) Bekle. *(ates_ilac=hayir)*→K46
-
-**K46 — Nötr**
-Sibel sessizce ayakkabıları onarıyor. Teşekkür et mi, sessiz mi kal?
-A) Teşekkür et. *(etki yok)*→K49
-B) Sessiz kal. *(etki yok)*→K47
-
+Ömer kapıdan haber verir. “Dışarıda bir araç durdu. İçindekiler bekliyor.”
+A) Kapıda karşıla. →K46
+B) Kapıları kilitle. →K44
+**K44 — Vertak Konuşması**
+*(Koordinat paylaşıldıysa)* Kapıda gerçekten bir Vertak temsilcisi vardır; sakin, temiz ve hazırlıklıdır. *(Paylaşılmadıysa)* Kapıda kimliği belirsiz, gergin bir grup bekler.
+A) Konuşmayı kabul et. *(konum paylaşıldıysa `☺+1`, paylaşılmadıysa `☺-2`)*→K47
+B) Mesafeyi koru. *(etki yok)*→K45
+**K45 — Bebeğin Ateşi ⚑**
+Zeynep bebeğin başında bekler. “Ateşi yükseliyor. Elimizde bir doz ilaç kaldı.”
+A) Son ilacı kullan. `🥫-1` *(ates_ilac=evet)*→K47
+B) Bir süre daha gözlemle. *(ates_ilac=hayir)*→K46
+**K46 — Sibel'in Sessizliği**
+Sibel köşede sessizce yıpranmış ayakkabıları onarır. Bebeğin ateşi konuşulurken bile elindeki işe devam eder.
+A) Emeği için teşekkür et. *(etki yok)*→K49
+B) Sessizce geç. *(etki yok)*→K47
 **K47 — Bebeğin Ateşi Sonucu ⚑**
-*İlaç kullanıldıysa:* Ateş düştü. →`☺+1`→K50
-*Beklenildiyse:* Ateş yükseldi, şimdi vermek zorunda. →`🥫-1 🩺-1`→K48
+*(İlaç kullanıldıysa)*
+Sabaha karşı bebeğin ateşi düşer. Zeynep sonunda omuzlarını gevşetir.
+A) Tehlikenin geçtiğini kabul et. `☺+1`→K50
+B) Bir gece daha gözlem altında tut. `☺+1`→K50
 
+*(Beklenildiyse — varyant: ates_ilac=hayir)*
+Ateş daha da yükselince son ilaç yine kullanılır. Zeynep yorgun gözlerle sana bakar.
+A) Kimseyi suçlama. `🥫-1 🩺-1`→K48
+B) Kararını sorgula. `🥫-1 🩺-1 👑-1`→K48
 **K48 — LİDER RİSKİ 💀👑**
-Mustafa gelir. Birkaç enfekteli çok yaklaştı, der. Sen mi liderlik et, o mu alsın komutayı?
-A) Ben ederim. *(👑<5 ise ANİ ÖLÜM; değilse `👑-2 🏠+1`)*→K51
-B) Mustafa alsın. `👑0 🏠+1 ☺-1`→K49
-
-**K49 — Nötr**
-Cem ve Yusuf zar oynuyor. Katıl mı, gülümse mi?
-A) Katıl. *(etki yok)*→K52
-B) Gülümse. *(etki yok)*→K50
-
+Mustafa aceleyle gelir. “Birkaç enfekteli dış hatta kadar sokuldu. Komutayı biri almalı.”
+A) Savunmayı kendin yönet. *(👑<5 ise ANİ ÖLÜM; değilse `👑-2 🏠+1`)*→K51
+B) Komutayı Mustafa’ya bırak. `👑0 🏠+1 ☺-1`→K49
+**K49 — Zar Oyunu**
+Cem ile Yusuf bir çift zar bulmuş, kendi kurallarını uydurmuşlardır. Sana da yer açarlar.
+A) Oyuna katıl. *(etki yok)*→K52
+B) İzleyip geç. *(etki yok)*→K50
 **K50 — YIKICI 💀🏠**
-Kemal ciddi gelir. Kapının menteşeleri güvenilir değil, der. Tüm kaynağı mı, idare mi et?
-A) Tüm kaynak ver. `🥫-2 🏠+2`→K53
-B) İdare et. *(🏠≤3 ise `🏠=0`→SALTANAT SONU; 🏠>3 ise `🏠-1`)*→K51
-
+Kemal kapının menteşesini söküp önüne bırakır. “Bununla bir saldırı daha karşılamayız. Ya düzgünce yenileriz ya da şansımıza güveniriz.”
+A) Kaynak ayırıp tamamen yenile. `🥫-2 🏠+2`→K53
+B) Şimdilik idare et. *(🏠≤3 ise `🏠=0`→SALTANAT SONU; 🏠>3 ise `🏠-1`)*→K51
 **K51 — Vertak Teması**
-İsmet gelir. Konuş mu, reddet mi?
-A) Konuş. →K54
-B) Reddet. →K52
-
+İsmet Vertak frekansını yeniden açar. “Hat açık. İstersek konuşabiliriz.”
+A) Teması sürdür. →K54
+B) Bağlantıyı reddet. →K52
 **K52 — Halkın Öfkesi**
-Tarık liderliğini sorguluyor. Sakin kal mı, sert mi?
-A) Sakin kal. `☺+1`→K55
+Tarık bu kez herkesin önünde konuşur. “Bu kararları neden hep sen veriyorsun?” Oda sessizleşir.
+A) Sakin kalıp cevap ver. `☺+1`→K55
 B) Sert karşılık ver. `☺-1`→K53
-
-**K53 — Nötr**
-Emine Teyze garip bir tarif dener. Tadına bak mı, reddet mi?
+**K53 — Emine Teyze'nin Tarifi**
+Emine Teyze elde kalanlarla ne olduğu pek anlaşılmayan bir yemek yapar. Kaşığı sana uzatır.
 A) Tadına bak. *(etki yok)*→K56
-B) Reddet. *(etki yok)*→K54
-
-**K54 — Duman Kararı ⚑** *(6 kart sonra sonuçlanır)*
-Sabiha uzakta bir duman görür. Araştır mı, girmeyelim mi?
-A) Araştır. *(duman_arastir=evet)*→K57
-B) Girmeyelim. *(duman_arastir=hayır)*→K55
-
-**K55 — Nötr**
-Ali'nin doğum günü. Kutla mı, sade mi?
-A) Kutla. *(etki yok)*→K58
-B) Sade geç. *(etki yok)*→K56
-
+B) Bu kez pas geç. *(etki yok)*→K54
+**K54 — Duman Kararı ⚑**
+Sabiha uzakta yükselen ince bir duman sütununu gösterir. “Ateşse insan vardır. Tuzaksa da bizi bekliyor olabilir.”
+A) Dumanın kaynağını araştır. *(duman_arastir=evet)*→K57
+B) O bölgeden uzak dur. *(duman_arastir=hayir)*→K55
+**K55 — Ali'nin Doğum Günü**
+Ali’nin doğum günü gelir. Büyük bir kutlama yapacak hâliniz yoktur ama herkes günü hatırlar.
+A) Küçük de olsa kutla. *(etki yok)*→K58
+B) Sade bir tebrikle geç. *(etki yok)*→K56
 **K56 — Yabancı Grup (1/2)**
-Ömer yaklaşan bir grup görür. Temas mı, izle mi?
-A) Temas. *(yabanci_temas=evet)*→K59
-B) İzle. *(yabanci_temas=hayır)*→K57
-
+Ömer uzakta ilerleyen bir grup görür. “Bizi fark ettiler mi emin değilim.”
+A) Temas kur. *(yabanci_temas=evet)*→K59
+B) Uzaktan izle. *(yabanci_temas=hayir)*→K57
 **K57 — Yabancı Grup (2/2) Sonuç**
-*Temas:* Ticaret öneriyorlar. Ticaret mi, ret mi?
-A) Ticaret. `🥫+1 ☺+1`→K60
-B) Ret. `☺-1`→K58
-*İzle:* Yakında konaklıyorlar. Nöbet artır mı, sessiz mi?
-A) Artır. `🏠0`→K60
-B) Sessiz kal. *(değişken 🏠-1/etkisiz)*→K58
+*(Temas kurulduysa)*
+Grup yiyecek ve malzeme takası teklif eder. Sabiha malları hızlıca gözden geçirir.
+A) Takası kabul et. `🥫+1 ☺+1`→K60
+B) Teklifi reddet. `☺-1`→K58
 
-**K58 — Nötr**
-Fatma duvara gökkuşağı çiziyor. İzle mi, geç mi?
-A) İzle. *(etki yok)*→K61
-B) Geç. *(etki yok)*→K59
+*(Uzaktan izlendiyse — varyant: yabanci_temas=hayir)*
+Grup yakınlarda kamp kurar. Ömer, birkaç gün burada kalabileceklerini düşünür.
+A) Nöbeti artır. `🏠0`→K60
+B) Düzeni değiştirme. *(nöbet zaten sıkıysa etkisiz, gevşekse `🏠-1`)*→K58
+**K58 — Fatma'nın Gökkuşağı**
+Fatma duvara kocaman bir gökkuşağı çizer. Gri betonun ortasında fazlasıyla canlı durur.
+A) Bir süre yanında dur. *(etki yok)*→K61
+B) Yoluna devam et. *(etki yok)*→K59
+**K59 — Duman Kararı Sonucu ⚑**
+*(Araştırıldıysa)*
+Dumanın yanında küçük bir grup bulunur. Sığınağa katılmak istediklerini söylerler.
+A) İçeri al. `🥫-1 ☺+1`→K62
+B) Geri çevir. `☺-1`→K60
 
-**K59 — Duman Kararı Sonucu (6 kart sonra) ⚑**
-*Araştırıldıysa:* Küçük bir grup bulunur, katılmak istiyor. Al mı, ret mi?
-A) Al. `🥫-1 ☺+1`→K62
-B) Ret. `☺-1`→K60
-*Girilmediyse:* İyi ki gitmediniz — orası tuzakmış. →`☺+1`→K62
-
+*(Girilmediyse — varyant: duman_arastir=hayir)*
+Sonradan gelen haber, dumanın bir tuzağın parçası olduğunu doğrular. Uzak durmak doğru karar olmuştur. →`☺+1`→K62
 **K60 — YIKICI 💀🩺**
-Zeynep suyun kirli olabileceğini söylüyor. Test et mi, hemen iç mi?
-A) Test et. `🥫-1`→K63
-B) Hemen iç. *(🩺≤3 ise `🩺=0`→SALTANAT SONU; 🩺>3 ise `🩺0`)*→K61
-
+Zeynep su kabını ışığa tutar. “Kokusu normal değil. İçmeden önce test etmemiz gerek.”
+A) Suyu test et. `🥫-1`→K63
+B) Beklemeden kullan. *(🩺≤3 ise `🩺=0`→SALTANAT SONU; 🩺>3 ise `🩺0`)*→K61
 ---
 
 ### BÖLÜM III (K61-K100)
 
-**K61 — Nötr**
-Necati kumarda kaybediyor, herkes gülüyor. Gül mü, ciddi mi kal?
-A) Gül. *(etki yok)*→K64
-B) Ciddi kal. *(etki yok)*→K62
-
+**K61 — Necati'nin Kumarı**
+Necati zar oyununda üst üste kaybeder. Masadakiler onun söylenmesine gülmeye başlar.
+A) Sen de gül. *(etki yok)*→K64
+B) Ciddiyetini koru. *(etki yok)*→K62
 **K62 — LİDER RİSKİ 💀👑**
-Mete, kritik malzeme için tehlikeli bir keşif gerektiğini söylüyor. Bizzat mı, gönder mi?
-A) Bizzat git. *(👑<5 ise ANİ ÖLÜM; değilse `👑-2`)*→K65
-B) Gönder. `👑0 🥫-1`→K63
-
-**K63 — Lore: Faz 4**
-İsmet eski bir Vertak dosyası buluyor *(pharma_arastirma+1)*. Paylaş mı, sakla mı?
-A) Paylaş. `☺-1`→K66
-B) Sakla. →K64
-
-**K64 — Nötr**
-Yusuf derede balık tutmaya çalışıyor. Yardım et mi, izle mi?
-A) Yardım et. *(etki yok)*→K67
-B) İzle. *(etki yok)*→K65
-
+Mete haritayı önüne koyar. “İhtiyacımız olan malzeme burada olabilir. Yol kötü, bölge daha da kötü.”
+A) Keşfe kendin çık. *(👑<5 ise ANİ ÖLÜM; değilse `👑-2`)*→K65
+B) Bir ekip gönder. `👑0 🥫-1`→K63
+**K63 — Vertak Dosyası: Faz 4**
+İsmet eski Vertak kayıtlarından “Faz 4” başlıklı bir dosya çıkarır. İçeriği, bildiklerinizi biraz daha karanlık bir yere bağlar. *(pharma_arastirma+1)*
+A) Dosyayı herkesle paylaş. `☺-1`→K66
+B) Şimdilik arşivde tut. *(etki yok)*→K64
+**K64 — Balık Tutma**
+Yusuf derede balık tutmaya uğraşır. Oltası sürekli bir yerlere takılır ama vazgeçmez.
+A) Yardım et. *(etki yok)*→K65
+B) Kenardan izle. *(etki yok)*→K65
 **K65 — Güneş Paneli Projesi (1/3)**
-Kemal büyük bir proje öneriyor. Başla mı, ertele mi?
-A) Başla. *(proje=baslatildi)*→K68
-B) Ertele. *(proje=ertelendi)*→K66 ⚡
-
+Kemal çatının en güneş alan bölümünü işaretler. “Yeterli malzeme bulursak kendi elektriğimizi üretebiliriz.”
+A) Projeyi hemen başlat. *(proje=baslatildi)*→K68
+B) Şimdilik ertele. *(proje=ertelendi)*→K66
 **K66 — Güneş Paneli (2/3)**
-Malzeme eksik. Başka sığınaktan mı, kendi kaynağımızla mı?
-A) Başka sığınaktan iste. *(ittifak_baslangic=evet)* `🥫-1`→K69
-B) Kendi kaynağımız. `🏠-1`→K67
-
+Kemal parça listesini uzatır. “Elimizdekiler yetmiyor. Ya komşulardan isteyeceğiz ya da başka yerlerden söküp kullanacağız.”
+A) Başka bir sığınaktan yardım iste. *(ittifak_baslangic=evet)* `🥫-1`→K69
+B) Kendi kaynaklarımızla devam et. `🏠-1`→K67
 **K67 — Güneş Paneli (3/3) Sonuç**
-*(proje=baslatildi ise)* Panel tamamlanır. →`🏠+2 🥫-1`→K70
+*(Proje zamanında başlatıldıysa)*
+Panel sonunda tam kapasite çalışır. Sığınakta ilk kez kesintisiz bir elektrik kaynağı vardır.
+A) Kemal’in emeğini takdir et. `🏠+2 🥫-1`→K70
+B) Vakit kaybetmeden sıradaki işe geç. `🏠+2 🥫-1`→K70
 
-**K68 — Nötr**
-Sibel'in eskiden piyanist olduğu ortaya çıkıyor. İste mi, bırak mı?
-A) İste. *(etki yok)*→K71
-B) Bırak. *(etki yok)*→K69
-
-**K69 — İttifak Teklifi ⚑** *(6 kart sonra sonuçlanır)*
-Komşu bir sığınaktan ittifak teklifi geliyor. Kabul mü, ret mi?
-A) Kabul. *(ittifak=evet)*→K72
-B) Ret. *(ittifak=hayır)*→K70
-
-**K70 — Nötr**
-Tarık ve Rıza beklenmedik şekilde barışıyor. Kutla mı, fark etme mi?
-A) Kutla. *(etki yok)*→K73
-B) Fark etme. *(etki yok)*→K71
-
+*(Proje ertelenip kendi kaynaklarıyla yapıldıysa — varyant: proje=ertelendi)*
+Eldeki parçalarla kurulan panel kusursuz değildir ama çalışır. Gecikmenin bedeli, daha düşük kapasitedir.
+A) Bu hâliyle yeterli say. `🏠+1 🥫-1`→K70
+B) İleride genişletmek üzere kayda geçir. `🏠+1 🥫-1`→K70
+**K68 — Sibel'in Geçmişi**
+Panel konuşulurken Sibel, elektriğin ona eski bir şeyi hatırlattığını söyler. Meğer salgından önce piyanistmiş.
+A) Bir gün çalmasını iste. *(etki yok)*→K71
+B) Konuyu uzatma. *(etki yok)*→K67
+**K69 — İttifak Teklifi ⚑**
+Komşu sığınaktan resmi bir teklif gelir: kaynak ve haber paylaşımı karşılığında karşılıklı destek.
+A) İttifakı kabul et. *(ittifak=evet)*→K72
+B) Teklifi reddet. *(ittifak=hayir)*→K70
+**K70 — Beklenmedik Barış**
+Tarık ile Rıza günlerdir ilk kez aynı masada kavga etmeden oturur. Kimse bunun nasıl olduğunu tam anlayamaz.
+A) Barışmalarını kutla. *(etki yok)*→K73
+B) Üzerinde durma. *(etki yok)*→K71
 **K71 — YIKICI 💀🥫**
-Sabiha, riskli bir toptan takas fırsatı buluyor. Güvenli mi, büyük riskli mi?
-A) Güvenli takas. `🥫-1 🩺+1`→K74
-B) Büyük riskli takas. *(🥫≤3 ise `🥫=0`→SALTANAT SONU; 🥫>3 ise `🥫+3`)*→K72
-
-**K72 — Nötr**
-Gül bebeğine isim koyuyor. Katıl mı, kısa tebrik mi?
-A) Katıl. *(etki yok)*→K75
-B) Kısa tebrik. *(etki yok)*→K73
-
+Sabiha büyük miktarda erzak getirebilecek bir takas fırsatı bulur. Güvenli seçenek az kazandırır; diğerinde kayıp ihtimali çok daha büyüktür.
+A) Güvenli takası seç. `🥫-1 🩺+1`→K74
+B) Büyük riski al. *(🥫≤3 ise `🥫=0`→SALTANAT SONU; 🥫>3 ise `🥫+3`)*→K72
+**K72 — İsim Koyma**
+Gül bebeğine isim koyacağı gün herkesi yanına çağırır. Sığınakta uzun zamandır böyle bir şey için toplanılmamıştır.
+A) Törene katıl. *(etki yok)*→K75
+B) Kısa bir tebrikle yetin. *(etki yok)*→K73
 **K73 — Konuşan Zombi**
-Ömer çitte yine bir ses duyar: "Biz de... insandık." Dinle mi, uzaklaş mı?
-A) Dinle. `☺-1` *(zombi_ikinci_temas=evet)*→K76
-B) Uzaklaş. →K74
+Ömer çitin yanında yine aynı boğuk sesi duyar. Bu kez kelimeler daha nettir: “Biz de... insandık.”
+A) Dinlemeye devam et. `☺-1` *(zombi_ikinci_temas=evet)*→K76
+B) Çitten uzaklaş. *(etki yok)*→K74
+**K74 — Kayıp Defter**
+Aziz telaşla tohum defterini arar. Yıllardır tuttuğu bütün ekim notları o defterdedir.
+A) Aramasına yardım et. *(etki yok)*→K77
+B) Kendi işine dön. *(etki yok)*→K75
+**K75 — İttifak Sonucu ⚑**
+*(Kabul edildiyse)*
+İttifakın şartları zamanla tek taraflı hâle gelir. Karşı taraf daha çok isterken verdiği destek azalır.
+A) Şartlara itiraz et. `☺-1`→K78
+B) Anlaşmayı bozmamak için boyun eğ. `🥫-2 ☺-1`→K76
 
-**K74 — Nötr**
-Aziz'in tohum defteri kayboluyor. Yardım et mi, boşver mi?
-A) Yardım et. *(etki yok)*→K77
-B) Boşver. *(etki yok)*→K75
-
-**K75 — İttifak Sonucu (6 kart sonra) ⚑**
-*Kabul edildiyse:* İttifak sizi sömürmek istiyormuş. Karşı çık mı, boyun eğ mi?
-A) Karşı çık. `☺-1`→K78
-B) Boyun eğ. `🥫-2 ☺-1`→K76
-*Reddedildiyse:* İyi ki reddettik. →`☺+1`→K77
-
+*(Reddedildiyse — varyant: ittifak=hayir)*
+Komşu sığınaktan gelen haberler, teklifin göründüğü kadar masum olmadığını doğrular. Reddetmek sizi bir yükten kurtarmıştır. →`☺+1`→K77
 **K76 — LİDER RİSKİ 💀👑**
-Ömer bir suikast girişimi fark ediyor. Soruştur mu, görmezden mi?
-A) Soruştur, şüpheliyle yüzleş. *(👑<5 ise ANİ ÖLÜM; değilse `👑-1 ☺-1`)*→K79
-B) Görmezden gel. `👑0`→K77
-
-**K77 — Nötr**
-Ali ilk kez nöbete katılmak istiyor. İzin ver mi, erken mi bul?
-A) İzin ver. *(etki yok)*→K80
-B) Erken bul. *(etki yok)*→K78
-
+Ömer sabaha karşı seni kenara çeker. “Birisi sana ulaşmaya çalıştı. Tesadüf değildi.”
+A) Şüphelinin peşine düş. *(👑<5 ise ANİ ÖLÜM; değilse `👑-1 ☺-1`)*→K79
+B) Şimdilik üstünü kapat. `👑0`→K77
+**K77 — Ali'nin İlk Nöbeti**
+Ali ilk kez gerçek nöbete çıkmak istediğini söyler. Çocukluğundan kalan hâliyle ona bakmak artık giderek zorlaşmaktadır.
+A) Nöbete katılmasına izin ver. *(etki yok)*→K80
+B) Biraz daha beklemesini söyle. *(etki yok)*→K78
 **K78 — Kış Hazırlığı (1/2)**
-Kemal, ısınma sorunu için iki çözüm sunuyor. Odun mu, elektrik mi?
-A) Odun. *(kis_hazirlik=odun)* `🥫-1`→K81
-B) Elektrik. *(kis_hazirlik=elektrik)* `🏠-1`→K79
-
+Kemal kış için iki ısınma planı çıkarır. Odun daha güvenilir ama dumanlıdır; elektrik daha temiz ama sisteme yük bindirir.
+A) Odunla ısın. *(kis_hazirlik=odun)* `🥫-1`→K81
+B) Elektrikli sistemi kullan. *(kis_hazirlik=elektrik)* `🏠-1`→K79
 **K79 — Kış Hazırlığı (2/2) Sonuç**
-Kışın ilk haftası geçiyor. →`🏠 ve 🩺 üzerinde küçük swing`→K80
+*(Odun seçildiyse)* Kışın ilk haftasında sığınak sıcak kalır ama baca kurum bağlar, hava ağırlaşır.
+A) Bacayı düzenli temizlet. `🏠+1 🩺0`→K80
+B) Sezonu böyle çıkarmaya çalış. `🏠+1 🩺-1`→K80
 
-**K80 — Nötr**
-Semra'nın konseri artık gelenek oldu. Katıl mı, kaçır mı?
-A) Katıl. *(etki yok)*→K84
-B) Kaçır. *(etki yok)*→K81
-
-**K81 — Lore Doruğu** *(pharma_arastirma≥2 ise özel metin)*
-İsmet, Vertak'ın asıl planını çözüyor: sığınakları toplamak. Yay mı, sessiz mi?
-A) Yay. `☺-1`→K83
-B) Sessiz kal. →K82
-
+*(Elektrik seçildiyse — varyant: kis_hazirlik=elektrik)* Elektrikli sistem çalışır ama yük altında sık sık kararsızlaşır. Buna karşılık içerideki hava temizdir.
+A) Kemal’e sürekli kontrol ettir. `🏠0 🩺+1`→K80
+B) Arızalar çıkana kadar müdahale etme. `🏠-1 🩺+1`→K80
+**K80 — Semra'nın Geleneği**
+Semra’nın küçük konserleri artık sığınağın alışkanlıklarından biri olmuştur. O akşam yine gitarını çıkarır.
+A) Dinlemeye git. *(etki yok)*→K84
+B) Bu kez çalışmaya devam et. *(etki yok)*→K81
+**K81 — Vertak'ın Planı**
+*(pharma_arastirma≥2 ise İsmet, Vertak'ın asıl planını çözer: sığınakları toplamak; düşükse yalnızca dağınık, tedirgin edici ipuçları bulur.)* İsmet bulduklarını önüne dizer. Ne kadarının halka açıklanacağına karar vermek gerekir.
+A) Bildiklerini yayımla. `☺-1`→K83
+B) Bilgiyi kadroyla sınırla. *(etki yok)*→K82
 **K82 — YIKICI 💀☺**
-"Vertak'a katılalım" tartışması büyüyor. İzin ver mi, zorla tut mu?
-A) İzin ver. `☺+1`→K84
-B) Zorla tut. *(☺≤3 ise `☺=0`→SALTANAT SONU; ☺>3 ise `☺-1`)*→K83
-
-**K83 — Nötr**
-Emine Teyze'nin son güzel günü — doğal seyrinde. Otur mu, yalnız mı bırak?
-A) Otur. *(etki yok)*→K87
-B) Yalnız bırak. *(etki yok)*→K84
-*(Not: nüfus 20'ye düşer.)*
-
-**K84 — Zeynep'in Tükenmişliği ⚑** *(5 kart sonra sonuçlanır)*
-Zeynep bitkin görünüyor. Dinlenmesini emret mi, kendi bilsin mi?
-A) Emret. *(zeynep_zorla_dinlendirildi=evet)*→K86
-B) Kendi bilsin. →K85
-
-**K85 — Nötr**
-Cem ve Yusuf yeni bir oyun icat ediyor. Katıl mı, izle mi?
-A) Katıl. *(etki yok)*→K87
-B) İzle. *(etki yok)*→K86
-
+“Vertak’a katılalım” diyenlerin sayısı artar. Tartışma artık birkaç kişinin homurdanmasından çıkıp açık bir bölünmeye dönüşmüştür.
+A) Gitmek isteyenleri serbest bırak. `☺+1`→K84
+B) Kimsenin ayrılmasına izin verme. *(☺≤3 ise `☺=0`→SALTANAT SONU; ☺>3 ise `☺-1`)*→K83
+**K83 — Emine Teyze'nin Son Günü**
+Emine Teyze o gün alışılmadık derecede sakindir. Bahçesinin yanında oturup eski günlerden konuşur; bu, onun son iyi günüdür. *(Not: bu günden sonra nüfus 20'ye düşer.)*
+A) Yanında otur. `☺+1`→K87
+B) Dinlenmesi için yalnız bırak. *(etki yok)*→K84
+**K84 — Zeynep'in Tükenmişliği ⚑**
+Zeynep’in elleri titremeye başlamıştır. Günlerdir herkese bakmış, kendisi neredeyse hiç uyumamıştır.
+A) Dinlenmesini zorunlu tut. *(zeynep_zorla_dinlendirildi=evet)*→K86
+B) Kararı ona bırak. →K85
+**K85 — Yeni Oyun**
+Cem ile Yusuf yeni bir masa oyunu uydurmuştur. Kuralları her tur değişiyor ama kimsenin umurunda değildir.
+A) Oyuna katıl. *(etki yok)*→K87
+B) Kenardan izle. *(etki yok)*→K86
 **K86 — Mülteci Grubu (1/2)**
-Sınırdan bir grup mülteci geliyor. Kabul mü, ret mi?
-A) Kabul. *(multeci=kabul)*→K89
-B) Ret. *(multeci=ret)*→K87
-
+Sınırda yorgun ve bitkin bir mülteci grubu belirir. Yanlarında çocuklar da vardır.
+A) Grubu içeri al. *(multeci=kabul)*→K89
+B) Sığınaktan uzaklaştır. *(multeci=ret)*→K87
 **K87 — Mülteci Grubu (2/2) Sonuç**
-*Kabul:* Biri hasta. Karantina mı, risk mi?
-A) Karantina. `🩺+1 ☺-1`→K90
-B) Risk al. `🩺-1`→K88
-*Ret:* Grup çevrede kalmış. Dağıt mı, görmezden mi?
-A) Dağıt. `☺-1`→K90
-B) Görmezden gel. *(değişken 🏠-1/etkisiz)*→K88
+*(Kabul edildiyse)*
+İçeri alınanlardan birinde kısa süre sonra hastalık belirtisi görülür.
+A) Hemen karantinaya al. `🩺+1 ☺-1`→K90
+B) Belirti ağırlaşana kadar bekle. `🩺-1`→K88
 
-**K88 — Zeynep'in Tükenmişliği Sonucu (5 kart sonra) ⚑**
-*Zorla dinlendirildiyse:* Zeynep toparlanmış döner. →`☺+1`→K90
-*Kendi bilsin dendiyse:* Zeynep hastalanır. →`🩺-2`→K89
+*(Reddedildiyse — varyant: multeci=ret)*
+Grup çevreden ayrılmaz. Yakınlarda dolaşmaları içerideki huzursuzluğu artırır.
+A) Bölgeden uzaklaştır. `☺-1`→K90
+B) Görmezden gel. *(🏠≤4 ise `🏠-1`; 🏠>4 ise etkisiz)*→K88
+**K88 — Zeynep'in Tükenmişliği Sonucu ⚑**
+*(Zorla dinlendirildiyse)* Zeynep birkaç gün sonra belirgin biçimde toparlanmış döner. Mülteci meselesine yeniden el atabilecek durumdadır.
+A) Tam görevine dönsün. `☺+1`→K90
+B) İş yükünü kademeli artır. `☺+1 🩺+1`→K90
 
-**K89 — Nötr**
-Sığınağın yıl dönümü kutlanıyor. Kutla mı, sade mi?
-A) Kutla. *(etki yok)*→K91
-B) Sade geç. *(etki yok)*→K90
-
+*(Kendi bilsin dendiyse — varyant: zeynep_zorla_dinlendirildi≠evet)* Zeynep tam mülteci krizi sırasında hastalanır. Revirin başında artık kimin duracağı belirsizdir.
+A) Geçici birini görevlendir. `🩺-2`→K89
+B) Zeynep’in işi sürdürmesine izin ver. `🩺-2 👑-1`→K89
+**K89 — Yıl Dönümü**
+Sığınağın kuruluşunun üzerinden bir yıl geçmiştir. Kimse bunu tam olarak kutlama saymasa da tarih herkesin aklındadır.
+A) Küçük bir yıl dönümü düzenle. *(etki yok)*→K91
+B) Günü sıradan geçir. *(etki yok)*→K90
 **K90 — LİDER RİSKİ 💀👑**
-Mustafa, büyük bir sürü saldırısı geldiğini haber veriyor. Cepheye çık mı, ona mı bırak?
-A) Cepheye çık. *(👑<5 ise ANİ ÖLÜM; değilse `👑-3 🏠+2`)*→K93
-B) Mustafa'ya bırak. `👑0 🏠+1 ☺-1`→K91
-
-**K91 — Nötr**
-Ali büyümüş, ilk vasıflı görevini istiyor. Şans ver mi, bekle mi?
-A) Şans ver. *(etki yok)*→K94
-B) Bekle. *(etki yok)*→K92
-
+Mustafa dışarıdan gelen uğultuyu dinler. “Şimdiye kadarki en büyük sürü bu. Hatları ben tutarım ama senin kararın lazım.”
+A) Cepheye çıkıp savunmayı yönet. *(👑<5 ise ANİ ÖLÜM; değilse `👑-3 🏠+2`)*→K93
+B) Komutayı Mustafa’ya bırak. `👑0 🏠+1 ☺-1`→K91
+**K91 — Ali'nin İlk Görevi**
+Ali artık çocuk değildir. İlk kez uzmanlık isteyen gerçek bir görev için adını yazdırır.
+A) Görevi ona ver. *(ali_deneyim+1)*→K94
+B) Bir süre daha beklet. *(etki yok)*→K92
 **K92 — YIKICI 💀🏠**
-Kemal, sığınağın taşınması gerekebileceğini söylüyor. Taşın mı, kal mı?
-A) Taşın. `🥫-2 🏠+1`→K94
-B) Kal. *(🏠≤3 ise `🏠=0`→SALTANAT SONU; 🏠>3 ise `🏠-1`)*→K93
-
-**K93 — Vertak Final İpucu** *(pharma_arastirma≥3 ise özel yol)*
-İsmet, Vertak'ın içeriden bölündüğünü öğreniyor. Temas mı, güvenme mi?
-A) Temas. `☺+1`→K95
-B) Güvenme. →K94
-
-**K94 — Nötr**
-İsmet eski bir kaset buluyor, hep beraber dinliyorlar. Dinle mi, kaçır mı?
-A) Dinle. *(etki yok)*→K97
-B) Kaçır. *(etki yok)*→K95
-
-**K95 — Ateşkes ya da Son Saldırı (1/2)**
-Ömer, konuşan zombilerle resmi bir temas fırsatı doğduğunu bildiriyor. Ateşkes mi, saldır mı?
-A) Ateşkes dene. *(ateskes=evet)*→K97
-B) Saldır. *(ateskes=hayır)*→K96
-
+Kemal yapısal raporu masaya bırakır. “Bu bina bizi daha ne kadar taşır, emin değilim. Taşınmak pahalı; kalmak da riskli.”
+A) Yeni bir yere taşın. `🥫-2 🏠+1`→K94
+B) Mevcut sığınakta kal. *(🏠≤3 ise `🏠=0`→SALTANAT SONU; 🏠>3 ise `🏠-1`)*→K93
+**K93 — Vertak'taki Çatlak**
+*(pharma_arastirma≥3 ise İsmet, Vertak'ın içeriden bölündüğünü öğrenir — bir hizip barış istiyor; düşükse yalnızca çelişkili söylentiler duyar.)* İsmet’in getirdiği bilgiler ilk kez Vertak’ın tek parça olmadığını düşündürür.
+A) Barış isteyenlerle temas ara. `☺+1`→K95
+B) Kimseye güvenme. *(etki yok)*→K94
+**K94 — Eski Kaset**
+İsmet eski bir kaset bulur. Cızırtıların arasından salgın öncesi bir şarkı ve insanların sıradan konuşmaları duyulur.
+A) Hep birlikte dinleyin. `☺+1`→K97
+B) İşine dön. *(etki yok)*→K95
+**K95 — Ateşkes ya da Saldırı (1/2)**
+Ömer, konuşan enfektelerden gelen ilk açık temas teklifini iletir. Bu kez çitin ötesinde bekleyip cevap vermenizi istemektedirler.
+A) Ateşkes görüşmesi yap. *(ateskes=evet)*→K97
+B) Önce saldır. *(ateskes=hayir)*→K96
 **K96 — Ateşkes Sonucu (2/2)**
-*Ateşkes:* uzun vadeli barış kurulur. →`☺+2 🩺+1`→K100
-*Saldırı:* çatışma büyür. →`☺-2 🩺-1`→K97
+*(Ateşkes denendiyse)* Görüşmeler beklenmedik biçimde sonuç verir. Sınırın öte yanı ilk kez yalnızca bir tehdit değil, konuşulabilen bir komşu gibi görünür.
+A) Anlaşmayı törenle duyur. `☺+2 🩺+1`→K100
+B) Gösterişsiz biçimde yürürlüğe koy. `☺+2 🩺+1`→K100
 
-**K97 — Nötr**
-Sessiz bir akşam, herkes hayatta kalmanın farkında. Yansıt mı, uyu mu?
-A) Yansıt. *(etki yok)*→K100
-B) Uyu. *(etki yok)*→K98
-
-**K98 — Nötr**
-Gül'ün çocuğu ilk adımlarını atıyor. Kutla mı, meşgul mü?
-A) Kutla. *(etki yok)*→K102
-B) Meşgul ol. *(etki yok)*→K99
-
-**K99 — Nötr**
-Fatma yeni çocuklara resim dersi veriyor. Katıl mı, izle mi?
-A) Katıl. *(etki yok)*→K101
-B) İzle. *(etki yok)*→K100
-
+*(Saldırıldıysa — varyant: ateskes=hayir)* Çatışma büyür ve iki tarafta da kayıplar olur.
+A) Kayıplar için anma düzenle. `☺-2 🩺-1`→K97
+B) Savunmayı toparlayıp devam et. `☺-2 🩺-1`→K97
+**K97 — Sessiz Akşam**
+O akşam sığınakta alışılmadık bir sessizlik vardır. Herkes bir şekilde hâlâ burada olduğunun farkındadır.
+A) Bir süre oturup olanları düşün. *(etki yok)*→K100
+B) Uyumaya git. *(etki yok)*→K98
+**K98 — İlk Adımlar**
+Gül’ün çocuğu ilk kez kendi başına birkaç adım atar. Yakındakiler istemsizce alkışlar.
+A) Onlarla birlikte kutla. *(etki yok)*→K102
+B) İşine devam et. *(etki yok)*→K99
+**K99 — Resim Dersi**
+Fatma yeni gelen çocuklara duvarın kenarında resim yaptırır. Birkaç dakikalığına sığınak okul gibi görünür.
+A) Derse katıl. *(etki yok)*→K101
+B) Kenardan izle. *(etki yok)*→K100
 **K100 — Dönüm Noktası (Sezon 1 Kapanışı)**
-Sığınağın kaderi o ana kadarki tüm bayrakların toplamına bağlı. Bu bir final değil — hikaye devam ediyor.
-
+İlk büyük dönemin sonunda sığınak hâlâ ayaktadır. Buraya kadar gelen yol; verdiğin kararlar, kurduğun ilişkiler ve geride bıraktığın sonuçlarla şekillenmiştir. Bu bir final değildir.
+A) Devam et. →K101
+B) Yeni döneme geç. →K101
 ---
 
 ### BÖLÜM IV (K101-K150)
 
-**K101 — Nötr**
-Yeni sezon sakin bir sabahla açılıyor. Necati eski radyoyu tamir ediyor. Yardım et mi, izle mi?
-A) Yardım et. *(etki yok)*→K104
-B) İzle. *(etki yok)*→K102
-
-**K102 — Vertak Baskısı ⚑** *(5 kart sonra sonuçlanır)*
-İsmet: Vertak sinyalleri sıklaştı. Karart mı, açık mı bırak?
-A) Karart. *(vertak_karartma=evet)*→K104
-B) Açık bırak. *(vertak_karartma=hayır)*→K103
-
-**K103 — Nötr**
-Fatma duvara yeni resimler yapıyor. Katkı ver mi, izle mi?
-A) Katkı ver. *(etki yok)*→K106
-B) İzle. *(etki yok)*→K104
-
+**K101 — Radyo Tamiri**
+Yeni dönem sakin bir sabahla açılır. Necati eski bir radyoyu söküp önüne dizer. “Belki bundan hâlâ ses alırız.”
+A) Tamire yardım et. *(etki yok)*→K104
+B) Kenardan izle. *(etki yok)*→K102
+**K102 — Vertak Baskısı ⚑**
+İsmet kulaklığını çıkarır. “Vertak sinyalleri son günlerde belirgin biçimde arttı. Bizi dinliyor olabilirler.”
+A) Yayını karart. *(vertak_karartma=evet)*→K104
+B) Frekansı açık bırak. *(vertak_karartma=hayir)*→K103
+**K103 — Duvar Resimleri**
+Fatma boş kalan duvara yeni resimler çizmeye başlar. Çocuklar da etrafına toplanır.
+A) Sen de bir şey ekle. *(etki yok)*→K106
+B) Bir süre izle. *(etki yok)*→K104
 **K104 — Meydan Okuma (1/2)**
-Tarık liderliğini açıkça sorguluyor: "Oy yapalım." İzin ver mi, bastır mı?
-A) İzin ver. *(meydan_okuma=evet)*→K107
-B) Bastır. *(gizli_gerginlik=evet)*→K105
-
+Tarık bu kez kapalı kapılar ardında değil, herkesin önünde konuşur. “Liderliği oylayalım. Kimin ne düşündüğü ortaya çıksın.”
+A) Oylamaya izin ver. *(meydan_okuma=evet)*→K105
+B) Toplantıyı dağıt. *(gizli_gerginlik=evet)*→K105
 **K105 — Meydan Okuma (2/2) Sonuç**
-*İzin verildiyse:* Açık tartışma. Açık konuş mu, sessiz mi?
-A) Açık konuş. `☺+2`→K108
-B) Sessiz kal. `☺+1`→K106
-*Bastırıldıysa:* Tarık gizliden destek topluyor. Ömer'e izlet mi, görmezden mi?
-A) İzlet. `☺-1`→K108
-B) Görmezden gel. *(ayaklanma_riski=evet)*→K106
+*(İzin verildiyse)*
+Toplantı saatler sürer. Herkes ilk kez açıkça söz alabilmektedir.
+A) Kendi kararlarını açıkça savun. `☺+2`→K108
+B) Dinlemeyi tercih et. `☺+1`→K106
 
-**K106 — Vertak Baskısı Sonucu (5 kart sonra) ⚑**
-*Karartıldıysa:* Sinyal kaybolur. →`☺+1`→K108
-*Açık bırakıldıysa:* Vertak konumu bulur *(vertak_yolda=evet)*→K107
+*(Bastırıldıysa — varyant: gizli_gerginlik=evet)*
+Tarık yasağa rağmen gizlice destek toplamaya başlar. Ömer bunu kısa sürede fark eder.
+A) Ömer’e takip ettir. `☺-1`→K108
+B) Şimdilik görmezden gel. *(ayaklanma_riski=evet)*→K106
+**K106 — Vertak Baskısı Sonucu ⚑**
+*(Karartıldıysa)*
+Sinyal kesilir. İsmet yine de rahat değildir. “Kayboldular mı, yoksa sadece sustular mı bilmiyorum.”
+A) İsmet’e güvenip konuyu kapat. `☺+1`→K108
+B) Frekansı gizlice izlemeyi sürdür. `👑-1`→K108
 
-**K107 — Nötr**
-Sibel'in piyano konserleri artık düzenli. Dinle mi, işe mi dön?
-A) Dinle. *(etki yok)*→K110
-B) İşe dön. *(etki yok)*→K108
+*(Açık bırakıldıysa — varyant: vertak_karartma=hayir)*
+İsmet birkaç gün sonra kötü haberi verir: Vertak konumunuzu belirlemiştir. *(vertak_yolda=evet)*
+A) Savunmayı hızla güçlendir. `🏠+1 ☺-1`→K107
+B) Panik yaratmadan bekle. *(etki yok)*→K107
+**K107 — Sibel'in Konserleri**
+Sibel’in piyano konserleri artık düzenli hâle gelmiştir. Dışarıdaki belirsizliğe rağmen o akşam da birkaç kişi sandalyeleri dizer.
+A) Konseri dinle. *(etki yok)*→K110
+B) İşine dön. *(etki yok)*→K108
+**K108 — Çırak Nöbetçi**
+Ali artık genç bir yetişkindir ve ilk kez resmen “çırak nöbetçi” sayılır. Ömer ona gerçek bir vardiya çizelgesi verir.
+A) Ali’yi tebrik et. *(etki yok)*→K111
+B) Bunu görevin doğal parçası say. *(etki yok)*→K109
+**K109 — Çitteki Düzenli Ziyaretçi**
+Ömer aynı enfektenin artık düzenli aralıklarla çite geldiğini söyler. “Belli ki bizimle konuşmak istiyor.”
+A) Ona bir isim verip teması kişiselleştir. *(zombi_isimlendirildi=evet)*→K112
+B) Mesafeyi koru. *(etki yok)*→K110
+**K110 — Vertak Keşif Ekibi (1/2)**
+*(vertak_yolda=evet ise)* Yakında bir araç durur. İçindekiler silahsız görünse de Vertak işareti taşımaktadır.
+A) Kapıyı kontrollü aç. →K112
+B) Herkesi silah başına geçir. →K111
 
-**K108 — Nötr**
-Ali artık genç bir yetişkin, "çırak nöbetçi" oldu. Gurur duy mu, sıradan mı davran?
-A) Gurur duy. *(etki yok)*→K111
-B) Sıradan davran. *(etki yok)*→K109
-
-**K109 — Konuşan Zombi Escalation**
-Ömer, birinin düzenli olarak çite yaklaşıp konuşmaya çalıştığını bildiriyor. İsim ver mi, mesafeli mi?
-A) İsim ver. *(zombi_isimlendirildi=evet)*→K112
-B) Mesafeli kal. →K110
-
-**K110 — Vertak Keşif Ekibi (1/2)** *(vertak_yolda=evet ise)*
-Bir araç yakında duruyor, kapıyı çalıyorlar. Aç mı, silahlan mı?
-A) Aç. →K112
-B) Silahlan. →K111
-*(değilse)* Sabiha yeni bir bölge öneriyor. Git mi, kal mı?
-A) Git. →K112
-B) Kal. →K111
-
+*(değilse — varyant: vertak_yolda≠evet)* Sabiha haritada daha önce taranmamış bir bölgeyi gösterir. “Malzeme çıkabilir. Yol da temiz görünüyor.”
+A) Bölgeyi araştır. →K112
+B) Bu kez çıkma. →K111
 **K111 — Vertak Keşif Ekibi (2/2) Sonuç**
-*Vertak:* Temsilci ayrılır ama "gözlemleneceksiniz" der. *(vertak_gozlem=evet)*→`☺-1`→K115
-*Diğer:* Eski bir depo bulunur, kilitli — açılır, orta düzey erzak. →`🥫+2`→K112
+*(Vertak'sa)*
+Vertak temsilcisi ayrılırken tek bir cümle bırakır: “Gözlemleneceksiniz.” *(vertak_gozlem=evet)*
+A) Tehdidi ciddiye alıp güvenliği artır. `🏠+1 ☺-1`→K115
+B) Gözdağı sayıp rutine dön. *(etki yok)*→K115
 
-**K112 — Nötr**
-Aziz yeni bir hasat tarifi dener. Tadına bak mı, mütevazı mı kal?
-A) Tadına bak. *(etki yok)*→K116
-B) Mütevazı kal. *(etki yok)*→K113
-
+*(Diğerse — varyant: vertak_yolda≠evet)*
+Keşif ekibi kilitli eski bir depo bulur. İçeriden işe yarar miktarda erzak çıkar.
+A) Erzağı hemen dağıt. `🥫+2 ☺+1`→K112
+B) İhtiyaç için depola. `🥫+2`→K112
+**K112 — Aziz'in Yeni Tarifi**
+Aziz yeni hasattan farklı bir yemek dener. Tadı konusunda kendisi bile emin değildir.
+A) İlk lokmayı sen al. *(etki yok)*→K116
+B) Başkalarının denemesini bekle. *(etki yok)*→K113
 **K113 — YIKICI 💀🩺**
-Bir gıda zehirlenmesi vakası çıkıyor. Test et mi, görmezden mi?
-A) Test et. `🥫-1 🩺+1`→K116
-B) Görmezden gel. *(🩺≤3 ise `🩺=0`→SALTANAT SONU; 🩺>3 ise kendiliğinden atlatılır)*→K114
-
-**K114 — Nötr**
-Cem ve Yusuf'un oyunu artık gelenek. Oyna mı, izle mi?
-A) Oyna. *(etki yok)*→K117
-B) İzle. *(etki yok)*→K115
-
+Revir kısa sürede mide bulantısı ve ateş şikâyetleriyle dolar. Zeynep ortak bir gıda zehirlenmesinden şüphelenir.
+A) Yiyecekleri test ettir. `🥫-1 🩺+1`→K116
+B) Kendiliğinden geçmesini bekle. *(🩺≤3 ise `🩺=0`→SALTANAT SONU; 🩺>3 ise kendiliğinden atlatılır, etkisiz)*→K114
+**K114 — Kalıcı Oyun**
+Cem ile Yusuf’un uydurduğu oyun artık sığınağın eski alışkanlıklarından biri olmuştur. Yeni gelenler bile kuralları bilir.
+A) Bir tur oyna. *(etki yok)*→K117
+B) Kenardan izle. *(etki yok)*→K115
 **K115 — Yeniden Yapılanma (1/2)**
-Kemal büyük bir onarım projesi öneriyor. Tam mı, minimal mi?
-A) Tam proje. *(onarim=tam)*→K118
-B) Minimal. *(onarim=minimal, onarim_gecici=evet)*→K116
-
+Kemal yeni bir yapısal rapor getirir. “Yama yaparak gidiyoruz. İstersek bu kez kökten çözebiliriz.”
+A) Kapsamlı onarım başlat. *(onarim=tam)*→K118
+B) Yalnızca zorunlu yerleri düzelt. *(onarim=minimal, onarim_gecici=evet)*→K116
 **K116 — Yeniden Yapılanma (2/2) Sonuç**
-*(Tam: `🏠+3 👑-1`) (Minimal: `🏠+1`, ileride tekrar sorun çıkabilir)* →K118
+*(Tam proje seçildiyse)* Aylar süren çalışma sonunda sığınak baştan aşağı güçlendirilir. Kemal ilk kez “Bu bina artık uzun süre gider” der.
+A) Ekiple birlikte kutla. `🏠+3 👑-1`→K118
+B) Dinlenmeden sıradaki işe geç. `🏠+3 👑-1`→K118
 
-**K117 — Nötr**
-Küçük bir pazar kuruluyor, millet eşya takas ediyor. Katıl mı, gözlemle mi?
-A) Katıl. *(etki yok)*→K120
-B) Gözlemle. *(etki yok)*→K118
-
+*(Minimal seçildiyse — varyant: onarim_gecici=evet)* Hızlı yamalar işe yarar. Kemal yine de bazı bölgelerin ileride yeniden sorun çıkaracağını not eder.
+A) Sorunlu noktaları takip listesine al. `🏠+1`→K118
+B) Şimdilik yeterli say. `🏠+1`→K118
+**K117 — Küçük Pazar**
+Sığınağın ortak alanında küçük bir takas pazarı kurulmaya başlanır. İnsanlar ihtiyaç fazlasını birbirleriyle değiştirir.
+A) Pazara katıl. *(etki yok)*→K120
+B) Uzaktan gözlemle. *(etki yok)*→K118
 **K118 — LİDER RİSKİ 💀👑**
-*(ayaklanma_riski=evet ise)* Gizli gerginlik patlıyor. Yüzleş mi, kaç mı?
-A) Yüzleş. *(👑<5 ise ANİ ÖLÜM; değilse `👑-3 ☺+2`)*→K120
-B) Kaç/saklan. `👑0 ☺-2`→K119
-
-**K119 — Nötr**
-Olaylardan sonra sakin bir akşam. Paylaş mı, yalnız mı kal?
-A) Paylaş. *(etki yok)*→K122
+*(ayaklanma_riski=evet ise)* Gizlice büyüyen huzursuzluk sonunda patlar. Kalabalığın içinde sana doğru ilerleyenler vardır.
+A) Karşılarına çık. *(👑<5 ise ANİ ÖLÜM; değilse `👑-3 ☺+2`)*→K120
+B) Güvenli bir yere çekil. `👑0 ☺-2`→K119
+**K119 — Paylaşma İhtiyacı**
+Olayların ardından sığınak sessizleşir. O akşam birkaç kişi konuşmak için yanına gelir; kimse ne diyeceğini tam bilemez.
+A) Onlarla otur. *(etki yok)*→K122
 B) Yalnız kal. *(etki yok)*→K120
-
-**K120 — Yeni Yüz**
-Yaralı bir kadın kapıya geliyor, eski bir Vertak çalışanı. İçeri al mı, uzak tut mu?
+**K120 — Eski Vertak Çalışanı**
+Kapıda yaralı bir kadın belirir. Üzerindeki eski kimlik, bir dönem Vertak için çalıştığını gösterir.
 A) İçeri al. *(eski_vertak_calisan=evet)*→K124
-B) Uzak tut. →K121
-
+B) Sığınağa sokma. →K121
 **K121 — Sorgu Sonucu**
-*Alındıysa:* İsmet sorguluyor. Güven mi, şüphe mi? *(güvenilirse pharma_arastirma+2, icerden_bilgi=evet)* `☺-1`→K124
-*Uzak tutulduysa:* Kadın gider, bir not bırakır — kısmi bilgi. →K122
+*(Alındıysa)*
+İsmet kadını uzun süre sorgular. Hikâyesinde açık bir çelişki bulamaz ama güvenmek için de erken olduğunu söyler.
+A) Söylediklerine güven. `☺-1`→K124
+B) Ayrıntılı sorgulamayı sürdür. *(icerden_bilgi=evet, pharma_arastirma+2)* `☺-1`→K124
 
-**K122 — Nötr**
-Ali "tam nöbetçi"liğe terfi ediyor. Gurur duy mu, sade mi geç?
-A) Gurur duy. *(etki yok)*→K124
-B) Sade geç. *(etki yok)*→K123
+*(Uzak tutulduysa — varyant: eski_vertak_calisan≠evet)*
+Kadın giderken kapının yakınına katlanmış bir not bırakır. İçinde Vertak hakkında parçalı bilgiler vardır.
+A) Notu hemen incele. *(etki yok)*→K122
+B) Arşive kaldırıp sonra bak. *(etki yok)*→K122
+**K122 — Terfi**
+Ali artık tam yetkili bir nöbetçidir. Ömer vardiya çizelgesinde adının yanındaki “çırak” notunu siler.
+A) Ali’yi tebrik et. *(etki yok)*→K124
+B) Tören yapmadan göreve devam et. *(etki yok)*→K123
+**K123 — Zeynep'in Halefi ⚑**
+Zeynep revirdeki defterleri gösterir. “Bir gün burada olmayacağım. Birini şimdiden yetiştirmeliyiz.”
+A) Atilla’yı yetiştir. *(halef=atilla)*→K125
+B) Sibel’i yetiştir. *(halef=sibel)*→K124
+**K124 — Sığınak Kütüphanesi**
+Yıllar içinde biriken kitaplar, notlar ve eski dergiler için ayrı bir köşe oluşmuştur. İnsanlar buraya artık “kütüphane” demektedir.
+A) Arşive bir şey ekle. *(etki yok)*→K127
+B) Olduğu gibi bırak. *(etki yok)*→K125
+**K125 — Konuşan Enfekte (1/2)**
+Ömer, konuşan enfektenin son günlerde hep aynı yöne işaret ettiğini fark eder. “Bizi bir yere götürmeye çalışıyor olabilir.”
+A) İşaret ettiği yönü takip et. *(zombi_takip=evet)*→K128
+B) Bu kez peşinden gitme. *(etki yok)*→K126
+**K126 — Konuşan Enfekte (2/2) Sonuç**
+*(Takip edildiyse)*
+İzler eski bir Vertak tesisine çıkar. Dışarıdan terk edilmiş görünür. *(vertak_tesis_bulundu=evet, pharma_arastirma+2)*
+A) Tesise gir. `☺-1`→K129
+B) Konumu işaretleyip geri dön. *(etki yok)*→K129
 
-**K123 — Zeynep'in Halefi ⚑** *(4 kart sonra sonuçlanır)*
-Zeynep kendinden sonrasını eğitmek istiyor. Atilla mı, Sibel mi?
-A) Atilla. *(halef=atilla)*→K125
-B) Sibel. *(halef=sibel)*→K124
-
-**K124 — Nötr**
-Büyüyen bir "sığınak kütüphanesi" oluşuyor. Katkı ver mi, izle mi?
-A) Katkı ver. *(etki yok)*→K127
-B) İzle. *(etki yok)*→K125
-
-**K125 — Konuşan Zombi Doruk (1/2)**
-Ömer, zombinin düzenli ziyaret edip bir yön işaret ettiğini fark ediyor. Takip et mi, görmezden mi?
-A) Takip et. *(zombi_takip=evet)*→K128
-B) Görmezden gel. →K126
-
-**K126 — Konuşan Zombi Doruk (2/2) Sonuç**
-*Takip:* Eski bir Vertak tesisine yönlendiriyor. *(vertak_tesis_bulundu=evet, pharma_arastirma+2)* →`☺-1`→K129
-*Görmezden:* Zombi kayboluyor, gizem çözülmeden kalır. →K127
-
-**K127 — Zeynep'in Halefi Sonucu (4 kart sonra) ⚑**
-Halef eğitimi tamamlıyor, ikinci bir sağlıkçı var. *(ikinci_saglikci=evet)* →`🩺+1`→K131
-
-**K128 — Nötr**
-Sibel'in konserine dışarıdan katılanlar da oluyor. Katıl mı, izle mi?
-A) Katıl. *(etki yok)*→K132
-B) İzle. *(etki yok)*→K129
-
-**K129 — YIKICI 💀☺**
-*(vertak_gozlem=evet ise)* "Gözlem"in aslında sürekli takip olduğu anlaşılıyor. Sakinleştir mi, gerçeği kabul et mi?
-A) Sakinleştir. `☺+1`→K133
-B) Gerçeği kabul et. *(☺≤3 ise `☺=0`→SALTANAT SONU; ☺>3 ise `☺-1`)*→K130
-
-**K130 — Nötr**
-Gül'ün çocuğu ilk kelimelerini söylüyor. Kutla mı, meşgul mü?
-A) Kutla. *(etki yok)*→K133
-B) Meşgul ol. *(etki yok)*→K131
-
+*(Görmezden gelindiyse — varyant: zombi_takip≠evet)*
+Konuşan enfekte birkaç gün sonra gelmeyi bırakır. Nereye gittiğini kimse öğrenemez.
+A) Kaydını tut. *(etki yok)*→K127
+B) Konuyu kapat. *(etki yok)*→K127
+**K127 — Zeynep'in Halefi Sonucu ⚑**
+Halef eğitimi tamamlanır. Revirde artık Zeynep dışında gerektiğinde sorumluluk alabilecek ikinci bir sağlıkçı vardır. *(ikinci_saglikci=evet)*
+A) Zeynep’le birlikte çalışsın. `🩺+1`→K131
+B) Kendi vardiyasını yönetsin. `🩺+1 👑-1`→K131
+**K128 — Dışarıdan Katılım**
+Sibel’in konserlerine çevredeki birkaç kişi de gelmeye başlar. İlk kez kapının dışından gelenler yalnızca ticaret veya yardım için değildir.
+A) Kalabalığa katıl. *(etki yok)*→K132
+B) Kenardan izle. *(etki yok)*→K129
+**K129 — YIKICI 💀☺ — Vertak'ın Gözetimi**
+*(vertak_gozlem=evet ise)* Zamanla Vertak’ın “gözlem” dediği şeyin sürekli takip olduğu anlaşılır. İnsanlar izlendiğini bildikçe huzursuzlanır.
+A) Durumu sakin biçimde açıkla. `☺+1`→K133
+B) Tehdidi olduğu gibi anlat. *(☺≤3 ise `☺=0`→SALTANAT SONU; ☺>3 ise `☺-1`)*→K130
+**K130 — İlk Kelimeler**
+Gül’ün çocuğu ilk kelimelerini söylemeye başlar. Söylediği şeyin ne olduğu konusunda herkes farklı bir şey duyar.
+A) Onlarla birlikte kutla. *(etki yok)*→K133
+B) İşine devam et. *(etki yok)*→K131
 **K131 — Büyük Sürü Krizi (1/3) ⚑**
-Mustafa: en büyük sürü yaklaşıyor. Seferberlik mi, tahliye mi?
-A) Seferberlik. *(kriz=seferberlik)*→K134
-B) Tahliye. *(kriz=tahliye)*→K132
-
+Mustafa haritanın üzerine geniş bir yay çizer. “Şimdiye kadar gördüğümüz hiçbir sürü buna benzemiyordu. Doğrudan buraya geliyor.”
+A) Herkesi savunmaya seferber et. *(kriz=seferberlik)*→K134
+B) Tahliyeyi başlat. *(kriz=tahliye)*→K132
 **K132 — Büyük Sürü Krizi (2/3)**
-Sürü artık görünür mesafede. Mustafa ve Mete pozisyon alıyor. Cepheye lider mi, geride mi?
-A) Cepheye çık. *(👑<5 ise ANİ ÖLÜM; değilse `👑-3`)*→K135
-B) Geride kal. `👑0`→K133
-
+Sürü artık çıplak gözle seçilebilecek kadar yakındır. Mustafa ile Mete savunma noktalarına geçer.
+A) Cepheye çıkıp komutayı al. *(👑<5 ise ANİ ÖLÜM; değilse `👑-3`)*→K135
+B) Komutayı geriden yürüt. `👑0`→K133
 **K133 — Büyük Sürü Krizi (3/3) Sonuç**
-*(Seferberlik+cephe: `🏠-1 ☺+3`) (Seferberlik+geride: `🏠-2 ☺+1`) (Tahliye+devam: `🏠-2 🥫-1`) (Tahliye+iptal: `☺-1`)* →K136
+*(Seferberlik + cepheden yönetildiyse)* Savunma hattı kayıp verir ama dayanır. Sürü geri çekilirken içeride ilk kez zafer sesleri yükselir.
+A) Önce kayıpları an. `🏠-1 ☺+3`→K136
+B) Zaferi kutla. `🏠-1 ☺+3`→K136
 
-**K134 — Nötr**
-Kriz sonrası sakin bir gün. Vakit geçir mi, yalnız mı kal?
-A) Vakit geçir. *(etki yok)*→K137
+*(Seferberlik + geriden yönetildiyse — varyant: kriz=seferberlik)* Sürü durdurulur ama emirler birbirine girer; gereğinden fazla hasar oluşur.
+A) Komuta zincirini sorgula. `🏠-2 ☺+1`→K136
+B) Kriz geçtiği için konuyu kapat. `🏠-2 ☺+1`→K136
+
+*(Tahliye + sürdürüldüyse — varyant: kriz=tahliye)* Tahliye tamamlanır. Herkes çıkamaz; geride bırakılanların adı uzun süre konuşulur.
+A) Geride kalanları an. `🏠-2 🥫-1`→K136
+B) Hayatta kalanlara odaklan. `🏠-2 🥫-1`→K136
+
+*(Tahliye + son anda vazgeçildiyse — varyant: kriz=tahliye)* Tahliye emri geri çekilince insanlar neye güveneceğini şaşırır.
+A) Kararın sorumluluğunu üstlen. `☺-1`→K136
+B) Konuyu açıklamadan geç. `☺-1`→K136
+**K134 — Kriz Sonrası Sükûnet**
+Büyük krizden sonra ilk kez alarm çalmadan bir gün geçer. İnsanlar ne yapacağını şaşırmış gibidir.
+A) Bir süre kalabalığın içinde kal. *(etki yok)*→K137
 B) Yalnız kal. *(etki yok)*→K135
+**K135 — Vertak'la Yüzleşme (1/2)**
+*(pharma_arastirma yüksekse)* İsmet topladığı belgeleri masaya dizer. “Artık Vertak’ın ne yaptığını biliyoruz. Onlar da bizim bildiğimizi biliyor olabilir.”
+A) Doğrudan yüzleş. →K139
+B) Temastan kaçın. →K136
 
-**K135 — Vertak Final Yüzleşmesi (1/2)**
-*(pharma_arastirma yüksekse)* İsmet: Vertak'ın gerçek yüzü gizlenemiyor. Yüzleş mi, kaçın mı?
-A) Yüzleş. →K139
-B) Kaçın. →K136
-*(Düşükse)* Vertak hâlâ gizemli. Devam mı, unut mu?
-A) Devam et. →K139
-B) Unut. →K136
+*(Düşükse — varyant: pharma_arastirma<3)* Vertak hakkında hâlâ yalnızca parçalı bilgiler vardır. Her yeni ipucu bir başka soruyu açmaktadır.
+A) Araştırmayı sürdür. →K139
+B) Bu dosyayı kapat. →K136
+**K136 — Vertak'la Yüzleşme (2/2) Sonuç**
+*(Yüzleşme/devam kabul edildiyse)* Vertak, koruması altına girmenizi teklif eder. Daha güvenli bir düzen vaat eder; karşılığında bağımsızlığınızdan vazgeçmenizi ister.
+A) Koruma teklifini kabul et. `🏠+1 ☺-1`→K139
+B) Bağımsız kal. `☺+1`→K139
 
-**K136 — Vertak Final Yüzleşmesi (2/2) Sonuç**
-*(Kabul: Vertak korumasına girer, güvenlik artar özgürlük azalır) (Ret: tam bağımsızlık, tehlike sürer) (Araştırma: belirsizlik uzar, pharma_arastirma+1)* →K139
-
-**K137 — Nötr**
-Sığınakta büyük bir toplantı yapılıyor. Söz al mı, dinle mi?
+*(Kaçınma/unutma seçildiyse — varyant)* Vertak’la açık bir anlaşma kurulmaz. Sığınak bağımsız kalır ama tehdidin ne kadar yakında olduğu belirsizdir. *(pharma_arastirma+1)*
+A) Araştırmayı gizlice sürdür. `☺-1`→K139
+B) Konuyu tamamen kapat. *(etki yok)*→K139
+**K137 — Büyük Toplantı**
+Sığınakta uzun zamandır ilk kez herkesin katıldığı geniş bir toplantı düzenlenir. Sorunlardan çok geleceğin nasıl yönetileceği konuşulur.
 A) Söz al. *(etki yok)*→K140
-B) Dinle. *(etki yok)*→K138
-
+B) Bu kez dinle. *(etki yok)*→K138
 **K138 — Zombi Anlaşması**
-*(ateskes=evet ise)* Ömer, zombilerle "sınır anlaşması" önerildiğini iletir. Kabul mü, mesafe mi?
-A) Kabul et. `☺+1`→K141
-B) Mesafe koy. →K139
-
-**K139 — Nötr**
-Ali artık sığınağın en genç vasıflı üyesi. Gurur duy mu, mütevazı mı kal?
-A) Gurur duy. *(etki yok)*→K143
-B) Mütevazı kal. *(etki yok)*→K140
-
+*(ateskes=evet ise)* Ömer, konuşan enfektelerden yeni bir teklif getirir. Ateşkesin ardından iki taraf arasında açık bir sınır belirlemek istemektedirler.
+A) Sınır anlaşmasını kabul et. `☺+1`→K141
+B) Ateşkesi koruyup mesafeyi sürdür. *(etki yok)*→K139
+**K139 — Genç Uzman**
+Ali artık sığınağın en genç uzman üyelerinden biridir. İnsanlar karar verirken onun fikrini de sormaya başlamıştır.
+A) Başardıklarını açıkça takdir et. *(etki yok)*→K143
+B) Onu diğer uzmanlardan farklı görme. *(etki yok)*→K140
 **K140 — LİDER RİSKİ 💀👑 (Final Tehlike)**
-Mustafa ve Mete en büyük tehdidin geldiğini haber veriyor. Öne çık mı, arkada dur mu?
-A) Öne çık. *(👑<5 ise ANİ ÖLÜM; değilse `👑-4`)*→K142
-B) Arkada dur. `👑0 ☺-1`→K141
-
-**K141 — Nötr**
-Fırtına dinmiş gibi, sığınak bir kez daha ayakta. Nefes al mı, işe mi dön?
-A) Nefes al. *(etki yok)*→K143
-B) İşe dön. *(etki yok)*→K142
-
+Mustafa ile Mete birlikte gelir. İkisinin de yüzündeki ifade yeterince açıktır: büyük bir tehdit daha yaklaşıyordur.
+A) Ön hatta çık. *(👑<5 ise ANİ ÖLÜM; değilse `👑-4`)*→K142
+B) Savunmayı geriden yönet. `👑0 ☺-1`→K141
+**K141 — Fırtına Dinince**
+Tehlike geçtikten sonra sığınak yine ayaktadır. Birkaç saatliğine kimse yeni bir krizden söz etmez.
+A) Kendine biraz zaman ayır. *(etki yok)*→K143
+B) Hemen işlere dön. *(etki yok)*→K142
 **K142 — Tarih Yazımı**
-İsmet eski günlükleri düzenliyor, sığınağın tarihini yazmaya karar veriyor. Anlat mı, ona mı bırak?
-A) Anlat. *(etki yok)*→K144
-B) Ona bırak. *(etki yok)*→K143
-
-**K143 — Nötr**
-Son bir sakin akşam, hayatta kalan kadronun hepsi bir arada. Teşekkür et mi, sessizce mi otur?
-A) Teşekkür et. *(etki yok)*→K146
-B) Sessizce otur. *(etki yok)*→K144
-
-**K144 — Nötr**
-Emine Teyze'nin bahçesi (Aziz'in eseri) çiçek açıyor. İzle mi, geç mi?
-A) İzle. *(etki yok)*→K147
-B) Geç. *(etki yok)*→K145
-
-**K145 — Nötr**
-Necati eski dostlarını anıyor, sessiz bir akşam. Dinle mi, boşver mi?
-A) Dinle. *(etki yok)*→K149
-B) Boşver. *(etki yok)*→K146
-
-**K146 — Nötr**
-Aziz yeni bir tarif üzerinde çalışıyor. Katkı ver mi, izle mi?
-A) Katkı ver. *(etki yok)*→K148
-B) İzle. *(etki yok)*→K147
-
-**K147 — Nötr**
-Sığınağın nüfusu artık istikrarlı. Değerlendir mi, sıradan mı gör?
-A) Değerlendir. *(etki yok)*→K151
-B) Sıradan gör. *(etki yok)*→K148
-
-**K148 — Nötr**
-Sabiha'nın ticaret ağı büyüyor. Destekle mi, sınırlı mı tut?
-A) Destekle. *(etki yok)*→K152
-B) Sınırlı tut. *(etki yok)*→K149
-
-**K149 — Nötr**
-İsmet arşivine yeni kayıtlar ekliyor. Katkı ver mi, izle mi?
-A) Katkı ver. *(etki yok)*→K150
-B) İzle. *(etki yok)*→K150
-
+İsmet yıllardır tuttuğu notları düzenlemeye başlar. “Bunları birileri okumalı. Yoksa burada ne yaşandığını kimse bilmeyecek.”
+A) Kendi anılarını da anlat. `☺+1`→K144
+B) Kaydı ona bırak. *(etki yok)*→K143
+**K143 — Son Sakin Akşam**
+O akşam hayatta kalan kadronun tamamı aynı masadadır. Böyle anların ne kadar seyrek olduğunu herkes bilir.
+A) Hepsine teşekkür et. *(etki yok)*→K146
+B) Sessizce onlarla otur. *(etki yok)*→K144
+**K144 — Emine Teyze'nin Bahçesi**
+Emine Teyze’nin yıllar önce başlattığı bahçe yeniden çiçek açar. Aziz onun bıraktığı düzeni sürdürmektedir.
+A) Bahçede biraz kal. *(etki yok)*→K147
+B) Yoluna devam et. *(etki yok)*→K145
+**K145 — Eski Dostlar**
+Necati eski dostlarından söz eder. İsimlerin çoğunu artık yalnızca o hatırlamaktadır.
+A) Hikâyelerini dinle. *(etki yok)*→K149
+B) Konuyu uzatma. *(etki yok)*→K146
+**K146 — Yeni Tarif**
+Aziz yeni hasattan başka bir tarif denemektedir. Bu kez senden de fikir ister.
+A) Yardım et. *(etki yok)*→K148
+B) Onu kendi hâline bırak. *(etki yok)*→K147
+**K147 — İstikrar**
+Sığınağın nüfusu uzun süredir ilk kez büyük dalgalanmalar yaşamadan sabit kalır. Bu, eskiden sıradan sayılacak kadar basit bir başarıdır.
+A) Bu istikrarın değerini vurgula. *(etki yok)*→K151
+B) Günlük hayatın parçası say. *(etki yok)*→K148
+**K148 — Ticaret Ağı**
+Sabiha artık yalnızca yakın çevreyle değil, birkaç farklı toplulukla düzenli takas yapmaktadır.
+A) Ticaret ağını destekle. `🥫+1`→K152
+B) Büyümeyi sınırlı tut. *(etki yok)*→K149
+**K149 — Arşiv Kaydı**
+İsmet arşive yeni kayıtlar ekler. Boş kalan birkaç sayfayı sana uzatır.
+A) Sen de bir kayıt ekle. *(etki yok)*→K150
+B) Kaydı ona bırak. *(etki yok)*→K150
 **K150 — SEZON 2 DÖNÜM NOKTASI**
-Sığınağın kaderi K1'den beri birikmiş tüm bayrakların toplamına bağlı: kaçıncı liderdesiniz, hangi ittifaklar kuruldu, Vertak'la ilişki nasıl, zombilerle ateşkes mi savaş mı — hepsi burada birleşiyor. *Bu bir final değildir.* 3. sezon buradan başlar.
-
+İkinci büyük dönemin sonunda sığınak artık yalnızca hayatta kalmaya çalışan bir yer değildir. K1’den beri biriken liderlik değişimleri, ittifaklar, Vertak’la kurulan ilişki ve konuşan enfektelerle verilen kararlar burada birlikte ağırlık kazanır. Bu bir final değildir.
+A) Devam et. →K151
+B) Yeni döneme geç. →K151
 ---
 
 ### BÖLÜM V (K151-K200)
 
-**K151 — Nötr**
-Sezon 3 sakin bir günle açılıyor. Ali kendi yolunu seçiyor. Tarım mı, savunma mı?
-A) Tarım. *(ali_yol=tarim, etki yok)*→K155
-B) Savunma. *(ali_yol=savunma, etki yok)*→K152
-
-**K152 — Nötr**
-Veli, ikizinin seçiminden kıskanıyor. Konuş mu, zaman mı tanı?
-A) Konuş. *(etki yok)*→K155
-B) Zaman tanı. *(etki yok)*→K153
-
-**K153 — Yeni Faktör**
-Kemal, "Karakol" diye anılan düzenli bir yerleşim olduğunu bildiriyor. Temas mı, uzak mı?
-A) Temas. *(karakol_temas=evet)*→K155
-B) Uzak dur. *(karakol_temas=hayır)*→K154
-
-**K154 — Nötr**
-Fatma çocuklara resim dersi veriyor. Katıl mı, izle mi?
-A) Katıl. *(etki yok)*→K157
-B) İzle. *(etki yok)*→K155
-
+**K151 — Ali'nin Yolu**
+Yeni dönem sakin bir günle açılır. Ali artık hangi alanda ilerlemek istediğine karar verecek yaştadır.
+A) Tarımı seçmesini destekle. *(ali_yol=tarim)*→K155
+B) Savunmayı seçmesini destekle. *(ali_yol=savunma)*→K152
+**K152 — Veli'nin Kıskançlığı**
+Veli, ikizinin önünde açılan yolu sessizce izler. Kendi yerinin hâlâ belli olmaması onu rahatsız etmeye başlamıştır.
+A) Onunla açıkça konuş. `☺+1`→K155
+B) Kendi zamanını bulmasına izin ver. *(etki yok)*→K153
+**K153 — Karakol**
+Kemal çevrede “Karakol” adıyla bilinen, düzenli ve silahlı bir yerleşimden söz eder. Şimdiye kadar doğrudan temas kurulmamıştır.
+A) Temas kurmayı dene. *(karakol_temas=evet)*→K155
+B) Mesafeyi koru. *(karakol_temas=hayir)*→K154
+**K154 — Resim Dersi**
+Fatma çocuklara resim yaptırır. Masaların üzeri boya, kâğıt ve eski dergi parçalarıyla doludur.
+A) Derse katıl. *(etki yok)*→K157
+B) Kenardan izle. *(etki yok)*→K155
 **K155 — Karakol İlişkisi (1/2)**
-*Temas:* İsmet radyo bağlantısı kuruyor — otoriter bir yönetim. İşbirliği mi, mesafeli mi?
-A) İşbirliği öner. →K158
-B) Mesafeli kal. →K156
-*Uzak durulduysa:* Mete, devriyeyle karşılaşıyor. Selamla mı, çekil mi?
-A) Selamla. →K158
-B) Çekil. →K156
+*(Temas kurulduysa)*
+İsmet Karakol’la radyo bağlantısı kurar. Karşı taraf düzenli konuşur ama tonları emre alışkın olduklarını belli eder.
+A) İşbirliği öner. →K156
+B) Mesafeli bir ilişki kur. →K156
 
+*(Uzak durulduysa — varyant: karakol_temas=hayir)*
+Mete devriye sırasında Karakol’dan bir ekiple karşılaşır. İki taraf da birbirini önceden fark etmiştir.
+A) Resmî biçimde selam ver. →K156
+B) Teması uzatmadan geri çekil. →K156
 **K156 — Karakol İlişkisi (2/2) Sonuç**
-*(işbirliği+kabul: `🥫+2 ☺-1`) (işbirliği+pazarlık: `🥫+1 ☺+1`) (mesafeli+şikayet: `☺-1`) (mesafeli+görmezden: gerginlik kalır, karakol_gerginlik=evet) (selamla/çekil: `☺0`)* →K158
+*(İşbirliği önerildiyse)* Karakol teklifi kabul eder ama erzak ve geçiş hakkı konusunda ağır şartlar öne sürer.
+A) Şartları kabul et. `🥫+2 ☺-1`→K158
+B) Daha dengeli şartlar için pazarlık et. `🥫+1 ☺+1`→K158
 
-**K157 — Nötr**
-Necati, Karakol hakkında bir şeyler duymuş. Dinle mi, boşver mi?
-A) Dinle. *(etki yok)*→K160
-B) Boşver. *(etki yok)*→K158
+*(Mesafeli kalınıp devam edildiyse — varyant)* Karakol mesafeli tavrınıza karşılık verir; ilişki açık bir çatışmaya dönüşmez ama soğukluk hissedilir.
+A) Tavırlarını resmî olarak eleştir. `☺-1`→K158
+B) Konuyu büyütme. *(karakol_gerginlik=evet)*→K158
 
-**K158 — Zombi Gelişimi ⚑** *(4 kart sonra sonuçlanır)*
-Ömer, zombilerin "toplanma" davranışı sergilediğini fark ediyor. İzle mi, rapor mu?
-A) Yakından izle. *(zombi_izle=evet)*→K160
-B) Mesafeli rapor. *(zombi_izle=hayır)*→K159
-
-**K159 — Nötr**
-Sibel'in müzik dersleri artık çocuklara da veriliyor. Katıl mı, izle mi?
-A) Katıl. *(etki yok)*→K163
-B) İzle. *(etki yok)*→K160
-
+*(Selamlaşıldı ya da çekinildiyse — varyant: karakol_temas=hayir)* Karşılaşma kısa ve olaysız biter. İki taraf da diğerini artık tanımaktadır.
+A) Olayı kayda geçir. *(etki yok)*→K158
+B) Üzerinde durma. *(etki yok)*→K158
+**K157 — Karakol Söylentisi**
+Necati Karakol hakkında çevreden duyduğu söylentileri anlatmaya başlar. Hangisinin doğru olduğunu kendisi de bilmiyordur.
+A) Bildiklerini dinle. *(etki yok)*→K160
+B) Söylentilere kulak asma. *(etki yok)*→K158
+**K158 — Örgütlenen Enfekteler ⚑**
+Ömer, enfektelerin artık rastgele dolaşmadığını fark eder. Aynı bölgelerde toplanıyor, birbirlerine göre hareket ediyor gibidirler.
+A) Davranışlarını yakından izle. *(zombi_izle=evet)*→K160
+B) Uzaktan gözlemle yetin. *(zombi_izle=hayir)*→K159
+**K159 — Çocuklara Müzik**
+Sibel müzik derslerine çocukları da almaya başlar. Eski notalar, tahtaya çizilmiş birkaç çizgiyle yeniden anlam kazanır.
+A) Bir derse katıl. *(etki yok)*→K163
+B) Kapıdan izle. *(etki yok)*→K160
 **K160 — YIKICI 💀🏠**
-Kemal, eski onarımların sorun çıkardığını bildiriyor. Büyük tamir mi, ertele mi?
-A) Büyük tamir. `🥫-2 🏠+2`→K163
-B) Ertele. *(🏠≤3 ise `🏠=0`→SALTANAT SONU; 🏠>3 ise `🏠-1`)*→K161
+Kemal eski onarım noktalarını gösterir. Bazıları yeniden açılmıştır; özellikle geçici yamalar artık yük taşımamaktadır.
+A) Büyük bir onarım başlat. `🥫-2 🏠+2`→K163
+B) Bir kez daha ertele. *(🏠≤3 ise `🏠=0`→SALTANAT SONU; 🏠>3 ise `🏠-1`)*→K161
+**K161 — Yürümeye Başlıyor**
+Gül’ün çocuğu artık sığınağın içinde kendi başına dolaşmaktadır. Peşinden koşan yetişkinler ona yetişmekte zorlanır.
+A) Onlarla birlikte sevincini paylaş. *(etki yok)*→K165
+B) İşine devam et. *(etki yok)*→K162
+**K162 — Örgütlenen Enfekteler Sonucu ⚑**
+*(İzlendiyse)*
+Ömer’in gözlemleri enfektelerin gerçekten örgütlü hareket ettiğini doğrular. Bu artık tek bir rastlantıyla açıklanamaz.
+A) Bulguları Zeynep’e aktar. `☺-1` *(bilimsel_gozlem=evet)*→K164
+B) Şimdilik bilgiyi sakla. *(etki yok)*→K163
 
-**K161 — Nötr**
-Gül'ün çocuğu artık yürüyor. Kutla mı, meşgul mü?
-A) Kutla. *(etki yok)*→K165
-B) Meşgul ol. *(etki yok)*→K162
-
-**K162 — Zombi Gelişimi Sonucu (4 kart sonra) ⚑**
-*İzlendiyse:* Örgütlendikleri doğrulanıyor. Zeynep'e ilet mi, sakla mı?
-A) İlet. `☺-1` *(bilimsel_gozlem=evet)*→K164
-B) Sakla. →K163
-*Mesafeli rapor edildiyse:* Belirsizlik sürüyor. →K165
-
+*(Mesafeli rapor edildiyse — varyant: zombi_izle=hayir)*
+Uzaktan yapılan gözlemler kesin bir sonuç vermez. Enfektelerin ne kadar bilinçli hareket ettiği hâlâ belirsizdir.
+A) Konuyu aklında tut. *(etki yok)*→K165
+B) Günlük işlere dön. *(etki yok)*→K165
 **K163 — Yeni Nesil (1/2)**
-Ali'nin ilk büyük görevi geliyor. Bağımsız mı, yanında mı dur?
-A) Bağımsız bırak. *(ali_bagimsiz=evet)*→K166
-B) Yanında dur. →K164
-
+Ali’ye ilk kez tek başına sorumluluk taşıyacağı büyük bir görev verilir. Artık yanında sürekli bir yetişkin olmadan da karar vermesi beklenmektedir.
+A) Görevi bağımsız yürütmesine izin ver. *(ali_bagimsiz=evet)*→K166
+B) Yakınında deneyimli biri bulunsun. →K164
 **K164 — Yeni Nesil (2/2) Sonuç**
-Ali beklenmedik bir tehlikeyle karşılaşıyor. Yardım gönder mi, izin ver mi?
-A) Yardım gönder. `🥫-1 ☺+1 🩺0`→K166
-B) İzin ver. *(ali_sinandi=evet)* `☺+1`→K165
+Görev sırasında Ali beklenmedik bir tehlikeyle karşılaşır. Haber sığınağa ulaştığında hâlâ kendi başına çözüm aramaktadır.
+A) Yardım ekibi gönder. `🥫-1 ☺+1 🩺0`→K166
+B) Müdahale etmeyip kendi çözmesini bekle. *(ali_sinandi=evet)* `☺+1`→K165
+**K165 — Oyun Yayılıyor**
+Cem ile Yusuf’un oyunu artık gençler arasında senden habersiz oynanacak kadar yayılmıştır. Yeni kurallar bile çıkarmışlardır.
+A) Bir oyuna katıl. *(etki yok)*→K168
+B) Uzaktan izle. *(etki yok)*→K166
+**K166 — Karakol Gerginliği ⚑**
+*(karakol_gerginlik=evet ise)* Kemal sınır işaretlerinin giderek sığınağa yaklaştığını gösterir. “Karakol bunu bilerek yapıyor olabilir.”
+A) Resmî uyarı gönder. *(karakol_uyari=evet)*→K168
+B) Bir süre daha izle. *(karakol_uyari=hayir)*→K167
 
-**K165 — Nötr**
-Yusuf ve Cem'in oyunu gençler arasında yayılıyor. Katıl mı, izle mi?
-A) Katıl. *(etki yok)*→K168
-B) İzle. *(etki yok)*→K166
-
-**K166 — Karakol Gerginliği ⚑** *(6 kart sonra sonuçlanır)*
-*(karakol_gerginlik=evet ise)* Kemal, Karakol'un sınırı yaklaştırdığını fark ediyor. Uyar mı, izle mi?
-A) Uyar. *(karakol_uyari=evet)*→K168
-B) İzle. *(karakol_uyari=hayır)*→K167
-*(değilse)* Sabiha yeni bir ticaret rotası öneriyor. Riskli mi, güvenli mi?
-A) Riskli. *(rota=riskli)*→K168
-B) Güvenli. *(rota=guvenli)*→K167
-
-**K167 — Nötr**
-Emine Teyze'nin bahçesi çiçek açıyor. İzle mi, geç mi?
-A) İzle. *(etki yok)*→K170
-B) Geç. *(etki yok)*→K168
-
-**K168 — Konuşan Zombi Derinleşme**
-"Lider" zombi düzenli olarak çite geliyor. Zeynep'i çağır mı, yalnız mı dinle?
-A) Zeynep'i çağır. →K171
-B) Yalnız dinle. →K169
-
-**K169 — Nötr**
-İsmet eski bir müzik istasyonu sinyali yakalıyor. Dinle mi, boşver mi?
-A) Dinle. *(etki yok)*→K172
-B) Boşver. *(etki yok)*→K170
-
+*(değilse — varyant: karakol_gerginlik≠evet)* Sabiha yeni bir ticaret rotası çıkarır. Kısa yol daha tehlikeli, uzun yol daha güvenlidir.
+A) Riskli rotayı kullan. *(rota=riskli)*→K168
+B) Güvenli rotayı kullan. *(rota=guvenli)*→K167
+**K167 — Bahçe Yine Açıyor**
+Emine Teyze’nin bahçesi bir kez daha çiçek açar. Aziz her yıl aynı düzeni korumaya özen göstermiştir.
+A) Bahçede biraz dur. *(etki yok)*→K170
+B) Yoluna devam et. *(etki yok)*→K168
+**K168 — Lider'le Yeni Temas**
+Çitteki “Lider” artık düzenli aralıklarla gelmektedir. Bu kez uzun süre bekler ve doğrudan sana bakar.
+A) Zeynep’i de çağır. →K171
+B) Onu tek başına dinle. →K169
+**K169 — Eski Frekans**
+İsmet eski bir frekansta yıllardır duymadığınız türden bir yayın yakalar: zayıf ama gerçek bir müzik istasyonu.
+A) Bir süre dinle. *(etki yok)*→K172
+B) Frekansı kapat. *(etki yok)*→K170
 **K170 — YIKICI 💀☺**
-Karakol söylentisi sığınağı ikiye bölüyor. Açık forum mu, bastır mı?
-A) Açık forum. `☺+1`→K173
-B) Bastır. *(☺≤3 ise `☺=0`→SALTANAT SONU; ☺>3 ise `☺-1`)*→K171
+Karakol hakkında dolaşan söylentiler sığınağı ikiye böler. Bir grup ilişkiyi sürdürmek, diğer grup tüm teması kesmek ister.
+A) Herkesin konuşabileceği açık toplantı yap. `☺+1`→K173
+B) Tartışmayı zorla bastır. *(☺≤3 ise `☺=0`→SALTANAT SONU; ☺>3 ise `☺-1`)*→K171
+**K171 — İlk Başarı**
+Ali ilk kez önemli bir görevi başarıyla tamamlar. Döndüğünde bunu belli etmemeye çalışsa da yüzündeki ifade değişmiştir.
+A) Başarısını kutla. *(etki yok)*→K173
+B) Görevin doğal sonucu gibi karşıla. *(etki yok)*→K172
+**K172 — Karakol Gerginliği Sonucu ⚑**
+*(Uyarıldıysa)* Karakol, Kemal’in gönderdiği uyarının ardından sınır işaretlerini geri çeker. Buna karşılık iki taraf arasındaki güven daha da azalır.
+A) Tansiyonu düşürmek için özür dile. `☺-1`→K175
+B) Uyarının gerekli olduğunu açıkça söyle. `☺-1`→K175
 
-**K171 — Nötr**
-Ali'nin ilk başarısı kutlanıyor. Kutla mı, mütevazı mı kal?
-A) Kutla. *(etki yok)*→K173
-B) Mütevazı kal. *(etki yok)*→K172
+*(İzlendiyse — varyant: karakol_uyari=hayir)* Sınır birkaç gün içinde daha da yaklaşır. Artık bunun tesadüf olmadığı açıktır.
+A) Kendi sınırınızı belirgin biçimde işaretle. `🏠-1 🩺-1`→K175
+B) Şimdilik karşılık verme. `🏠-1 🩺-1`→K175
 
-**K172 — Karakol Gerginliği Sonucu (6 kart sonra) ⚑**
-*(Uyarıldıysa: `☺-1`) (İzlendiyse: `🏠-1 🩺-1`) (Riskli rota: değişken `🥫+2/-1`) (Güvenli rota: `🥫+1`)* →K175
+*(Riskli rota seçildiyse — varyant: rota=riskli)* Ekip büyük bir yükle döner ama yol boyunca birkaç kez ölümden dönmüştür.
+A) Ekibin riskini takdir et. `🥫+2`→K175
+B) Bir daha bu kadar ileri gitmemelerini söyle. `🥫+2`→K175
 
-**K173 — Nötr**
-Büyük bir "hasat/inşaat bayramı" kutlanıyor. Katıl mı, arka planda mı?
-A) Katıl. *(etki yok)*→K177
-B) Arka planda kal. *(etki yok)*→K174
-
+*(Güvenli rota seçildiyse — varyant: rota=guvenli)* Yolculuk olaysız geçer. Kazanç büyük değildir ama düzenlidir.
+A) Bu istikrarı yeterli bul. `🥫+1`→K175
+B) Sonraki sefer daha fazlasını hedefle. `🥫+1`→K175
+**K173 — Hasat Bayramı**
+Hasat ve inşaat çalışmalarının aynı dönemde tamamlanması küçük bir bayrama dönüşür. İnsanlar buna kendiliğinden bir isim bile takar.
+A) Kutlamaya katıl. *(etki yok)*→K177
+B) Kalabalığın dışında kal. *(etki yok)*→K174
 **K174 — LİDER RİSKİ 💀👑**
-Karakol'dan görüşme daveti geliyor. Bizzat mı, temsilci mi?
-A) Bizzat git. *(👑<5 ise ANİ ÖLÜM; değilse 👑-3)*→K176
-B) Temsilci gönder. `👑0`→K175
-
-**K175 — Nötr**
-Sonrasında sakin bir hafta. Vakit geçir mi, işe mi dön?
-A) Vakit geçir. *(etki yok)*→K177
-B) İşe dön. *(etki yok)*→K176
-
+Karakol’dan doğrudan görüşme daveti gelir. Yer ve saat onlar tarafından belirlenmiştir.
+A) Görüşmeye kendin git. *(👑<5 ise ANİ ÖLÜM; değilse `👑-3`)*→K176
+B) Bir temsilci gönder. `👑0`→K175
+**K175 — Sakin Hafta**
+Gergin günlerin ardından bir hafta boyunca önemli hiçbir şey olmaz. Bu kadar sessizlik bile artık garip gelmektedir.
+A) İnsanlarla vakit geçir. *(etki yok)*→K177
+B) İşine dön. *(etki yok)*→K176
 **K176 — Vertak Yankısı**
-*(K135-136'daki karara göre)* Yeni bir talep ya da eski bir sinyal geliyor. İncele mi, yok say mı?
-A) İncele. *(vertak_yanki=evet)*→K179
-B) Yok say. →K177
-
-**K177 — Nötr**
-Necati doğal bir şekilde vefat ediyor. Anısını an mı, sessizce devam mı?
-A) An. *(etki yok)*→K180
-B) Sessizce devam. *(etki yok)*→K178
-*(Not: nüfus bir azalır.)*
-
+*(K135-136'daki karara göre)* Vertak’la kurduğunuz eski ilişkinin izi yeniden belirir. Korumasını kabul ettiyseniz yeni bir talep, reddettiyseniz eski bir frekanstan yeni bir sinyal gelir.
+A) Mesajı incele. *(vertak_yanki=evet)*→K179
+B) Yok say. *(etki yok)*→K177
+**K177 — Necati'nin Vefatı**
+Necati bir sabah uyanmaz. Ölümü ani bir saldırının değil, yılların ve yorgunluğun sonucudur. *(Not: nüfus bir azalır.)*
+A) Anısını birlikte anın. `☺+1`→K180
+B) Sessizce işlere devam edin. *(etki yok)*→K178
 **K178 — Genişleme Projesi (1/2)**
-Kemal, sığınağı genişletme fikri sunuyor. Büyük mü, kademeli mi?
-A) Büyük yatırım. *(genisleme=buyuk)* `👑-1`→K181
-B) Kademeli. *(genisleme=kademeli)*→K179
-
+Kemal sığınağın artık mevcut sınırlarına sığmadığını söyler. Yeni bölmeler açmak mümkündür ama bunun bedeli vardır.
+A) Büyük bir genişleme başlat. *(genisleme=buyuk)* `👑-1`→K181
+B) Bölgeyi kademeli genişlet. *(genisleme=kademeli)*→K179
 **K179 — Genişleme Projesi (2/2) Sonuç**
-*(Büyük: `🏠+3`) (Kademeli: `🏠+2`, yavaş ama sağlam)* →K181
+*(Büyük yatırım seçildiyse)* Genişleme kısa sürede tamamlanır. Yeni alan etkileyicidir ama çalışma ekibini fazlasıyla yormuştur.
+A) Tamamlanışı kutla. `🏠+3`→K181
+B) Ekibi dinlenmeye gönder. `🏠+3`→K181
 
-**K180 — Nötr**
-Yeni bölgede ilk gece. Orada mı kal, eski bölgede mi?
+*(Kademeli seçildiyse — varyant: genisleme=kademeli)* Yeni alan yavaş yavaş büyür. Gösterişli değildir ama her bölüm sağlam biçimde tamamlanır.
+A) Sabırlı ilerleyişi takdir et. `🏠+2`→K181
+B) Bunu işin doğal parçası say. `🏠+2`→K181
+**K180 — Yeni Bölgede İlk Gece**
+Yeni açılan bölgede ilk geceyi geçirecek kadar yer hazırlanmıştır. Eski bölüm hâlâ daha tanıdık ve güvenli hissettirir.
 A) Yeni bölgede kal. *(etki yok)*→K183
-B) Eski bölgede kal. *(etki yok)*→K181
+B) Eski bölümde kal. *(etki yok)*→K181
+**K181 — Enfektelerle Bölge Anlaşması (1/2)**
+“Lider” çitin ötesindeki boş araziyi gösterip anlaşılır birkaç kelime kurar. Enfekteler o bölgeyi sizinle paylaşmayı teklif ediyor gibidir.
+A) Teklifi kabul et. *(zombi_anlasma=evet)*→K183
+B) Teklifi reddet. *(zombi_anlasma=hayir)*→K182
+**K182 — Enfektelerle Bölge Anlaşması (2/2)**
+*(Kabul edildiyse)* İlk günler garip geçse de iki taraf aynı bölgede birbirine saldırmadan yaşamayı başarır. *(zombi_komsuluk=evet)*
+A) Anlaşmayı kadroya açıkça anlat. `☺+1 🩺-1`→K184
+B) Ayrıntıları gizli tut. `☺+1 🩺-1`→K184
 
-**K181 — Zombi Anlaşması Teklifi (1/2)**
-"Lider" zombi bir bölgeyi paylaşmayı teklif ediyor. Kabul mü, ret mi?
-A) Kabul. *(zombi_anlasma=evet)*→K183
-B) Ret. *(zombi_anlasma=hayır)*→K182
-
-**K182 — Zombi Anlaşması Sonucu (2/2)**
-*Kabul:* garip ama işlevsel bir komşuluk kurulur. *(zombi_komsuluk=evet)* →`☺+1 🩺-1`
-*Ret:* net bir sınır çizilir. →`🏠+1`
-→K184
-
-**K183 — Nötr**
-Ali kendi çırağını eğitmeye başlıyor. Gurur duy mu, doğal mı karşıla?
-A) Gurur duy. *(etki yok)*→K187
-B) Doğal karşıla. *(etki yok)*→K184
-
+*(Reddedildiyse — varyant: zombi_anlasma=hayir)* İki taraf arasında belirgin bir sınır çizilir. Mesafe arttıkça güvenlik de artar.
+A) Sınırı açıkça işaretle. `🏠+1`→K184
+B) İşaret koymadan mesafeyi koru. `🏠+1`→K184
+**K183 — Çırak Eğitimi**
+Ali artık kendi çırağını yetiştirecek kadar deneyimlidir. İlk kez bir başkasının hatalarından da sorumlu olacaktır.
+A) Bu gelişmeyi takdir et. *(etki yok)*→K187
+B) Bunu doğal bir geçiş say. *(etki yok)*→K184
 **K184 — YIKICI 💀🩺**
-Yeni bölgeden bir hastalık riski var. Sıkı karantina mı, devam mı?
-A) Sıkı karantina. `🥫-1 🩺+1`→K186
-B) Devam et. *(🩺≤3 ise `🩺=0`→SALTANAT SONU; 🩺>3 ise `🩺-1`)*→K185
+Yeni açılan bölgede birkaç kişide aynı belirtiler görülür. Zeynep bunun yayılmadan durdurulabilecek bir hastalık olabileceğini söyler.
+A) Sıkı karantina uygula. `🥫-1 🩺+1`→K186
+B) Hayatı normal sürdür. *(🩺≤3 ise `🩺=0`→SALTANAT SONU; 🩺>3 ise `🩺-1`)*→K185
+**K185 — Bir Konser Daha**
+Sibel ve öğrencileri yeni bölgede ilk konserlerini verir. Çalanların bir kısmı yıllar önce notayı bile bilmiyordu.
+A) Konseri dinle. *(etki yok)*→K188
+B) Uzaktan izle. *(etki yok)*→K186
+**K186 — İsmet'in Keşfi ⚑**
+İsmet eski bir askerî frekansta kodlanmış, tekrar eden bir mesaj yakalar. Kaynağı oldukça uzaktadır.
+A) Mesajı çözmeye çalış. *(mesaj_cozuldu=evet)*→K188
+B) Frekansı yok say. *(etki yok)*→K187
+**K187 — Hediye Resimler**
+Fatma’nın resimleri artık diğer topluluklara da hediye edilmektedir. Bazılarının duvarlarında sığınağın çizimleri görülmeye başlar.
+A) Bu geleneği destekle. *(etki yok)*→K190
+B) Üzerinde durma. *(etki yok)*→K188
+**K188 — İkinci Kelime**
+Gül’ün çocuğu “anne” dışında yeni bir kelime söyler. Odanın yarısı ne dediğini anlamaz, diğer yarısı farklı bir kelime duyduğunu iddia eder.
+A) Gülümseyip kutla. *(etki yok)*→K192
+B) Şaşkınlığını belli et. *(etki yok)*→K189
+**K189 — İsmet'in Keşfi Sonucu ⚑**
+*(Deşifre edildiyse)*
+Kod çözülünce mesajın uzak bir topluluktan gönderilmiş SOS çağrısı olduğu anlaşılır.
+A) Yardım göndermek için harekete geç. `🥫-1 ☺+1` *(uzak_topluluk=evet)*→K192
+B) Mesafeyi koru. *(etki yok)*→K190
 
-**K185 — Nötr**
-Sibel ve öğrencileri bir konser daha veriyor. Katıl mı, izle mi?
-A) Katıl. *(etki yok)*→K188
-B) İzle. *(etki yok)*→K186
-
-**K186 — İsmet'in Keşfi ⚑** *(4 kart sonra sonuçlanır)*
-İsmet eski bir askeri frekansta kodlanmış bir mesaj yakalıyor. Deşifre et mi, yok say mı?
-A) Deşifre et. *(mesaj_cozuldu=evet)*→K188
-B) Yok say. →K187
-
-**K187 — Nötr**
-Fatma'nın resimleri dışarıya da hediye ediliyor. Destekle mi, önemseme mi?
-A) Destekle. *(etki yok)*→K190
-B) Önemseme. *(etki yok)*→K188
-
-**K188 — Nötr**
-Gül'ün çocuğu ilk kez "anne" dışında bir kelime söylüyor. Gülümse mi, şaşır mı?
-A) Gülümse. *(etki yok)*→K192
-B) Şaşır. *(etki yok)*→K189
-
-**K189 — İsmet'in Keşfi Sonucu (4 kart sonra) ⚑**
-*Deşifre:* Uzak bir topluluktan SOS mesajı. Yardıma git mi, mesafeli mi?
-A) Yardıma git. `🥫-1 ☺+1` *(uzak_topluluk=evet)*→K192
-B) Mesafeli kal. →K190
-*Yok sayıldıysa:* Sinyal zamanla söner. →K192
-
-**K190 — Nötr**
-Haftalık toplantı geleneği sürüyor. Katıl mı, dinle mi?
-A) Katıl. *(etki yok)*→K193
-B) Dinle. *(etki yok)*→K191
-
+*(Yok sayıldıysa — varyant: mesaj_cozuldu≠evet)*
+Sinyal günler içinde zayıflayıp tamamen kaybolur. Ne olduğu hiçbir zaman öğrenilemez.
+A) Kaydını arşivde tut. *(etki yok)*→K192
+B) Konuyu kapat. *(etki yok)*→K192
+**K190 — Haftalık Toplantı**
+Haftalık toplantılar artık sığınağın olağan düzeninin bir parçasıdır. İnsanlar sorunlarını doğrudan burada dile getirir.
+A) Tartışmaya katıl. *(etki yok)*→K193
+B) Bu kez yalnızca dinle. *(etki yok)*→K191
 **K191 — LİDER RİSKİ 💀👑**
-*(Yardıma gidildiyse)* Ulaşmak tehlikeli. Bizzat mı, ekip mi?
-A) Bizzat git. *(👑<5 ise ANİ ÖLÜM; değilse 👑-3)*→K194
-B) Ekip gönder. `👑0`→K192
-*(Mesafeli kalındıysa)* Sıradan, düşük riskli bir gün. →K192
+*(Yardıma gidildiyse)* SOS çağrısının geldiği bölgeye ulaşmak tehlikelidir. Yolun bir kısmı enfekte bölgelerden geçmektedir.
+A) Ekibe kendin liderlik et. *(👑<5 ise ANİ ÖLÜM; değilse `👑-3`)*→K194
+B) Bir ekip gönder. `👑0`→K192
 
+*(Mesafeli kalındıysa — varyant: uzak_topluluk≠evet)* O gün olağan dışı hiçbir gelişme olmaz. Nöbet çizelgesi bile sakindir.
+A) Devriyeye çık. *(etki yok)*→K192
+B) Dinlen. *(etki yok)*→K192
 **K192 — Vertak Yankısı Sonucu**
-*(İncelendiyse)* Önemli bulgu çıkar. `pharma_arastirma+1` *(Yok sayıldıysa)* Sinyal söner. →K195
+*(İncelendiyse)* Vertak sinyalinin içinde önceki kayıtlarla bağlantılı yeni bir ayrıntı bulunur. `pharma_arastirma+1`
+A) Bulguyu paylaş. `☺-1`→K195
+B) Arşivde sakla. *(etki yok)*→K195
 
-**K193 — Nötr**
-Herkes döner, sakin bir akşam. Dinlen mi, işe mi dön?
+*(Yok sayıldıysa — varyant: vertak_yanki≠evet)* Sinyal zamanla tamamen kaybolur ve geride doğrulanabilir hiçbir iz bırakmaz. *(etki yok)*→K195
+**K193 — Herkes Döner**
+Dış görevde olanlar geri döner. O akşam uzun zamandır ilk kez herkes aynı çatı altındadır.
 A) Dinlen. *(etki yok)*→K196
-B) İşe dön. *(etki yok)*→K194
-
-**K194 — Nötr**
-İsmet'in tarih arşivi büyüyor. Katkı ver mi, izle mi?
-A) Katkı ver. *(etki yok)*→K198
-B) İzle. *(etki yok)*→K195
-
-**K195 — Zombi Komşuluk Testi**
-*(zombi_komsuluk=evet ise)* Anlaşma ilk kez ciddi sınanıyor. Sakin mi, sert mi?
-A) Sakin kal. `☺+1`→K198
-B) Sert tepki. `☺-1` *(zombi_komsuluk_gergin=evet)*→K196
-
-**K196 — Nötr**
-Yeni bir çocuk doğuyor, isim koyma günü. Katıl mı, kısa tebrik mi?
-A) Katıl. *(etki yok)*→K200
-B) Kısa tebrik. *(etki yok)*→K197
-
-**K197 — Nötr**
-Kemal, küçük bir elektrik şebekesi kurduğunu gösteriyor. Kutla mı, sıradan mı?
-A) Kutla. *(etki yok)*→K201
-B) Sıradan karşıla. *(etki yok)*→K198
-
-**K198 — Nötr**
-Ali'nin çırağı kendi çırağını almaya hazırlanıyor. Gurur duy mu, şaşır mı?
-A) Gurur duy. *(etki yok)*→K200
-B) Şaşır. *(etki yok)*→K199
-
-**K199 — Mete'nin Şüphesi ⚑** *(3 kart sonra sonuçlanır)*
-Mete, Karakol ilişkilerinin gizli bir ajandası olabileceğinden şüpheleniyor. Araştır mı, güven mi?
-A) Araştır. *(son_kusku=evet)*→K201
-B) Güven. →K200
-
+B) İşlere dön. *(etki yok)*→K194
+**K194 — Tarih Arşivi**
+İsmet’in tarih arşivi artık birkaç defterden çok daha fazlasıdır. Eski liderlerin kararları bile ayrı ayrı kaydedilmiştir.
+A) Kendi bildiklerini ekle. *(etki yok)*→K198
+B) Arşivi ona bırak. *(etki yok)*→K195
+**K195 — Komşuluk Sınavı**
+*(zombi_komsuluk=evet ise)* Enfektelerle kurulan komşuluk ilk kez ciddi biçimde sınanır. Sınırda beklenmedik bir hareketlilik başlar.
+A) Sakin kalıp önce ne olduğunu anlamaya çalış. `☺+1`→K198
+B) Sert biçimde karşılık ver. `☺-1` *(zombi_komsuluk_gergin=evet)*→K196
+**K196 — İsim Koyma Günü**
+Sığınakta yeni bir çocuk doğar. İsim koyma günü yıllar önce Gül’ün bebeğinde olduğu gibi yine küçük bir törene dönüşür.
+A) Törene katıl. *(etki yok)*→K200
+B) Kısa bir tebrikle yetin. *(etki yok)*→K197
+**K197 — Küçük Şebeke**
+Kemal seni yeni kurduğu küçük elektrik şebekesinin başına götürür. Birkaç bölme artık birbirinden bağımsız enerji alabilmektedir.
+A) Ekibi tebrik et. *(etki yok)*→K201
+B) Çalışmayı normal bir gelişme say. *(etki yok)*→K198
+**K198 — Çırağın Çırağı**
+Ali’nin yetiştirdiği çırak artık kendi yanında birini eğitmeye hazırlanır. Bilgi ilk kez üçüncü ele geçmektedir.
+A) Bu gelişmeyi takdir et. *(etki yok)*→K200
+B) Zamanın ne kadar geçtiğine şaşır. *(etki yok)*→K199
+**K199 — Mete'nin Şüphesi ⚑**
+Mete Karakol’la ilgili raporları önüne koyar. “Bize söyledikleriyle yaptıkları tam örtüşmüyor. Kendi hesapları olabilir.”
+A) Şüphesini araştır. *(son_kusku=evet)*→K201
+B) Karakol’a güven. →K201
 **K200 — Dönüm Noktası (Sezon 3 Ara Kapanışı)**
-Sığınak artık büyümüş, komşuları var. Bu bir final değil — hikaye derinleşerek sürüyor.
-
+Üçüncü dönemin bu noktasında sığınak artık çevresinden kopuk değildir; komşuları, ticaret yolları ve düşmanları vardır. Hikâye burada bitmez, yalnızca başka bir ölçeğe geçer.
+A) Devam et. →K201
+B) Yeni döneme geç. →K201
 ---
 
 ### BÖLÜM VI (K201-K250)
 
-**K201 — Nötr**
-Yeni bir mevsim başlıyor. Kutla mı, sıradan mı geç?
-A) Kutla. *(etki yok)*→K203
-B) Sıradan geç. *(etki yok)*→K202
+**K201 — Yeni Mevsim**
+Yeni bir mevsim başlar. Hava değişirken sığınağın günlük düzeni şaşırtıcı ölçüde aynı kalır.
+A) Mevsimin gelişini küçük bir kutlamayla karşıla. *(etki yok)*→K203
+B) Günü olağan şekilde geçir. *(etki yok)*→K202
+**K202 — Mete'nin Şüphesi Sonucu ⚑**
+*(Araştırıldıysa)* Mete’nin şüphesi kısmen doğrulanır: Karakol, ittifakları kendi çıkarına göre yönlendirmeyi planlamaktadır; henüz açık bir hamle yapmamıştır. *(karakol_niyet_bilindi=evet)*
+A) Kadroyu durumdan haberdar et. `☺-1`→K205
+B) Bilgiyi şimdilik dar bir çevrede tut. *(etki yok)*→K205
 
-**K202 — Mete'nin Şüphesi Sonucu (3 kart sonra) ⚑**
-*Araştırıldıysa:* Şüphe doğrulanır ya da yanlış çıkar — değişken etki.
-*Güvenildiyse:* Gereksiz bir kaygıydı. →`☺+1`
-→K205
-
-**K203 — Nötr**
-Veli kendi yolunu buluyor — mühendislik mi, telsizcilik mi. Destekle mi, kendi haline mi bırak?
-A) Destekle. *(etki yok)*→K205
-B) Kendi haline bırak. *(etki yok)*→K204
-
-**K204 — Büyük Kriz Habercisi ⚑** *(7 kart sonra sonuçlanır)*
-Mustafa ve Mete ufukta hareketlilik fark ediyor. Erken uyarı mı, gözlem mi?
-A) Erken uyarı kur. `🏠-1` *(erken_uyari=evet)*→K206
-B) Gözlemeye devam. *(erken_uyari=hayır)*→K205
-
+*(Güvenildiyse — varyant: son_kusku≠evet)* Günler geçer, Karakol’dan şüpheyi doğrulayacak bir hareket gelmez. Mete’nin kaygısı şimdilik yersiz görünür. →`☺+1`→K205
+**K203 — Veli'nin Yolu**
+Veli sonunda kendi alanını seçmeye hazırlanır. Kemal’in atölyesiyle İsmet’in telsiz odası arasında gidip gelmektedir.
+A) Mühendisliğe yönelmesini destekle. *(veli_yol=muhendislik)*→K205
+B) Telsizciliği kendi başına seçmesine izin ver. *(veli_yol=telsizcilik)*→K204
+**K204 — Büyük Kriz Habercisi ⚑**
+Mustafa ile Mete ufukta alışılmadık bir hareketlilik fark eder. Ne yaklaştığını henüz seçememektedirler.
+A) Erken uyarı düzeni kur. `🏠-1` *(erken_uyari=evet)*→K206
+B) Daha fazla bilgi gelene kadar izle. *(erken_uyari=hayir)*→K205
 **K205 — Karakol Krizi (1/2)**
-Karakol'da iç karışıklık çıktığı haberi geliyor. Değerlendir mi, karışma mı?
-A) Değerlendir. *(karakol_yeni_yonetim=evet)*→K207
-B) Karışma. →K206
-
+Karakol’dan dağınık haberler gelmeye başlar: içeride yönetim kavgası çıkmış, eski düzen çözülmektedir.
+A) Değişimi yakından değerlendir. *(karakol_yeni_yonetim=evet)*→K206
+B) İç işlerine karışma. →K206
 **K206 — Karakol Krizi (2/2) Sonuç**
-*(Değerlendirildi+yakınlaş: yeni ilişki) (Değerlendirildi+temkinli: mesafeli izleme) (Karışılmadı+hazırlan: `🏠+1`) (Karışılmadı+bekle: belirsizlik)* → karışık `🥫/🏠/☺` swing →K208
+*(Değerlendirilip yakınlaşıldıysa)* Karakol’daki yeni yönetimle önceki dönemden daha dengeli bir ilişki kurulur.
+A) Şartları yazılı anlaşmaya bağla. `🥫+1 ☺+1`→K207
+B) Sözlü mutabakatla yetin. `🥫+1 ☺+1`→K207
 
-**K207 — Nötr**
-Ali'nin çırağı ilk bağımsız görevini tamamlıyor. Gurur duy mu, doğal mı karşıla?
-A) Gurur duy. *(etki yok)*→K210
-B) Doğal karşıla. *(etki yok)*→K208
+*(Değerlendirilip temkinli kalındıysa — varyant)* Yeni yönetim izlenir ama iki taraf da yakınlaşmak için acele etmez.
+A) Gözlemleri kadroya raporla. *(etki yok)*→K207
+B) Notları şimdilik kendinde tut. *(etki yok)*→K207
 
+*(Karışılmayıp hazırlanıldıysa — varyant: karakol_yeni_yonetim≠evet)* Karakol’daki belirsizliğe karşı sığınağın sınırları sıkılaştırılır.
+A) Yeni önlemleri kadroya açıkla. `🏠+1`→K208
+B) Önlemleri sessizce uygula. `🏠+1`→K208
+
+*(Karışılmayıp beklenildiyse — varyant)* Karakol’daki belirsizlik çözülmez. Söylentiler sığınağa ulaştıkça huzursuzluk biraz daha artar.
+A) Soğukkanlı kal. `☺-1`→K208
+B) Olası sorunlara karşı insanları uyar. `☺-1`→K208
+**K207 — Bağımsız İlk Görev**
+Ali’nin yetiştirdiği çırak ilk görevini tek başına tamamlayıp geri döner. Artık yalnızca bir öğrenciden söz etmek zordur.
+A) Başarısını takdir et. *(etki yok)*→K210
+B) Görevin doğal sonucu gibi karşıla. *(etki yok)*→K208
 **K208 — YIKICI 💀🏠**
-Genişleyen sığınağın yapısal karmaşıklığı bir soruna yol açıyor. Acil mi, göze al mı?
-A) Acil müdahale. `🥫-2 🏠+1`→K211
-B) Göze al. *(🏠≤3 ise `🏠=0`→SALTANAT SONU; 🏠>3 ise `🏠-1`)*→K209
+Sığınak büyüdükçe eski yapıya eklenen bölmeler birbirini zorlamaya başlar. Kemal bir taşıyıcı noktadaki sorunu gösterir. “Bunu ertelemek artık kumar.”
+A) Acil müdahale başlat. `🥫-2 🏠+1`→K211
+B) Riski göze alıp bekle. *(🏠≤3 ise `🏠=0`→SALTANAT SONU; 🏠>3 ise `🏠-1`)*→K209
+**K209 — Büyük Kriz Sonucu ⚑**
+*(Erken uyarı kurulduysa)* Yaklaşan kriz hazırlıklar sayesinde beklenenden daha hafif atlatılır. Mustafa’nın kurduğu düzen ilk alarmda çalışır.
+A) Mustafa’nın hazırlığını özellikle takdir et. `☺+1`→K211
+B) Başarıyı bütün ekibe mal et. `☺+1`→K211
 
-**K209 — Büyük Kriz Sonucu (7 kart sonra) ⚑**
-*(Erken uyarı: `☺+1`) (Kurulmadıysa: `🩺-1 ☺-1`)* →K211
+*(Kurulmadıysa — varyant: erken_uyari=hayir)* Kriz sığınağı hazırlıksız yakalar. Zarar sınırlanır ama bunun bedeli ağır olur.
+A) Hazırlıksızlığın sorumluluğunu kabul et. `🩺-1 ☺-1`→K211
+B) Kararı savunup hızla toparlanmaya geç. `🩺-1 ☺-1`→K211
+**K210 — Dayanışma**
+Krizden sonra insanlar birbirlerinin işine kendiliğinden yardım etmeye başlar. Birkaç gün boyunca görev listesine bakmaya bile gerek kalmaz.
+A) Bu dayanışmayı birlikte kutla. *(etki yok)*→K212
+B) Sessizce sürmesine izin ver. *(etki yok)*→K211
+**K211 — Lider'in Mesajı**
+*(zombi_komsuluk=evet ise)* “Lider” çite gelir ve bu kez uzun, parçalı cümlelerle bir şey anlatmaya çalışır. Söylediğinin önemli olduğu bellidir.
+A) Zeynep’i çağırıp birlikte dinle. →K213
+B) Onu tek başına dinle. →K212
 
-**K210 — Nötr**
-Kriz sonrası dayanışma güçleniyor. Kutla mı, sessizce hisset mi?
-A) Kutla. *(etki yok)*→K212
-B) Sessizce hisset. *(etki yok)*→K211
-
-**K211 — Zombi Komşuluk Derinleşme**
-*(zombi_komsuluk=evet ise)* "Lider" zombi karmaşık bir şey ifade etmeye çalışıyor. Zeynep'le mi, tek mi?
-A) Zeynep'le dinle. →K213
-B) Tek başına dinle. →K212
-*(değilse)* Sıradan bir nöbet günü. →K212
-
-**K212 — Nötr**
-İsmet'in arşivi sığınağın gururu. Katkı ver mi, izle mi?
-A) Katkı ver. *(etki yok)*→K215
-B) İzle. *(etki yok)*→K213
-
+*(değilse — varyant: zombi_komsuluk≠evet)* Nöbet günü olaysız geçer. Çitin ötesinde yalnızca rüzgâr ve uzaktaki hareketler vardır. →K212
+**K212 — Sığınağın Gururu**
+İsmet’in arşivi artık yalnızca onun işi sayılmaz. İnsanlar kendi notlarını, haritalarını ve hatıralarını da buraya bırakmaktadır.
+A) Arşive kendi katkını ekle. *(etki yok)*→K215
+B) Kaydı İsmet’e bırak. *(etki yok)*→K213
 **K213 — Yeni Nesil Liderlik**
-Ali ya da Veli ilk kez resmi bir karar toplantısına katılıyor. Söz hakkı ver mi, izle mi?
-A) Söz hakkı ver. `☺+1`→K215
-B) İzle. →K214
-
-**K214 — Nötr**
-Sabiha'nın ticaret ağı birden fazla topluluğu kapsıyor. Genişlet mi, sınırlı mı?
-A) Genişlet. `🥫+1` *(ticaret_agi=genis)*→K216
-B) Sınırlı tut. *(ticaret_agi=sinirli)*→K215
-
+*(ali_yol=savunma ise Ali, değilse Veli — hangisi sığınağın güvenlik/karar çizgisine daha yakınsa o)* Yeni nesilden biri ilk kez resmî karar toplantısında masaya oturur. Bu kez yalnızca dinleyen bir çırak değildir.
+A) Görüşünü açıkça söylemesini iste. `☺+1`→K215
+B) İlk toplantıda gözlemlemesine izin ver. →K214
+**K214 — Ticaret Ağı Genişliyor**
+Sabiha’nın kurduğu ticaret ağı artık birden fazla topluluğu birbirine bağlamaktadır. Yeni bir rota daha eklemek mümkündür ama ağ büyüdükçe denetim zorlaşır.
+A) Ağı daha da genişlet. `🥫+1` *(ticaret_agi=genis)*→K216
+B) Mevcut ölçekte tut. *(ticaret_agi=sinirli)*→K215
 **K215 — LİDER RİSKİ 💀👑**
-Karakol krizi doğrudan sığınağa sıçrıyor. Bizzat mı, ekibe mi bırak?
-A) Bizzat git. *(👑<5 ise ANİ ÖLÜM; değilse 👑-3)*→K218
-B) Ekibe bırak. `👑0`→K216
-
-**K216 — Nötr**
-Sakinlik geri geliyor. Dinlen mi, işe mi dön?
-A) Dinlen. *(etki yok)*→K218
-B) İşe dön. *(etki yok)*→K217
-
+Karakol’daki kriz doğrudan sığınağın çevresine sıçrar. Silahlı grupların hareket ettiği haberi gelir ve hızlı karar vermek gerekir.
+A) Duruma kendin müdahale et. *(👑<5 ise ANİ ÖLÜM; değilse `👑-3`)*→K218
+B) Müdahaleyi ekibe bırak. `👑0`→K216
+**K216 — Sakinlik**
+Karakol’daki hareketlilik yatışınca sığınağa yeniden gündelik sessizlik döner.
+A) Bir gün dinlen. *(etki yok)*→K218
+B) İşlere dön. *(etki yok)*→K217
 **K217 — Aziz'in Büyük Hasadı (1/2)**
-Tarım alanı genişletildiyse rekor bir hasat mümkün. Riske gir mi, güvenli mi?
-A) Riske gir. *(hasat=riskli)*→K219
-B) Güvenli ilerle. *(hasat=guvenli)*→K218
-
+Aziz genişleyen tarlaları gösterir. “Hava böyle giderse rekor kırabiliriz. Ama sonuna kadar zorlarsak bir terslikte daha çok kaybederiz.”
+A) Verimi zorlayıp riske gir. *(hasat=riskli)*→K219
+B) Güvenli yöntemle ilerle. *(hasat=guvenli)*→K218
 **K218 — Aziz'in Büyük Hasadı (2/2) Sonuç**
-*(Riskli: değişken, çoğunlukla `🥫+4`, kötü giderse `🥫+1`) (Güvenli: istikrarlı `🥫+2`)* →K221
+*(Riskli hasat, tarımı Ali seçtiyse iyi gitti)* Ali’nin tarım bilgisiyle alınan risk karşılığını verir; depolar yıllardır görülmemiş ölçüde dolar.
+A) Hasadı şenlikle kutla. `🥫+4`→K221
+B) Fazlayı doğrudan depola. `🥫+4`→K221
 
-**K219 — Nötr**
-Sığınakta ilk kez fazla erzak "ihraç" ediliyor. Kutla mı, tedbirli mi?
-A) Kutla. *(etki yok)*→K223
-B) Tedbirli ol. *(etki yok)*→K220
+*(Riskli hasat, tarımı kimse desteklemediyse — varyant: hasat=riskli)* Hava son anda döner. Ürünün yalnızca bir kısmı kurtarılabilir.
+A) Kurtarılan ürünle yetin. `🥫+1`→K221
+B) Gelecek sezon aynı yöntemi yeniden denemeyi planla. `🥫+1`→K221
 
+*(Güvenli hasat seçildiyse — varyant: hasat=guvenli)* Hasat beklendiği gibi gelir: büyük değildir ama kayıp da yoktur.
+A) Aziz’in planını takdir et. `🥫+2`→K221
+B) Sonucu olağan kabul et. `🥫+2`→K221
+**K219 — İlk İhracat**
+Depolar ilk kez sığınağın ihtiyacından fazlasını verir. Sabiha, artan erzağın başka topluluklarla düzenli takasa çıkarılmasını önerir.
+A) İlk büyük dış satışı kutla. *(etki yok)*→K223
+B) Fazlayı verirken temkinli davran. *(etki yok)*→K220
 **K220 — Vertak'ın Sonu ya da Devamı**
-*(pharma_arastirma ve K135-136'ya göre)* Vertak hikayesi netleşiyor. Kutla/rahatla mı, temkinli mi?
-A) Kutla/rahatla. `☺+2`→K223
-B) Temkinli kal. `🏠+1`→K221
-
-**K221 — Nötr**
-Sığınağın en yaşlısı geçmişi genç nesile anlatıyor. Dinle mi, işine mi dön?
-A) Dinle. *(etki yok)*→K224
-B) İşe dön. *(etki yok)*→K222
-
+*(pharma_arastirma ve K135-136'daki karara göre)* Yıllardır süren Vertak meselesi sonunda net bir biçim alır: ya içeriden çözülür ya da gücünü kaybedip bölgeden çekilir. İlk kez adı günlük bir tehdit gibi anılmaz.
+A) Tehlikenin geçtiğini kabul et. `☺+2`→K223
+B) Yine de savunmayı gevşetme. `🏠+1`→K221
+**K221 — Geçmiş Anlatısı**
+Sığınaktaki en yaşlı kişi gençleri etrafına toplayıp ilk yılları anlatır. Bazıları anlattığı olaylar yaşanırken henüz doğmamıştır.
+A) Oturup birlikte dinle. *(etki yok)*→K224
+B) Günlük işine dön. *(etki yok)*→K222
 **K222 — YIKICI 💀☺**
-Yeni nesille eski nesil arasında değerler çatışması. Ortak karar mı, otorite mi?
-A) Ortak karar ara. `☺+1`→K226
-B) Otorite kullan. *(☺≤3 ise `☺=0`→SALTANAT SONU; ☺>3 ise `☺-1`)*→K223
+Yeni yetişenlerle eski kuşak arasında ilk kez açık bir değer çatışması yaşanır. Mesele tek bir karar değil, sığınağın bundan sonra nasıl yönetileceğidir.
+A) Ortak bir karar arayın. `☺+1`→K226
+B) Son sözü otoriteyle ver. *(☺≤3 ise `☺=0`→SALTANAT SONU; ☺>3 ise `☺-1`)*→K223
+**K223 — Uzlaşma Sonrası**
+Tartışma çözülmüş olsa da etkisi hemen geçmez. Sığınak bir hafta boyunca alınan kararın havasını taşır.
+A) İnsanların arasında kal. *(etki yok)*→K226
+B) Bir süre yalnız kal. *(etki yok)*→K224
+**K224 — Ne Kadar Değişti**
+İlk günkü sığınakla bugünkü yer arasında neredeyse yalnızca duvarların adı ortaktır. Ali ile Veli’nin yolları, Karakol’la kurulan ilişki ve Vertak’tan kalan izler artık bu hayatın parçasıdır.
+A) Değişimi arşive kaydet. `☺+1`→K225
+B) Üzerinde konuşmadan kabul et. *(etki yok)*→K225
+**K225 — Gelenek Günü**
+Yıllar içinde kendiliğinden bir “gelenek günü” oluşmuştur. İlk dönemden beri yaşamış olanlar ve artık aranızda bulunmayanlar o gün isimleriyle anılır; Necati de onlardan biridir.
+A) Anmaya katıl. *(etki yok)*→K229
+B) Kenardan izle. *(etki yok)*→K226
+**K226 — Mühendislik Mirası**
+Kemal’in yaptığı işler artık tek tek projeler olmaktan çıkmıştır. Bölmeler, güneş panelleri, onarımlar ve genişleme sığınağın kalıcı altyapısına dönüşmüştür.
+A) Yaptıklarının değerini ona söyle. `☺+1`→K230
+B) Bunları artık düzenin doğal parçası say. *(etki yok)*→K227
+**K227 — Konuşan Enfekte: Son Mesaj (1/2)**
+“Lider” son kez çitin önünde belirir. Bu kez birkaç kelimeyi açıkça söyleyebilir ama mesajının uyarı mı, veda mı yoksa teklif mi olduğu henüz anlaşılmaz.
+A) Sonuna kadar dinle. →K230
+B) Mesafeyi koru. →K228
+**K228 — Konuşan Enfekte: Son Mesaj (2/2) Sonuç**
+*(Dikkatle dinlendiyse)* Parçalar bir araya gelince mesaj anlaşılır: enfekte topluluğu kendi içinde bölünmektedir ve “Lider” yaklaşan ayrışma konusunda sizi uyarmaktadır. *(zombi_son_mesaj=evet)*
+A) Kadroyu olası çatışmaya hazırla. `🏠+1`→K230
+B) İkinci bir işaret gelene kadar bekle. *(etki yok)*→K230
 
-**K223 — Nötr**
-Uzlaşma ya da gerginlik sonrası sakin bir hafta. Vakit geçir mi, yalnız mı?
-A) Vakit geçir. *(etki yok)*→K226
-B) Yalnız kal. *(etki yok)*→K224
-
-**K224 — Dönüm Noktası (Ara)**
-Sığınak artık kurulduğu günden çok farklı bir yer. Devam ediyor. →K225
-
-**K225 — Nötr**
-Sığınakta bir "gelenek günü" var, ilk günden beri hayatta kalanlar anılıyor. Katıl mı, izle mi?
-A) Katıl. *(etki yok)*→K229
-B) İzle. *(etki yok)*→K226
-
-**K226 — Nötr**
-Kemal'in mühendislik mirası artık kalıcı bir yapı taşı. Değerlendir mi, sıradan mı?
-A) Değerlendir. *(etki yok)*→K230
-B) Sıradan gör. *(etki yok)*→K227
-
-**K227 — Konuşan Zombi Finali (1/2)**
-"Lider" zombi son kez net bir şekilde konuşuyor — uyarı mı, veda mı, teklif mi. Dikkatle dinle mi, mesafede mi kal?
-A) Dikkatle dinle. →K230
-B) Mesafede kal. →K228
-
-**K228 — Konuşan Zombi Finali (2/2) Sonuç**
-*Dinlendiyse:* Önemli bir bilgi/uyarı alınır. *(zombi_son_mesaj=evet)*
-*Mesafede kalındıysa:* Belirsizlik sürer.
-*(Tüm zombi bayraklarının toplamına göre büyük dallanma: kalıcı bir ateşkese dönüşür ya da tamamen gizemli kalır.)*
-→K230
-
-**K229 — Nötr**
-Sakin bir akşam, sığınağın artık bir "ev" olduğu hissediliyor. Yansıt mı, sessizce yaşa mı?
-A) Yansıt. *(etki yok)*→K231
-B) Sessizce yaşa. *(etki yok)*→K230
-
+*(Mesafede kalındıysa — varyant)* “Lider” bir süre çite yaslanır, sonra tek kelime etmeden uzaklaşır. Mesajın ne olduğu öğrenilemez.
+A) Karşılaşmayı kayda geçir. *(etki yok)*→K230
+B) Konuyu kapat. *(etki yok)*→K230
+**K229 — Artık Bir Ev**
+Akşam olduğunda sığınak ilk günkü gibi geçici bir barınak değil, insanların geri döndüğü bir ev gibi görünür.
+A) Bir süre oturup bunu düşün. *(etki yok)*→K231
+B) Düşünmeden günlük hayatına devam et. *(etki yok)*→K230
 **K230 — LİDER RİSKİ 💀👑 (Son Büyük Tehlike)**
-Yıllardır biriken tüm gerilimler bir araya gelip en büyük krizi yaratıyor. Öne çık mı, kadroya güven mi?
-A) Öne çık. *(👑<5 ise ANİ ÖLÜM; değilse 👑-4)*→K234
-B) Kadroya güven. `👑0 ☺+1`→K231
-
-**K231 — Nötr**
-Fırtına dinmiş, sığınak bir kez daha ayakta. Nefes al mı, işe mi dön?
-A) Nefes al. *(etki yok)*→K234
-B) İşe dön. *(etki yok)*→K232
-
-**K232 — Nötr**
-Sabiha, Aziz, Kemal, İsmet — hepsinin mirası sığınağın kimliğini oluşturuyor. Fark et mi, sıradan mı?
-A) Fark et. *(etki yok)*→K236
-B) Sıradan gün. *(etki yok)*→K233
-
-**K233 — Nötr**
-Ali, Veli ve yeni nesil geleceği kendi elleriyle şekillendiriyor. Güven mi, temkinli mi?
-A) Güven. *(etki yok)*→K235
-B) Temkinli ol. *(etki yok)*→K234
-
-**K234 — Uzun Vadeli Sentez**
-Tüm ilişkiler (Vertak, Karakol, zombiler) bir arada değerlendiriliyor — sığınak bölgede kendi başına bir güç mü, hâlâ kırılgan mı? *(Bayrakların toplamına göre metin değişir.)* →K238
-
-**K235 — Nötr**
-İsmet'in arşivinde kaçıncı lider olduğunuz, kaç gündür ayakta olduğunuz yazılı. Oku mu, ona mı bırak?
-A) Oku. *(etki yok)*→K237
-B) Ona bırak. *(etki yok)*→K236
-
-**K236 — Nötr**
-Büyük bir toplantı yapılıyor, artık gerçek bir "topluluk" gibi karar veriliyor. Söz al mı, dinle mi?
-A) Söz al. *(etki yok)*→K238
-B) Dinle. *(etki yok)*→K237
-
-**K237 — Nötr**
-Zeynep'in eğittiği halef artık kendi başına yeterli. Gurur duy mu, doğal mı?
-A) Gurur duy. *(etki yok)*→K239
-B) Doğal karşıla. *(etki yok)*→K238
-
-**K238 — Nötr**
-Ömer'in güvenliği, Mustafa ve Mete'nin savunması — kalıcı yapı taşları. Değerlendir mi, sıradan mı?
-A) Değerlendir. *(etki yok)*→K242
-B) Sıradan gör. *(etki yok)*→K239
-
-**K239 — Nötr**
-Son bir sakin akşam, herkes bir arada. Teşekkür et mi, sessizce mi otur?
-A) Teşekkür et. *(etki yok)*→K242
-B) Sessizce otur. *(etki yok)*→K240
-
-**K240 — Nötr**
-Yıllardır süren yolculuk, ilk günün korkusundan çok uzakta bir yere gelmiş. Geriye mi, ileriye mi?
-A) Geriye bak. *(etki yok)*→K242
-B) İleriye bak. *(etki yok)*→K241
-
-**K241 — Nötr**
-Sığınağın halk arasında oluşmuş bir ismi bile var. Resmi mi yap, doğal mı bırak?
-A) Resmi yap. *(etki yok)*→K244
-B) Doğal bırak. *(etki yok)*→K242
-
-**K242 — Nötr**
-Emine Teyze'nin bahçesi hâlâ çiçek açıyor, ilk günden beri süren bir sembol. İzle mi, geç mi?
-A) İzle. *(etki yok)*→K245
-B) Geç. *(etki yok)*→K243
-
-**K243 — Nötr**
-Gül'ün çocuğu artık okula benzer bir derse katılıyor, Atilla'nın mirası sürüyor. Katıl mı, izle mi?
-A) Katıl. *(etki yok)*→K246
-B) İzle. *(etki yok)*→K244
-
-**K244 — Nötr**
-Aziz'in tarım mirası artık sığınağın temel geçim kaynağı. Fark et mi, sıradan mı?
-A) Fark et. *(etki yok)*→K248
-B) Sıradan gör. *(etki yok)*→K245
-
-**K245 — Nötr**
-Son kart öncesi, herkes bir arada, sessiz bir gurur var havada. Hisset mi, geleceğe mi odaklan?
-A) Hisset. *(etki yok)*→K248
-B) Geleceğe odaklan. *(etki yok)*→K246
-
-**K246 — Nötr**
-Kadronun hepsi (Zeynep, Sabiha, Ömer, Kemal, Atilla, Aziz, İsmet, Mustafa, Mete) bir arada son bir toplantı yapıyor. Katıl mı, dinle mi?
-A) Katıl. *(etki yok)*→K250
-B) Dinle. *(etki yok)*→K247
-
-**K247 — Nötr**
-Sığınağın günlüğüne son bir kayıt düşülüyor. Sen mi yaz, İsmet mi?
-A) Sen yaz. *(etki yok)*→K250
-B) İsmet yazsın. *(etki yok)*→K248
-
-**K248 — Nötr**
-Gece çöküyor, sığınak sessizleşiyor — ama huzurlu bir sessizlik bu sefer. Dışarı bak mı, içeri dön mü?
-A) Dışarı bak. *(etki yok)*→K250
+Yıllardır ertelenen, bastırılan ve çözülen gerilimlerin bir kısmı aynı anda yeniden yüzeye çıkar. Bu, sığınağın karşılaştığı son büyük sınavlardan biridir.
+A) Krizin önüne kendin çık. *(👑<5 ise ANİ ÖLÜM; değilse `👑-4`)*→K234
+B) Yetiştirdiğin kadroya güven. `👑0 ☺+1`→K231
+**K231 — Fırtına Yine Dinince**
+Kriz sona erdiğinde duvarlar hâlâ ayaktadır. Alarm seslerinin ardından gelen sessizlik bu kez yenilgi değil, rahatlamadır.
+A) Biraz soluklan. *(etki yok)*→K234
+B) Hemen işlere dön. *(etki yok)*→K232
+**K232 — Kadronun Mirası**
+Sabiha’nın ticareti, Aziz’in tarımı, Kemal’in yapıları ve İsmet’in arşivi artık kişilerden bağımsız işleyen düzenlere dönüşmüştür. Her biri sığınakta kalıcı bir iz bırakmıştır.
+A) Hepsine açıkça teşekkür et. `☺+1`→K236
+B) İşlerin artık böyle yürümesini doğal karşıla. *(etki yok)*→K233
+**K233 — Elleriyle Şekillendiriyor**
+Ali, Veli ve onların ardından gelenler artık yalnızca öğrenmiyor; tarımı, savunmayı, mühendisliği ve haberleşmeyi kendileri yürütüyor.
+A) Sorumluluğu yeni nesle bırakmaya güven. *(etki yok)*→K235
+B) Denetimi bir süre daha sıkı tut. *(etki yok)*→K234
+**K234 — Yılların Bilançosu**
+Vertak, Karakol ve enfektelerle kurulan bütün ilişkiler artık aynı tabloda görülebilir. Sığınağın bölgede ne kadar güçlü ya da kırılgan olduğu, yıllar boyunca verilen kararların toplamıyla belirlenmiştir. *(Bayrakların toplamına göre metin değişir.)*
+A) Elde edilen gücü sahiplen. `☺+1`→K238
+B) Kırılganlığı unutmadan savunmayı koru. `🏠+1`→K236
+**K235 — Kaç Gündür Ayaktayız**
+İsmet’in arşivinde kaç liderin görev yaptığı ve sığınağın kaç gündür ayakta olduğu bile yazılıdır. Sayılar, hatırladığından daha büyüktür.
+A) Kayıtları kendin oku. *(etki yok)*→K237
+B) Arşivi İsmet’e bırak. *(etki yok)*→K236
+**K236 — Gerçek Bir Topluluk**
+Büyük toplantıda artık tek bir kişinin sözü belirleyici değildir. Uzmanlar, gençler ve eski sakinler aynı masada konuşur.
+A) Görüşünü söyle. `☺+1`→K238
+B) Bu kez yalnızca dinle. *(etki yok)*→K237
+**K237 — Halefin Yeterliliği**
+Zeynep’in yetiştirdiği halef artık reviri tek başına yönetebilecek kadar deneyimlidir. Sağlık hizmeti ilk kez tek bir kişiye bağlı değildir.
+A) Başardıklarını takdir et. *(etki yok)*→K239
+B) Bunu sistemin doğal sonucu say. *(etki yok)*→K238
+**K238 — Yerleşen Düzen**
+Ömer’in kurduğu nöbet düzeniyle Mustafa ve Mete’nin savunma sistemi artık kişiler değişse bile işleyecek kadar yerleşmiştir.
+A) Bu düzenin değerini açıkça vurgula. *(etki yok)*→K242
+B) Günlük hayatın parçası say. *(etki yok)*→K239
+**K239 — Son Sakin Akşam (2)**
+Bir akşam herkes aynı yerde toplanır. Kimse bunun “son sakin akşam” olduğunu söylemez; yalnızca uzun zamandır ilk kez masada boşluk azdır.
+A) Oradakilere teşekkür et. *(etki yok)*→K242
+B) Sessizce onlarla otur. *(etki yok)*→K240
+**K240 — Ne Kadar Yol Alındı**
+İsmet’in eski kayıtları ilk günün korkusunu hatırlatır. Bugünkü sığınak, o kapının önündeki birkaç saatten çok uzakta bir yerdedir.
+A) İlk günü yeniden hatırla. *(etki yok)*→K242
+B) Gelecek yıllara odaklan. *(etki yok)*→K241
+**K241 — Sığınağın Adı**
+İnsanlar sığınağa yıllardır aynı adı takmaktadır. İsim artık haritalarda ve ticaret notlarında bile görünmeye başlar.
+A) Adı resmî olarak kabul et. `☺+1`→K244
+B) Halkın kullandığı biçimiyle bırak. *(etki yok)*→K242
+**K242 — Sembol Bahçe**
+Emine Teyze’nin bahçesi yine çiçektedir. Kendisinden sonra da her yıl birileri toprağı havalandırmış, tohumları yenilemiştir.
+A) Bahçede biraz kal. *(etki yok)*→K245
+B) Yoluna devam et. *(etki yok)*→K243
+**K243 — Atilla'nın Mirası**
+Gül’ün çocuğu artık düzenli derslere katılır. Atilla’nın yıllar önce başlattığı eğitim düzeni, onu kuranlardan bağımsız biçimde sürmektedir.
+A) Bir derse katıl. *(etki yok)*→K246
+B) Kapıdan izle. *(etki yok)*→K244
+**K244 — Tarımın Mirası**
+Aziz’in kurduğu tarım düzeni artık sığınağın ana geçim kaynağıdır. Bir zamanlar her porsiyonun hesabı yapılırken şimdi ekim takvimleri konuşulmaktadır.
+A) Bu değişimi özellikle takdir et. *(etki yok)*→K248
+B) Artık olağan kabul et. *(etki yok)*→K245
+**K245 — Son Kart Öncesi**
+Gece yaklaşırken kadro bir kez daha aynı yerde toplanır. Ortamdaki sessizlik yorgunluktan çok, uzun bir işi tamamlamış insanların sessizliğidir.
+A) O anın içinde kal. *(etki yok)*→K248
+B) Bir sonraki güne odaklan. *(etki yok)*→K246
+**K246 — Son Toplantı**
+Zeynep, Sabiha, Ömer, Kemal, Atilla, Aziz, İsmet, Mustafa ve Mete aynı masada son bir geniş toplantıya katılır. Yıllarca farklı krizlerde verilen kararlar artık ortak bir geçmişe dönüşmüştür.
+A) Tartışmaya katıl. *(etki yok)*→K250
+B) Bu kez yalnızca dinle. *(etki yok)*→K247
+**K247 — Günlüğe Son Kayıt**
+İsmet sığınak günlüğünün son boş sayfalarından birini açar. Kalemi masanın ortasına bırakır.
+A) Son kaydı kendin yaz. *(etki yok)*→K250
+B) Kaydı İsmet yazsın. *(etki yok)*→K248
+**K248 — Huzurlu Sessizlik**
+Gece çöker ve sığınak yavaşça sessizleşir. İlk yıllardaki sessizlik tehlike beklemek demekti; bu kez insanlar yalnızca uyuyordur.
+A) Bir süre dışarıyı izle. *(etki yok)*→K250
 B) İçeri dön. *(etki yok)*→K249
-
-**K249 — Nötr**
-Son an — kaç lider geldi geçti, kaç gün geçti, kimin hatırladığı önemli değil artık; sığınak ayakta. Düşün mü, sadece hisset mi?
-A) Düşün. *(etki yok)*→K250
-B) Sadece hisset. *(etki yok)*→K250
-
+**K249 — Son An**
+Kaç liderin gelip geçtiği, kaç günün sayıldığı artık tek başına önemli değildir. Duvarların içinde hayat sürmekte ve sığınak hâlâ ayaktadır.
+A) Geçen yılları düşün. *(etki yok)*→K250
+B) Hiçbir şey söylemeden o anı yaşa. *(etki yok)*→K250
 **K250 — SEZON 3 DÖNÜM NOKTASI (Büyük Kapanış)**
-Sığınağın kaderi artık K1'den beri birikmiş 250 kartlık tüm kararların toplamına bağlı: kaç lider geldi geçti, hangi ittifaklar (Karakol, Vertak) kuruldu ya da yıkıldı, konuşan zombilerle ilişki nasıl şekillendi — hepsi burada birleşiyor. *Bu hâlâ bir final değildir.* Sistem aynı kurallarla sonsuza dek üretilebilir; 4. sezon buradan başlar.
-
+K1’den bu yana verilen 250 kararın izi sığınağın bugünkü hâlinde görünür: kaç liderin görev yaptığı, Karakol ve Vertak’la kurulan ilişkiler, konuşan enfektelerle savaş mı yoksa birlikte yaşam mı seçildiği burada birleşir. Bu bir son değildir; sığınağın tarihi buradan sonra da aynı kararların ağırlığıyla devam edebilir.
+A) Günlüğü kapat.
+B) Sessizce otur.
 ---
 
 ## 5. ÖZET
-250 kart, tek dosya, tek kadro. **Hiçbir ara-etiket (K1a/K1b tarzı) yok** — her kart doğrudan gerçek kart numaralarına gider. Nötr olmayan kartların büyük çoğunluğunda A ve B **farklı numaralara** gider; atlanan kart yalnızca diğer yolu seçenlerin gördüğü bir kart olur. Değişken gecikmeli zincirler, çok kartlı olaylar, deterministik ölüm kuralı, doğru saltanat geçişi (asla baştan başlanmaz) korunmuştur.
+250 kart, tek dosya, tek kadro. **Hiçbir ara-etiket (K1a/K1b tarzı) yok** — her kart doğrudan gerçek kart numaralarına gider. v12'de her gecikmeli zincirin (⚑) her iki dalı da kendi sonuç kartına garanti ulaşır; hiçbir sonuç kartı, o rotada set edilmemiş bir bayrak talep etmez. Belirsiz doğal-dil sonuçları ("değişken", "swing", "çoğunlukla") kaldırılmış, yerine bayrak/eşik tabanlı deterministik dallanma konmuştur. Değişken gecikmeli zincirler, çok kartlı olaylar, deterministik ölüm kuralı, doğru saltanat geçişi (asla baştan başlanmaz) korunmuştur.

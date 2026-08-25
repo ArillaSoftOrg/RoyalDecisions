@@ -41,8 +41,10 @@ namespace RoyalDecisions.Presentation
         private bool animating;
         private int criticalBoundary = 15;
         private int lastImpactDelta = int.MinValue;
-        private string positiveImpactGlyph = "▲";
-        private string negativeImpactGlyph = "▼";
+        // "+"/"-" pre-ApplyTheme default, matching GameUITheme's own default — see that class for
+        // why the originally-intended ▲/▼ triangles are not used.
+        private string positiveImpactGlyph = "+";
+        private string negativeImpactGlyph = "-";
         private Color positiveImpactColor = new Color32(0xD9, 0xC2, 0x8B, 0xFF);
         private Color negativeImpactColor = new Color32(0xF2, 0xE7, 0xCF, 0xFF);
         private bool reducedMotion;

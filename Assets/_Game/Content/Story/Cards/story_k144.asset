@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "Aziz (Tar\u0131mc\u0131)"
   bodyText: "Emine Teyze'nin bah\xE7esi (Aziz'in eseri) \xE7i\xE7ek a\xE7\u0131yor.
     \u0130zle mi, ge\xE7 mi?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 71f6939f9f555744d9bd244d39493d7f, type: 3}
   leftChoice:
     previewText: "\u0130zle"
     deltas:

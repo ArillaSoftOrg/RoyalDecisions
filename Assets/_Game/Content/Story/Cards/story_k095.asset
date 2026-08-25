@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\xD6mer (G\xF6zc\xFC)"
   bodyText: "\xD6mer, konu\u015Fan zombilerle resmi bir temas f\u0131rsat\u0131 do\u011Fdu\u011Funu
     bildiriyor. Ate\u015Fkes mi, sald\u0131r m\u0131?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 356fc806c45f4904b9418104638d1863, type: 3}
   leftChoice:
     previewText: "Ate\u015Fkes dene"
     deltas:

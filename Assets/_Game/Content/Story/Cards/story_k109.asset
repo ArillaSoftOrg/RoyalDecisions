@@ -17,7 +17,7 @@ MonoBehaviour:
   bodyText: "\xD6mer, birinin d\xFCzenli olarak \xE7ite yakla\u015F\u0131p konu\u015Fmaya
     \xE7al\u0131\u015Ft\u0131\u011F\u0131n\u0131 bildiriyor. \u0130sim ver mi, mesafeli
     mi?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 356fc806c45f4904b9418104638d1863, type: 3}
   leftChoice:
     previewText: "\u0130sim ver"
     deltas:

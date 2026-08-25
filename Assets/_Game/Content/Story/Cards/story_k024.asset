@@ -17,7 +17,7 @@ MonoBehaviour:
   bodyText: "\xD6mer al\xE7ak sesle gelir. S\xFCr\xFC fark etmeden ge\xE7ti, der.
     Az kals\u0131n biri ses \xE7\u0131kar\u0131yordu. Uyar m\u0131, \u015Fansa m\u0131
     b\u0131rak?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 356fc806c45f4904b9418104638d1863, type: 3}
   leftChoice:
     previewText: Uyar
     deltas:

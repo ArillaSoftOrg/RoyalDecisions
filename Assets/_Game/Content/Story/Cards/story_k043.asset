@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\xD6mer (G\xF6zc\xFC)"
   bodyText: "\xD6mer gelir \u2014 d\u0131\u015Far\u0131da bir ara\xE7 var. Kar\u015F\u0131la
     m\u0131, kilitle mi?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 356fc806c45f4904b9418104638d1863, type: 3}
   leftChoice:
     previewText: "Kar\u015F\u0131la"
     deltas:

@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: Zeynep (Doktor)
   bodyText: "Zeynep tela\u015Fla gelir. Hastal\u0131k yay\u0131ld\u0131, der. \u015Eimdi
     karantina m\u0131, do\u011Fa\xE7lama tedavi mi?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 6a45e58d53fce9b4a91ff3c26eaa3633, type: 3}
   leftChoice:
     previewText: Karantina uygula
     deltas:

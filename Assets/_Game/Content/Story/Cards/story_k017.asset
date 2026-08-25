@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: Zeynep (Doktor)
   bodyText: "Zeynep \xFCzg\xFCn gelir. Hastal\u0131k durdu ama karantinadaki \xF6ld\xFC,
     der. T\xF6ren mi, sessiz mi?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 6a45e58d53fce9b4a91ff3c26eaa3633, type: 3}
   leftChoice:
     previewText: "T\xF6ren d\xFCzenle"
     deltas:

@@ -26,22 +26,26 @@ MonoBehaviour:
   emptyBar: {r: 0.16470589, g: 0.18431373, b: 0.22745098, a: 1}
   leftChoice: {r: 0.5411765, g: 0.25490198, b: 0.29411766, a: 1}
   rightChoice: {r: 0.7019608, g: 0.5411765, b: 0.23921569, a: 1}
+  portraitFallbackBackground: {r: 0.07058824, g: 0.08627451, b: 0.1254902, a: 1}
+  portraitFallbackForeground: {r: 0.7254902, g: 0.6666667, b: 0.5647059, a: 1}
+  situationText: {r: 0.16470589, g: 0.11764706, b: 0.078431375, a: 1}
   titleFont: {fileID: 0}
   bodyFont: {fileID: 0}
-  peopleIcon: {fileID: 0}
-  securityIcon: {fileID: 0}
-  authorityIcon: {fileID: 0}
-  wealthIcon: {fileID: 0}
-  backgroundSprite: {fileID: 0}
+  peopleIcon: {fileID: 21300000, guid: d87cf5e9e2ff07d49abc0046ff38e3f6, type: 3}
+  securityIcon: {fileID: 21300000, guid: 9cc3139f5abd6614884a6068cb488305, type: 3}
+  authorityIcon: {fileID: 21300000, guid: fb6545c00c3d08246b3e2a5a4e9289eb, type: 3}
+  wealthIcon: {fileID: 21300000, guid: 49f2c3aa704870441a8c0da0849286d2, type: 3}
+  backgroundSprite: {fileID: 21300000, guid: 652cc6611e3d3ec4ab5bacb537ff246c, type: 3}
   vignetteSprite: {fileID: 0}
-  cardFrameSprite: {fileID: 0}
+  cardFrameSprite: {fileID: 21300000, guid: 47b94666468030d4d92863ea7b3d6918, type: 3}
   portraitFrameSprite: {fileID: 0}
   portraitMaskSprite: {fileID: 0}
-  leftEdgeSprite: {fileID: 0}
-  rightEdgeSprite: {fileID: 0}
+  leftEdgeSprite: {fileID: 21300000, guid: a3ff7f63f9f00c449afa44ecab6c606d, type: 3}
+  rightEdgeSprite: {fileID: 21300000, guid: c60e8719e58e76d4eaa0d21ea207922f, type: 3}
   cornerDecorationSprite: {fileID: 0}
   sealSprite: {fileID: 0}
-  nextCardFrameSprite: {fileID: 0}
+  nextCardFrameSprite: {fileID: 21300000, guid: 47b94666468030d4d92863ea7b3d6918, type: 3}
+  situationPanelSprite: {fileID: 21300000, guid: 01a2209eed65e694987fbdf752e4fb28, type: 3}
   peopleName: People
   securityName: Security
   authorityName: Authority
@@ -50,6 +54,6 @@ MonoBehaviour:
   securityFallbackSymbol: S
   authorityFallbackSymbol: A
   wealthFallbackSymbol: W
-  positiveImpactGlyph: "\u25B2"
-  negativeImpactGlyph: "\u25BC"
+  positiveImpactGlyph: +
+  negativeImpactGlyph: '-'
   criticalBoundary: 15
