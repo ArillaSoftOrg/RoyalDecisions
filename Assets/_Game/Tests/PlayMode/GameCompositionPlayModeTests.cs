@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using RoyalDecisions.Application;
 using RoyalDecisions.Composition;
@@ -43,6 +44,8 @@ namespace RoyalDecisions.Tests.PlayMode
         private Button tapChoiceLeftButton;
         private Button tapChoiceRightButton;
         private StubRunSaveStore store;
+        private StubSettingsStore settingsStore;
+        private AccessibilityPresentationController accessibility;
 
         [TearDown]
         public void TearDown()
@@ -154,12 +157,16 @@ namespace RoyalDecisions.Tests.PlayMode
                 .AddComponent<TapChoiceButtonsView>();
             tapChoices.SetAuthoringReferences(swipe, tapChoiceLeftButton, tapChoiceRightButton);
 
+            accessibility = root.AddComponent<AccessibilityPresentationController>();
+            accessibility.SetAuthoringReferences(null, null, swipe, null);
+
             controller = root.AddComponent<GameSceneController>();
             controller.SetAuthoringReferences(
-                BuildCatalogue(), cardView, null, gameOverView, swipe, tapChoices: tapChoices);
+                BuildCatalogue(), cardView, null, gameOverView, swipe, tapChoices: tapChoices,
+                accessibilityController: accessibility);
 
             store = new StubRunSaveStore();
-            StubSettingsStore settingsStore = new StubSettingsStore();
+            settingsStore = new StubSettingsStore();
             if (settingsSeed != null)
             {
                 settingsStore.Save(settingsSeed);
@@ -352,6 +359,64 @@ namespace RoyalDecisions.Tests.PlayMode
             yield return null;
 
             Assert.That(session.State, Is.EqualTo(GameSessionState.Uninitialized));
+        }
+
+        private static float PrivateFloat(object target, string fieldName)
+        {
+            FieldInfo field = target.GetType().GetField(
+                fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, "field " + fieldName + " must exist");
+            return (float)field.GetValue(target);
+        }
+
+        // --- Reduced Motion actually reaches the real swipe controller, not just GameSettings ---
+
+        [UnityTest]
+        public IEnumerator ReducedMotionInSettingsShortensTheRealSwipeControllersAnimation()
+        {
+            GameSettings settings = GameSettings.CreateDefault();
+            settings.SetReducedMotion(true);
+            BuildScene(settings);
+            yield return null;
+
+            Assert.That(PrivateFloat(swipe, "maxRotationDegrees"), Is.EqualTo(4f).Within(0.001f),
+                "GameSceneController.ApplySettings must forward Reduced Motion to the real "
+                + "CardSwipeController via AccessibilityPresentationController, not leave it a "
+                + "GameSettings-only flag");
+            Assert.That(PrivateFloat(swipe, "snapBackDuration"), Is.LessThanOrEqualTo(0.05f));
+            Assert.That(PrivateFloat(swipe, "exitDuration"), Is.LessThanOrEqualTo(0.05f));
+        }
+
+        // --- ReapplySettings: Settings opened mid-run (from the new in-Game Settings panel) must
+        //     take effect immediately, not only on the next scene load ---------------------------
+
+        [UnityTest]
+        public IEnumerator ReapplySettingsPicksUpAChangeMadeAfterTheSceneAlreadyStarted()
+        {
+            BuildScene(GameSettings.CreateDefault());
+            yield return null;
+
+            Assert.That(tapChoices.gameObject.activeSelf, Is.False,
+                "precondition: tap buttons start hidden with default settings");
+
+            // Simulate what SettingsController.ApplyRuntime now does when a real in-Game Settings
+            // panel's Uygula is pressed: save a changed GameSettings, then tell this already-
+            // running scene to re-read and re-apply it.
+            GameSettings changed = GameSettings.CreateDefault();
+            changed.SetDisableSwipe(true);
+            settingsStore.Save(changed);
+            controller.ReapplySettings();
+            yield return null;
+
+            Assert.That(tapChoices.gameObject.activeSelf, Is.True,
+                "ReapplySettings must forward a settings change to the real views immediately, "
+                + "exactly like the initial ApplySettings() call at Start already does");
+
+            int savesBefore = store.SaveCount;
+            SwipeRight();
+            yield return null;
+            Assert.That(store.SaveCount, Is.EqualTo(savesBefore),
+                "the newly-disabled swipe must actually block the drag, not just show the buttons");
         }
 
         // --- Settings: Kaydırmayı Devre Dışı Bırak -------------------------------------------

@@ -2105,3 +2105,304 @@ Use Placeholder Catalogue In Game Scene`.
       time a card does use it.
 - [ ] See `STORY_CONTENT_GUIDE.md` for the authoring reference this pass added; worth a read before
       extending the story further.
+
+---
+
+## Genel tab — Text Size toggle row replaced with a slider
+
+The old three-way **Küçük / Normal / Büyük** toggle row (`ToggleGroup`) on Settings → Genel was
+replaced with a single three-step `Slider` (`0 = Küçük, 1 = Normal, 2 = Büyük`), matching the
+Grafik tab's frame-rate slider pattern. `TextSizeMode` (`Domain/TextSizeMode.cs`) and the runtime
+scaling in `AccessibilityPresentationController` (`fontSizeMin`/`fontSizeMax` scaling on the wired
+`TMP_Text[]`) are unchanged — only the input control changed, so no new scaling system was added.
+
+Code changed: `Presentation/GeneralSettingsPanelView.cs` (`textSizeSlider`/`textSizeValueLabel`
+replace `textSizeSmall`/`textSizeNormal`/`textSizeLarge`; `TextSizeMode` getter now maps the
+slider's rounded step through `StepToMode`; `Render` sets the slider via `SetValueWithoutNotify`
+and updates the label; dragging fires `HandleTextSizeChanged` → live label update +
+`ToggleChanged`), `Editor/SceneSetupAutomation.cs` (`ConfigureGeneralSettingsTab` now builds one
+`EnsureSliderControl(tab, "TextSize", "Metin Boyutu", ...)` row instead of a label row + `ToggleGroup`
++ three toggles; validation path list updated from `TextSizeSmall`/`TextSizeNormal`/`TextSizeLarge`
+to `TextSize`; the now-unused `AssignToggleGroup` helper was removed), and
+`Tests/PlayMode/SettingsFlowPlayModeTests.cs` (rebuilds its local scene with the slider instead of
+three toggles; `TextSizeOptionsAreMutuallyExclusiveAndDefaultIsNormal` renamed to
+`TextSizeSliderStepsThroughAllThreeModesAndDefaultIsNormal`).
+
+**Unity Editor was open (live process, `Temp/UnityLockfile` held) during this change, so no batch
+command was run this session** — running one against an open project risks clobbering unsaved
+Editor state. Everything below must be done by hand, in your already-open Editor:
+
+- [ ] Commit or stash current work first (this rewires part of the MainMenu scene's Genel tab).
+- [ ] `Tools > Royal Decisions > Scene Setup > Audit` — confirm it reports the `TextSizeSmall`/
+      `TextSizeNormal`/`TextSizeLarge` objects as stale/no-longer-expected and a new `TextSize`
+      slider row as pending.
+- [ ] `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup` — removes the three old
+      toggle objects (and the `ToggleGroup` component that grouped them) and builds the new
+      `TextSize` slider row in their place.
+- [ ] `Tools > Royal Decisions > Scene Setup > Validate` — must report zero errors.
+- [ ] Re-run `Apply Remaining Setup` once more — must report no further changes (idempotent).
+- [ ] `Window > General > Test Runner` → EditMode → Run All, then PlayMode → Run All — both must
+      stay green, in particular the renamed
+      `SettingsFlowPlayModeTests.TextSizeSliderStepsThroughAllThreeModesAndDefaultIsNormal`.
+- [ ] In Play Mode: Settings → Genel → drag the **Metin Boyutu** slider left/right/centre and
+      confirm the label reads **Küçük / Normal / Büyük** at each step and visible UI text resizes
+      live as you drag (no Apply needed to preview, matching every other slider on this screen).
+- [ ] Drag to the **Büyük** (right) end and check longer Turkish strings (card dialogue, settings
+      labels) still fit without clipping/overflow — the existing `fontSizeMin`/`fontSizeMax`
+      TMP auto-size range is what bounds this, so nothing new needed to be added for it.
+- [ ] Apply, then fully close and reopen the app (or Stop/Play again) and confirm the slider
+      position and text size are restored from the saved settings file.
+
+---
+
+## Genel tab — Reduced Motion and Text Size actually wired to real behaviour
+
+Both controls previously only wrote into the `GameSettings` model — `AccessibilityPresentationController`
+existed in code (and was already fully wired to ~35 `TMP_Text`/`StatItemView`/`CardSwipeController`
+references in the **Game** scene) but nothing ever called `.Apply()` on it from either scene, and it
+didn't exist at all in the **MainMenu** scene. So dragging Metin Boyutu or flipping Azaltılmış
+Hareket changed the saved value but never touched anything on screen — purely cosmetic, exactly as
+reported. This pass makes both real, using only the pre-existing scaling/animation mechanisms
+(`AccessibilityPresentationController`, `PanelFadeAnimator.SetReducedMotion`,
+`CardSwipeController.SetReducedMotion`, `StatItemView.SetReducedMotion` — no new system).
+
+**What Reduced Motion now shortens:** the card swipe's rotation (12°→4°) and snap-back/exit
+durations (→≤0.05s, via `CardSwipeController.SetReducedMotion`, already existed, now actually
+called); each of the four HUD stat bars' fill animation (`StatItemView.SetReducedMotion`, already
+existed, now actually called); and every panel fade/scale/tab-crossfade transition in both scenes
+(`PanelFadeAnimator.SetReducedMotion`, already existed, now actually called and now wired to a new
+`panelAnimators` array on `AccessibilityPresentationController`) — MainMenu's own scene-transition
+overlay, the Settings panel's open/close, the tab crossfade, the About panel's open/close, and the
+Game scene's entry transition. Decision-making, card advancement, and navigation are untouched —
+only how long the animation takes changes.
+
+**Text Size range and application:** unchanged — the slider's three steps (`0/1/2 = Küçük/Normal/
+Büyük`) map to `TextSizeMode`, and `AccessibilityPresentationController.Apply` scales each wired
+`TMP_Text`'s `fontSizeMin`/`fontSizeMax` by `0.9/1.0/1.15` from its originally-authored size (cached
+on first touch, so repeated live preview never compounds). Overflow/clipping is bounded by the same
+pre-existing TMP auto-size range every text element already had — nothing new was added for it.
+
+**Live preview (new):** `SettingsController` now subscribes a `PreviewAccessibility` handler to
+`SettingsPanelView.ToggleChanged` (the same aggregate event already used for the UI click sound),
+so dragging Metin Boyutu or flipping Azaltılmış Hareket calls `accessibility.Apply(...)` immediately
+against the real wired views — mirroring exactly how the volume sliders already preview live against
+`AudioService` before Uygula. It reads straight from the view's own draft state and never mutates
+`current`, so İptal still correctly reverts the preview (already proven by
+`SettingsFlowPlayModeTests.TextSizeSliderPreviewsLiveAgainstTheRealWiredTextBeforeApply` and
+`ReducedMotionTogglePreviewsLiveAgainstTheRealWiredPanelAnimatorBeforeApply`).
+
+**Persistence:** unchanged — both settings already round-trip through the same versioned JSON
+`GameSettings` blob via `SettingsSaveService`/`SettingsController.ApplyFromView`/`LoadAndApply`.
+What's new is that loading now visibly *does* something: `SettingsController.LoadAndApply` (MainMenu)
+and the newly-added `GameSceneController.ApplySettings` → `accessibility?.Apply(settings)` (Game)
+both re-apply the restored values to real views on every scene load, not only the toggle/slider's
+own visual state.
+
+Code changed:
+- `Presentation/AccessibilityPresentationController.cs` — new `panelAnimators` field, looped in
+  `Apply()`, added to `SetAuthoringReferences`.
+- `Composition/GameSceneController.cs` — new `accessibility` field; `ApplySettings()` now calls
+  `accessibility?.Apply(settings)`; new optional `accessibilityController` parameter on
+  `SetAuthoringReferences`.
+- `Composition/SettingsController.cs` — new `PreviewAccessibility()` subscribed to
+  `view.ToggleChanged` in `OnEnable`/unsubscribed in `OnDisable`.
+- `Editor/SceneSetupAutomation.cs` — Game scene: wires the already-built
+  `AccessibilityPresentationController` into `GameSceneController.accessibility` and its
+  `panelAnimators` to the scene's transition overlay. MainMenu scene: builds a **new**
+  `AccessibilityPresentationController` on the `SettingsController` GameObject (mirroring the Game
+  scene's own pattern), with `scalableText` set to every `TMP_Text` in the whole MainMenu scene via
+  `FindComponentsInScene<TextMeshProUGUI>` (same helper the Game scene already used — covers menu
+  titles, all four Settings tabs including Ses/Grafik/Kontroller's own labels for visual consistency
+  across the screen, and About) and `panelAnimators` set to MainMenu's transition overlay + the
+  Settings panel's own two animators + About's animator; wires it into
+  `SettingsController.accessibility`; `SettingsParts` struct gained a `PanelAnimators` field to carry
+  the two Settings-panel animators out of `ConfigureSettingsPanel`; added `ValidateReference` checks
+  for both scenes' new `accessibility` field.
+- New test: `Tests/EditMode/AccessibilityPresentationControllerTests.cs` (text scaling for all three
+  modes, no-compounding on repeated live-preview calls, `panelAnimators` reduced-motion forwarding,
+  null-safety).
+- `Tests/PlayMode/GameCompositionPlayModeTests.cs` — `BuildScene` now wires a real
+  `AccessibilityPresentationController`; new test
+  `ReducedMotionInSettingsShortensTheRealSwipeControllersAnimation`.
+- `Tests/PlayMode/SettingsFlowPlayModeTests.cs` — `BuildScene` now wires a real
+  `AccessibilityPresentationController` with a dummy scalable label and `PanelFadeAnimator`; two new
+  tests for live preview and post-restart re-application.
+
+**Not touched** (per explicit instruction): Audio/Graphics/Controls tab *functionality* (no line was
+added to `ConfigureAudioSettingsTab`/`ConfigureGraphicsSettingsTab`/`ConfigureControlsSettingsTab`;
+their labels are only included in the MainMenu accessibility controller's `scalableText` because that
+array is built from the whole scene via the same mechanism the Game scene already used, so Text Size
+reads consistently across the whole Settings screen rather than scaling three tabs and not the
+fourth); the save/persistence format; game/decision logic; the Text Size slider's own UI design
+(only the *effect* of moving it changed); responsive layout (nothing here changes anchors/sizes,
+only `fontSizeMin`/`fontSizeMax` within the existing TMP auto-size range, and animation durations).
+
+**Unity Editor was open (live process, `Temp/UnityLockfile` held) during this change, so no batch
+command was run this session** — same reasoning as the slider pass above. Everything below must be
+done by hand, in your already-open Editor:
+
+- [ ] Commit or stash current work first (this adds a new component to both MainMenu and Game
+      scenes and rewires two existing `GameSceneController`/`SettingsController` fields).
+- [ ] `Tools > Royal Decisions > Scene Setup > Audit` — review what will change in both scenes
+      (open each scene first; Audit only inspects the currently-open scene).
+- [ ] `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup` — run once with **MainMenu**
+      open (adds the new `AccessibilityPresentationController` to `SettingsController`, wires
+      `panelAnimators`, wires `SettingsController.accessibility`) and once with **Game** open (wires
+      the existing `AccessibilityPresentationController`'s `panelAnimators` and
+      `GameSceneController.accessibility`).
+- [ ] `Tools > Royal Decisions > Scene Setup > Validate` — must report zero errors in both scenes.
+- [ ] Re-run `Apply Remaining Setup` on both scenes once more — must report no further changes.
+- [ ] `Window > General > Test Runner` → EditMode → Run All (in particular the new
+      `AccessibilityPresentationControllerTests`), then PlayMode → Run All (in particular the new/
+      changed tests in `GameCompositionPlayModeTests` and `SettingsFlowPlayModeTests`) — both must
+      stay green.
+- [ ] In Play Mode from MainMenu: open Settings → Genel, flip **Azaltılmış Hareket** on, and confirm
+      the Settings panel's *own* next open/close and tab-switch animation is visibly snappier
+      immediately (before pressing Uygula) — that's the live preview.
+- [ ] Still with Azaltılmış Hareket on, press Uygula, start a run, and confirm the card's swipe
+      rotation is visibly reduced and snaps back/exits faster than with it off.
+- [ ] Drag **Metin Boyutu** while Settings is open and confirm text elsewhere on the Settings screen
+      (not just the Küçük/Normal/Büyük label next to the slider) visibly grows/shrinks as you drag.
+- [ ] Apply both, start a run, and confirm card dialogue/choice text and the HUD are also scaled
+      per the chosen Text Size — this is the part that previously did nothing at all in the Game
+      scene.
+- [ ] Fully close and reopen the app (or Stop/Play again) with both settings non-default and confirm
+      both the toggle/slider positions **and** the actual on-screen effects (animation speed, text
+      size, in both MainMenu and a started run) come back correctly.
+
+---
+
+## Game scene — Geri (back to menu) and Ayarlar reachable mid-run
+
+The Game scene's card screen previously had no way back to the main menu or into Settings short of
+the Android hardware Back key (which `ApplicationLifecycleController.HandleBackRequested()` already
+handled correctly — save/pause via `GameSceneController.HandleApplicationInterrupted()`, then load
+MainMenu). This pass adds two on-screen icon buttons that call that same existing logic, plus a full
+Settings/About panel duplicated into the Game scene (per your choice of "tam Ayarlar paneli" over a
+simple back-only button) so it can be opened without leaving the run.
+
+**New UI:** a `TopBar` strip (`UICanvas/SafeArea/TopBar`, 136px) sits above HUD (HUD is shifted down
+by that amount, still 208px tall — its own existing validation check on `sizeDelta.y == 208` still
+holds). `BackButton` (top-left, dark chip, "<" glyph) calls
+`ApplicationLifecycleController.HandleBackRequested()`. `SettingsButton` (top-right, reuses the
+existing `EnsureSettingsIconButton` gear-icon builder) calls `SettingsController.Open()` on
+a **second, independent** `SettingsController`/`SettingsPanelView`/`AboutPanelView`/
+`ResetProgressController` instance built in the Game scene by calling the exact same
+`ConfigureSettingsPanel`/`ConfigureAboutPanel` methods MainMenu already uses (both were already
+scene-agnostic) — so every tab, every row, every behaviour is identical to MainMenu's Settings, not
+a second implementation.
+
+**Why a second `SettingsController` instance, not the MainMenu one:** Unity scenes cannot share
+GameObjects; MainMenu and Game are only ever loaded one at a time. Each scene's `SettingsController`
+talks to the same on-disk `GameSettings` JSON file, exactly like Controls/Audio settings already did
+before this pass ("each scene re-applies its own runtime preferences on load").
+
+**Made this feel live instead of only "next load":** previously Controls-tab changes (swipe
+sensitivity/invert/disable, tap buttons) only took effect the *next* time the Game scene loaded,
+because `GameSceneController.ApplySettings()` only ran once at `Start()`. Since Settings can now
+open *while* a run is already active, `GameSceneController` gained a public `ReapplySettings()`
+wrapper, and `SettingsController` gained an optional `gameSceneController` field — wired only on the
+Game-scene instance — so pressing Uygula (or Cancel, or Varsayılanlara Dön) there immediately
+re-applies swipe/tap-button settings to the live, already-running view, the same way Reduced Motion/
+Text Size/audio already did live via `accessibility`. Proven by the new PlayMode test
+`ReapplySettingsPicksUpAChangeMadeAfterTheSceneAlreadyStarted`.
+
+**Reused, not duplicated:** the Game scene's existing `AccessibilityPresentationController`
+(already fully wired to every card/HUD text and the swipe/stat animations) now also covers the new
+Settings/About panel's text and both their `PanelFadeAnimator`s, because construction order places
+`ConfigureSettingsPanel`/`ConfigureAboutPanel` *before* the `FindComponentsInScene<TextMeshProUGUI>`
+call that builds `scalableText` — one accessibility controller for the whole scene, same as before.
+
+**Known follow-up risk — please read before relying on İlerlemeyi Sıfırla mid-run:**
+`ResetProgressController`'s own doc comment says "No live `GameSession` exists in this scene" — true
+in MainMenu, no longer true here. It still only deletes the run-save *file* on disk; it does not
+touch the active in-memory session. If a player resets progress mid-run and then makes one more
+decision before backing out, that decision's own auto-save will silently recreate the file, making
+the reset appear to have done nothing. This is a narrow edge case (most players who reset progress
+mid-run are then backing out anyway), not something this pass changed the mechanics of, but it's
+new exposure worth a deliberate product decision (e.g. force-close the run on confirm) rather than
+silently shipping. Flagging rather than fixing, since the right behaviour is a product call, not an
+engineering default.
+
+Code changed:
+- `Composition/GameSceneController.cs` — new public `ReapplySettings()`.
+- `Composition/SettingsController.cs` — new optional `gameSceneController` field, called from
+  `ApplyRuntime`; new optional trailing parameter on `SetAuthoringReferences`.
+- `Editor/SceneSetupAutomation.cs` — new `GameTopBarHeight` constant, new `EnsureBackIconButton`
+  helper, `ApplyGameScene` builds `TopBar`/back/settings buttons and shifts HUD down, builds the
+  Game-scene Settings/About/ResetProgressController trio and wires all the cross-references above,
+  extends the existing accessibility `panelAnimators` wiring, sibling-orders `TopBar` first;
+  `PreflightGameScene` now also guards against a duplicate root `SettingsController`;
+  `ValidateGameScene` gained checks for all of the above.
+- New test: none (scene construction isn't unit-testable; see the manual checklist below).
+- `Tests/PlayMode/GameCompositionPlayModeTests.cs` — `settingsStore` promoted from a local to a
+  field so a test can mutate it after the scene has already started; new test
+  `ReapplySettingsPicksUpAChangeMadeAfterTheSceneAlreadyStarted`.
+
+**Not covered by an automated test:** `SettingsController.ApplyRuntime` actually calling
+`gameSceneController?.ReapplySettings()` end-to-end from a real in-Game Settings panel press. This
+is a one-line, null-guarded call sitting directly next to the already-extensively-tested
+`accessibility?.Apply(settings)` line in the same method, so the risk is judged low; `ReapplySettings()`
+itself is tested directly. Worth a real Play Mode check below regardless.
+
+**Unity Editor was open (live process) during this change, so no batch command was run this
+session.** Everything below must be done by hand:
+
+- [ ] Commit or stash current work first (this is the largest scene-construction change so far —
+      new UI in both scenes' Game scene, two new root objects there).
+- [ ] `Tools > Royal Decisions > Scene Setup > Audit` with **Game** open — review what will change.
+- [ ] `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup` with **Game** open.
+- [ ] `Tools > Royal Decisions > Scene Setup > Validate` — must report zero errors.
+- [ ] Re-run `Apply Remaining Setup` once more — must report no further changes (idempotent).
+- [ ] `Window > General > Test Runner` → EditMode → Run All, then PlayMode → Run All (in particular
+      the new `ReapplySettingsPicksUpAChangeMadeAfterTheSceneAlreadyStarted`) — both green.
+- [ ] Start a run. Confirm **Geri** (top-left) returns cleanly to MainMenu, and that the run's last
+      decision was already saved (Devam Et resumes on the same turn).
+- [ ] Start a run. Tap **Ayarlar** (top-right, gear) mid-run: confirm the card/HUD/TopBar disappear
+      behind the Settings panel (not layered on top), every tab works exactly as it does from
+      MainMenu, and **İptal** returns to the run exactly where you left it.
+- [ ] From that same in-run Settings: change swipe sensitivity or invert-rotation on the Kontroller
+      tab, press **Uygula**, and confirm the *current* card's drag behaviour changes immediately —
+      this is the part that previously required leaving and re-entering the scene.
+- [ ] From that same in-run Settings, open **Hakkında** — confirm it replaces Settings (not layered
+      on top) and Close returns to Settings, then İptal/close returns to the run.
+- [ ] Tap **İlerlemeyi Sıfırla** twice from the in-run Settings (see the risk note above) — confirm
+      it behaves consistently with the MainMenu version, and decide/record whether the mid-run
+      stale-save edge case above needs a product fix before shipping.
+- [ ] Confirm the TopBar's two buttons don't clip or overlap the HUD's stat bars at 16:9, 19.5:9,
+      and 21:9 in Device Simulator, and that they sit inside the safe area with a notch simulated.
+- [ ] Android Back mid-run with Settings open must close Settings first (not exit to MainMenu
+      directly) — `ApplicationLifecycleController.HandleBackRequested` already special-cases this
+      via `settingsController.CloseIfOpen()`, now that a Game-scene `settingsController` is finally
+      wired; confirm it in practice.
+
+### Visual refinement (after a screenshot showed the first pass reading as unpolished)
+
+The first pass placed the two icon buttons directly on the transparent game background with a
+144px-tall empty strip and no visual grouping — a user screenshot showed this reading as two
+disconnected circles floating in dead space, not a designed toolbar. Fixed:
+
+- `TopBar` now has its own background `Image` (`SurfaceColour`, the exact same fill HUD's own
+  surface already uses) with **zero gap** to HUD below (HUD's y-offset is still exactly
+  `-GameTopBarHeight`), so the two read as one continuous two-row panel instead of icons floating
+  over open game art.
+- The icon chips shrank from MainMenu's 112px/28px margin down to a dedicated, tighter 96px/20px
+  (`GameTopBarIconSize`/`GameTopBarIconMargin`) — 96 is exactly the accessibility touch-target
+  floor `ConfigureMinimumTouchTarget` already enforces everywhere, so this is the smallest they can
+  go without that helper silently re-growing them. `TopBar`'s height (`GameTopBarHeight`, now 136,
+  was 144) is derived from the constant (`margin*2 + size`) instead of a separately-hand-picked
+  number, so the two can't drift out of sync again.
+- `EnsureSettingsIconButton`/`EnsureBackIconButton` gained optional `size`/`margin` parameters
+  (defaulting to the original 112/28) specifically so this tightening is scoped to the Game scene's
+  TopBar only — **MainMenu's own settings icon button is unchanged**, still 112/28.
+
+- [ ] Re-run `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup` then `Validate` again
+      with Game open to pick up this refinement (the icon sizes/margins and the new background
+      won't appear until you do).
+- [ ] Confirm TopBar now visually reads as one panel continuous with HUD (same fill colour, no
+      seam), not two floating circles — this was the specific complaint the refinement addresses.
+- [ ] Confirm MainMenu's own settings gear button (top-right of the main menu) still looks exactly
+      as it did before this session — it must be completely unaffected by this pass.
+- [ ] Re-check touch comfort on a real device or at 1x Simulator scale: the icons shrank from
+      112px to 96px (still ≥ the 96px accessibility floor, but worth a real fingertip check, not
+      just a measurement).

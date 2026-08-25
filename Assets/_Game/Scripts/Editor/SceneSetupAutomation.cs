@@ -51,6 +51,17 @@ namespace RoyalDecisions.Editor
         private const float TabPillCornerRadius = 48f;
         private const float SettingsIconButtonSize = 112f;
         private const float SettingsIconButtonMargin = 28f;
+        // A dedicated strip above the Game scene's HUD for Back/Ayarlar icon buttons, surfaced the
+        // same as HUD so the two read as one continuous panel instead of icons floating loose over
+        // the game background. Sized to the accessibility touch-target floor (96px, the same floor
+        // ConfigureMinimumTouchTarget already enforces) rather than MainMenu's larger 112px chip —
+        // this is a secondary, always-visible in-run control, not a primary menu action — so it sits
+        // measurably tighter/denser than MainMenu's single lone settings icon.
+        private const float GameTopBarIconSize = 96f;
+        private const float GameTopBarIconMargin = 20f;
+        // Symmetric top/bottom breathing room around the icon: margin + icon + margin.
+        private const float GameTopBarHeight =
+            GameTopBarIconMargin * 2f + GameTopBarIconSize;
 
         private static readonly Color OverallBackgroundColour = new Color32(0x07, 0x11, 0x1B, 0xFF);
         private static readonly Color SurfaceColour = new Color32(0x12, 0x16, 0x20, 0xFF);
@@ -476,7 +487,31 @@ namespace RoyalDecisions.Editor
             EnsureSingleComponent<SafeAreaFitter>(safeArea.gameObject, report);
 
             BackgroundView background = ConfigureBackground(canvasObject.transform, report);
+
+            // A top strip above HUD for Geri (back to MainMenu) and Ayarlar (Settings) — HUD's own
+            // row is already edge-to-edge with the four stat bars, so these need their own space.
+            // Surfaced the same as HUD (zero gap between the two) so together they read as one
+            // continuous panel instead of the icon buttons floating loose over the game background.
+            RectTransform topBar = EnsureUiChild(safeArea, "TopBar", report);
+            SetRect(topBar, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
+                new Vector2(0f, GameTopBarHeight), new Vector2(0.5f, 1f));
+            Image topBarSurface = EnsureSingleComponent<Image>(topBar.gameObject, report);
+            ConfigureSimpleImage(topBarSurface, LoadBuiltInUiSprite(report), SurfaceColour, false);
+            Button backButton = EnsureBackIconButton(
+                topBar, report, GameTopBarIconSize, GameTopBarIconMargin);
+            Button settingsButton = EnsureSettingsIconButton(
+                topBar, report, GameTopBarIconSize, GameTopBarIconMargin);
+            ConfigureMinimumTouchTarget(backButton, report);
+            ConfigureMinimumTouchTarget(settingsButton, report);
+
             HUDView hud = ConfigureHud(safeArea, interfaceText, font, report);
+            if (hud != null)
+            {
+                // Shift HUD down by GameTopBarHeight so it sits below the new top bar instead of
+                // flush with SafeArea's own top edge.
+                SetRect(hud.transform as RectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f),
+                    new Vector2(0f, -GameTopBarHeight), new Vector2(0f, 208f), new Vector2(0.5f, 1f));
+            }
             FooterParts footer = ConfigureFooter(safeArea, interfaceText, font, report);
             CardParts card = ConfigureCard(safeArea, font, report);
             TapChoiceButtonsParts tapChoices = ConfigureTapChoiceButtons(
@@ -510,6 +545,22 @@ namespace RoyalDecisions.Editor
                 SetEnumProperty(controller, "fallbackStartMode", (int)SessionStartMode.NewGame, report);
             }
 
+            // The same full Settings/About panel MainMenu has, reachable mid-run via the Ayarlar
+            // icon above — reuses ConfigureSettingsPanel/ConfigureAboutPanel as-is (both are scene-
+            // agnostic already) rather than building a second, different settings UI.
+            SettingsParts gameSettings = ConfigureSettingsPanel(canvasObject.transform, font, audio, report);
+            AboutPanelView gameAboutPanel = ConfigureAboutPanel(canvasObject.transform, font, report);
+            SetObjectProperty(gameSettings.Controller, "aboutPanel", gameAboutPanel, report);
+            // Hides the whole gameplay screen (TopBar/HUD/Card/Footer) while Settings or About is
+            // open, exactly like MainMenu hides its own MainMenuPanel behind the same panel.
+            SetObjectProperty(gameSettings.Controller, "mainMenuRoot", safeArea.gameObject, report);
+            SetObjectProperty(gameSettings.Controller, "gameSceneController", controller, report);
+
+            GameObject gameResetProgressObject = EnsureRoot(scene, "ResetProgressController", report);
+            ResetProgressController gameResetProgressController =
+                EnsureSingleComponent<ResetProgressController>(gameResetProgressObject, report);
+            SetObjectProperty(gameResetProgressController, "view", gameSettings.View, report);
+
             AccessibilityPresentationController accessibility =
                 EnsureSingleComponent<AccessibilityPresentationController>(controllerObject, report);
             TextMeshProUGUI[] accessibleText = FindComponentsInScene<TextMeshProUGUI>(scene);
@@ -523,6 +574,23 @@ namespace RoyalDecisions.Editor
             SetObjectArrayProperty(accessibility, "statItems",
                 hud != null ? hud.GetComponentsInChildren<StatItemView>(true) : Array.Empty<StatItemView>(),
                 report);
+            // Reduced Motion shortens every fade/scale transition in this scene: the entry overlay,
+            // the newly-added Settings panel's open/close and tab crossfade, and About's open/close.
+            PanelFadeAnimator gameAboutPanelTransition = gameAboutPanel != null
+                ? gameAboutPanel.GetComponent<PanelFadeAnimator>() : null;
+            List<PanelFadeAnimator> gamePanelAnimators =
+                new List<PanelFadeAnimator> { transitionOverlay };
+            gamePanelAnimators.AddRange(gameSettings.PanelAnimators);
+            if (gameAboutPanelTransition != null)
+            {
+                gamePanelAnimators.Add(gameAboutPanelTransition);
+            }
+            SetObjectArrayProperty(accessibility, "panelAnimators", gamePanelAnimators.ToArray(), report);
+            if (controller != null)
+            {
+                SetObjectProperty(controller, "accessibility", accessibility, report);
+            }
+            SetObjectProperty(gameSettings.Controller, "accessibility", accessibility, report);
 
             GameFeedbackController feedbackController =
                 EnsureSingleComponent<GameFeedbackController>(controllerObject, report);
@@ -535,8 +603,16 @@ namespace RoyalDecisions.Editor
                 EnsureSingleComponent<ApplicationLifecycleController>(controllerObject, report);
             SetObjectProperty(lifecycle, "gameSceneController", controller, report);
             SetObjectProperty(lifecycle, "tutorialCoordinator", tutorial.Coordinator, report);
+            SetObjectProperty(lifecycle, "settingsController", gameSettings.Controller, report);
             SetStringProperty(lifecycle, "mainMenuSceneName", "MainMenu", report);
             SetBoolProperty(lifecycle, "mainMenuMode", false, report);
+
+            EnsureExpectedListener(backButton, lifecycle,
+                nameof(ApplicationLifecycleController.HandleBackRequested),
+                lifecycle != null ? lifecycle.HandleBackRequested : null, report);
+            EnsureExpectedListener(settingsButton, gameSettings.Controller,
+                nameof(SettingsController.Open),
+                gameSettings.Controller != null ? gameSettings.Controller.Open : null, report);
 
             GameUIThemeController themeController = EnsureSingleComponent<GameUIThemeController>(
                 canvasObject, report);
@@ -563,12 +639,13 @@ namespace RoyalDecisions.Editor
             if (hud != null && card.Area != null && tapChoices.Root != null && footer.Root != null
                 && tutorial.Root != null && gameOver.Root != null)
             {
-                SetSiblingIndex(hud.transform, 0);
-                SetSiblingIndex(card.Area, 1);
-                SetSiblingIndex(tapChoices.Root, 2);
-                SetSiblingIndex(footer.Root, 3);
-                SetSiblingIndex(tutorial.Root, 4);
-                SetSiblingIndex(gameOver.Root, 5);
+                SetSiblingIndex(topBar, 0);
+                SetSiblingIndex(hud.transform, 1);
+                SetSiblingIndex(card.Area, 2);
+                SetSiblingIndex(tapChoices.Root, 3);
+                SetSiblingIndex(footer.Root, 4);
+                SetSiblingIndex(tutorial.Root, 5);
+                SetSiblingIndex(gameOver.Root, 6);
             }
 
             // TMP auto-sizing stores both its configured base size and its last calculated size.
@@ -597,6 +674,7 @@ namespace RoyalDecisions.Editor
             valid &= CheckRootDuplicates(scene, "EventSystem", report);
             valid &= CheckRootDuplicates(scene, "AudioService", report);
             valid &= CheckRootDuplicates(scene, "GameSceneController", report);
+            valid &= CheckRootDuplicates(scene, "SettingsController", report);
 
             GameObject canvas = FindUniqueRoot(scene, CanvasName, null);
             if (canvas == null)
@@ -1947,6 +2025,31 @@ namespace RoyalDecisions.Editor
             ConfigureMinimumTouchTarget(continueButton, report);
             ConfigureMinimumTouchTarget(settingsButton, report);
 
+            // One accessibility controller for the whole MainMenu scene (menu, every Settings tab,
+            // and About), mirroring exactly how the Game scene's own AccessibilityPresentationController
+            // scales its whole scene's text — Reduced Motion and Text Size were previously wired only
+            // as far as GameSettings and never actually applied to anything in this scene.
+            AccessibilityPresentationController accessibility =
+                EnsureSingleComponent<AccessibilityPresentationController>(
+                    settings.Controller != null ? settings.Controller.gameObject : controllerObject,
+                    report);
+            TextMeshProUGUI[] mainMenuAccessibleText = FindComponentsInScene<TextMeshProUGUI>(scene);
+            SetObjectArrayProperty(accessibility, "scalableText", mainMenuAccessibleText, report);
+            PanelFadeAnimator aboutPanelTransition = aboutPanel != null
+                ? aboutPanel.GetComponent<PanelFadeAnimator>() : null;
+            List<PanelFadeAnimator> mainMenuPanelAnimators =
+                new List<PanelFadeAnimator> { transitionOverlay };
+            mainMenuPanelAnimators.AddRange(settings.PanelAnimators);
+            if (aboutPanelTransition != null)
+            {
+                mainMenuPanelAnimators.Add(aboutPanelTransition);
+            }
+            SetObjectArrayProperty(accessibility, "panelAnimators", mainMenuPanelAnimators.ToArray(), report);
+            if (settings.Controller != null)
+            {
+                SetObjectProperty(settings.Controller, "accessibility", accessibility, report);
+            }
+
             GameObject resetProgressObject = EnsureRoot(scene, "ResetProgressController", report);
             ResetProgressController resetProgressController =
                 EnsureSingleComponent<ResetProgressController>(resetProgressObject, report);
@@ -2251,7 +2354,9 @@ namespace RoyalDecisions.Editor
                 Undo.RecordObject(root.gameObject, "Deactivate settings panel");
                 root.gameObject.SetActive(false);
             }
-            return new SettingsParts(root, view, controller);
+            return new SettingsParts(
+                root, view, controller,
+                new[] { settingsPanelTransition, tabCrossfadeTransition });
         }
 
         private static AboutPanelView ConfigureAboutPanel(
@@ -2261,8 +2366,11 @@ namespace RoyalDecisions.Editor
             Stretch(root);
             Image surface = EnsureSingleComponent<Image>(root.gameObject, report);
             // Matches SettingsPanel's background since About is now reached only from within
-            // Settings and should read as the same flow, not a visually distinct screen.
-            ConfigureSimpleImage(surface, LoadBuiltInUiSprite(report), MainMenuBackgroundColour, true);
+            // Settings and should read as the same flow, not a visually distinct screen. Flat
+            // colour, no sprite: the built-in UISprite bakes a subtle bevel/shadow into its
+            // pixels, which reads as a thin dark rectangle when stretched to fill the whole
+            // screen (see ConfigureSettingsPanel).
+            ConfigureSimpleImage(surface, null, MainMenuBackgroundColour, true);
 
             RectTransform safeContent = EnsureUiChild(root, "SafeArea", report);
             Stretch(safeContent);
@@ -2439,29 +2547,14 @@ namespace RoyalDecisions.Editor
 
             Toggle reduced = EnsureToggleControl(tab, "ReducedMotion", "Azaltılmış Hareket", font, report);
 
-            RectTransform textSizeLabelRow = EnsureUiChild(tab, "TextSizeLabel", report);
-            SetRect(textSizeLabelRow, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
-                new Vector2(0f, 44f), new Vector2(0.5f, 1f));
-            ConfigureLayoutElement(textSizeLabelRow.gameObject, 44f, report);
-            TextMeshProUGUI textSizeLabel = EnsureSingleComponent<TextMeshProUGUI>(
-                textSizeLabelRow.gameObject, report);
-            ConfigureReadableText(textSizeLabel, font, 28f, 22f, 30f, true, false, 2f);
-            textSizeLabel.alignment = TextAlignmentOptions.MidlineLeft;
-            textSizeLabel.text = "Metin Boyutu";
-
-            // A three-way radio choice, same pattern as the Graphics tab's frame-rate picker.
-            ToggleGroup textSizeGroup = EnsureSingleComponent<ToggleGroup>(tab.gameObject, report);
-            if (textSizeGroup != null)
-            {
-                Undo.RecordObject(textSizeGroup, "Configure text size radio group");
-                textSizeGroup.allowSwitchOff = false;
-            }
-            Toggle textSizeSmall = EnsureToggleControl(tab, "TextSizeSmall", "Küçük", font, report);
-            Toggle textSizeNormal = EnsureToggleControl(tab, "TextSizeNormal", "Normal", font, report);
-            Toggle textSizeLarge = EnsureToggleControl(tab, "TextSizeLarge", "Büyük", font, report);
-            AssignToggleGroup(textSizeSmall, textSizeGroup);
-            AssignToggleGroup(textSizeNormal, textSizeGroup);
-            AssignToggleGroup(textSizeLarge, textSizeGroup);
+            // A three-step slider, same pattern as the Graphics tab's frame-rate picker:
+            // 0 = Small, 1 = Normal (default), 2 = Large. Replaces the old three-way
+            // Small/Normal/Large toggle row with a single draggable control.
+            Slider textSizeSlider = EnsureSliderControl(
+                tab, "TextSize", "Metin Boyutu", font, report,
+                out TMP_Text textSizeValueLabel,
+                minValue: 0f, maxValue: 2f, defaultValue: 1f,
+                wholeNumbers: true, initialValueText: "Normal");
 
             Toggle contrast = EnsureToggleControl(tab, "HighContrast", "Yüksek Kontrast", font, report);
 
@@ -2549,9 +2642,8 @@ namespace RoyalDecisions.Editor
             GeneralSettingsPanelView generalPanel =
                 EnsureSingleComponent<GeneralSettingsPanelView>(tab.gameObject, report);
             SetObjectProperty(generalPanel, "reducedMotion", reduced, report);
-            SetObjectProperty(generalPanel, "textSizeSmall", textSizeSmall, report);
-            SetObjectProperty(generalPanel, "textSizeNormal", textSizeNormal, report);
-            SetObjectProperty(generalPanel, "textSizeLarge", textSizeLarge, report);
+            SetObjectProperty(generalPanel, "textSizeSlider", textSizeSlider, report);
+            SetObjectProperty(generalPanel, "textSizeValueLabel", textSizeValueLabel, report);
             SetObjectProperty(generalPanel, "highContrast", contrast, report);
             SetObjectProperty(generalPanel, "languageValueLabel", languageValue, report);
             SetObjectProperty(generalPanel, "resetProgressButton", resetProgress, report);
@@ -2567,21 +2659,18 @@ namespace RoyalDecisions.Editor
             // the intended reading order explicitly: every accessibility/general control first,
             // then all four "Diğer" action rows in order, Reset Progress last among them.
             SetSiblingIndex(reduced.transform, 2);
-            SetSiblingIndex(textSizeLabelRow, 3);
-            SetSiblingIndex(textSizeSmall.transform, 4);
-            SetSiblingIndex(textSizeNormal.transform, 5);
-            SetSiblingIndex(textSizeLarge.transform, 6);
-            SetSiblingIndex(contrast.transform, 7);
-            SetSiblingIndex(languageRow, 8);
-            SetSiblingIndex(FindDirectChild(tab, "OtherSectionLabel", report), 9);
-            SetSiblingIndex(resetTutorial.transform, 10);
-            SetSiblingIndex(resetToDefaultsButton.transform, 11);
-            SetSiblingIndex(about.transform, 12);
-            SetSiblingIndex(resetProgress.transform, 13);
+            SetSiblingIndex(textSizeSlider.transform, 3);
+            SetSiblingIndex(contrast.transform, 4);
+            SetSiblingIndex(languageRow, 5);
+            SetSiblingIndex(FindDirectChild(tab, "OtherSectionLabel", report), 6);
+            SetSiblingIndex(resetTutorial.transform, 7);
+            SetSiblingIndex(resetToDefaultsButton.transform, 8);
+            SetSiblingIndex(about.transform, 9);
+            SetSiblingIndex(resetProgress.transform, 10);
 
             RemoveUnexpectedChildren(tab, report,
-                "SectionTitle", "SectionDescription", "ReducedMotion", "TextSizeLabel",
-                "TextSizeSmall", "TextSizeNormal", "TextSizeLarge", "HighContrast", "Language",
+                "SectionTitle", "SectionDescription", "ReducedMotion", "TextSize",
+                "HighContrast", "Language",
                 "OtherSectionLabel", "ResetTutorialButton", "ResetToDefaultsButton", "AboutButton",
                 "ResetProgressButton");
             return generalPanel;
@@ -3336,6 +3425,8 @@ namespace RoyalDecisions.Editor
                 : null;
             ValidateReference(accessibility, "swipeController", swipe, scene.path,
                 "/GameSceneController", report);
+            ValidateReference(controller, "accessibility", accessibility, scene.path,
+                "/GameSceneController", report);
             ValidateReference(feedback, "gameSceneController", controller, scene.path,
                 "/GameSceneController", report);
             ValidateReference(feedback, "cues",
@@ -3345,6 +3436,71 @@ namespace RoyalDecisions.Editor
                 "/GameSceneController", report);
             ValidateReference(lifecycle, "tutorialCoordinator", tutorial, scene.path,
                 "/GameSceneController", report);
+
+            // Geri (back to MainMenu) and Ayarlar — reachable from inside a run, not only MainMenu.
+            RequirePath(scene, "/UICanvas/SafeArea/TopBar", report);
+            GameObject backButtonObject = RequirePath(
+                scene, "/UICanvas/SafeArea/TopBar/BackButton", report);
+            GameObject gameSettingsButtonObject = RequirePath(
+                scene, "/UICanvas/SafeArea/TopBar/SettingsButton", report);
+            Button backButton = backButtonObject != null
+                ? RequireSingleComponent<Button>(backButtonObject, scene.path, report) : null;
+            ValidateExpectedListener(backButton, lifecycle,
+                nameof(ApplicationLifecycleController.HandleBackRequested), scene.path,
+                "/UICanvas/SafeArea/TopBar/BackButton", report);
+
+            // The same full Settings/About panel as MainMenu's, duplicated into this scene so it
+            // can be opened mid-run without leaving Game.
+            GameObject gameSettingsPanelObject = RequirePath(scene, "/UICanvas/SettingsPanel", report);
+            SettingsPanelView gameSettingsView = gameSettingsPanelObject != null
+                ? RequireSingleComponent<SettingsPanelView>(gameSettingsPanelObject, scene.path, report)
+                : null;
+            GameObject gameSettingsControllerObject = RequirePath(
+                scene, "/SettingsController", report);
+            SettingsController gameSettingsController = gameSettingsControllerObject != null
+                ? RequireSingleComponent<SettingsController>(
+                    gameSettingsControllerObject, scene.path, report)
+                : null;
+            ValidateReference(gameSettingsController, "view", gameSettingsView, scene.path,
+                "/SettingsController", report);
+            Button gameSettingsButton = gameSettingsButtonObject != null
+                ? RequireSingleComponent<Button>(gameSettingsButtonObject, scene.path, report) : null;
+            ValidateExpectedListener(gameSettingsButton, gameSettingsController,
+                nameof(SettingsController.Open), scene.path,
+                "/UICanvas/SafeArea/TopBar/SettingsButton", report);
+            ValidateReference(lifecycle, "settingsController", gameSettingsController, scene.path,
+                "/GameSceneController", report);
+            ValidateReference(gameSettingsController, "gameSceneController", controller, scene.path,
+                "/SettingsController", report);
+            if (gameSettingsPanelObject != null && gameSettingsPanelObject.activeSelf)
+            {
+                AddInvalid(report, scene.path, "/UICanvas/SettingsPanel",
+                    "SettingsPanel must start inactive.");
+            }
+
+            GameObject gameAboutPanelObject = RequirePath(scene, "/UICanvas/AboutPanel", report);
+            AboutPanelView gameAboutPanel = gameAboutPanelObject != null
+                ? RequireSingleComponent<AboutPanelView>(gameAboutPanelObject, scene.path, report)
+                : null;
+            ValidateReference(gameSettingsController, "aboutPanel", gameAboutPanel, scene.path,
+                "/SettingsController", report);
+            ValidateReference(gameSettingsController, "mainMenuRoot",
+                safeArea, scene.path, "/SettingsController", report);
+            if (gameAboutPanelObject != null && gameAboutPanelObject.activeSelf)
+            {
+                AddInvalid(report, scene.path, "/UICanvas/AboutPanel",
+                    "AboutPanel must start inactive.");
+            }
+
+            GameObject gameResetProgressObject = RequirePath(
+                scene, "/ResetProgressController", report);
+            ResetProgressController gameResetProgressController = gameResetProgressObject != null
+                ? RequireSingleComponent<ResetProgressController>(
+                    gameResetProgressObject, scene.path, report)
+                : null;
+            ValidateReference(gameResetProgressController, "view", gameSettingsView, scene.path,
+                "/ResetProgressController", report);
+
             if (FindComponentsInScene<DevelopmentDebugPanel>(scene).Length != 0)
             {
                 AddInvalid(report, scene.path, string.Empty,
@@ -3647,9 +3803,7 @@ namespace RoyalDecisions.Editor
                 settingsScrollContent + "ControlsTab/DisableSwipe",
                 settingsScrollContent + "ControlsTab/Haptics",
                 settingsScrollContent + "GeneralTab/ReducedMotion",
-                settingsScrollContent + "GeneralTab/TextSizeSmall",
-                settingsScrollContent + "GeneralTab/TextSizeNormal",
-                settingsScrollContent + "GeneralTab/TextSizeLarge",
+                settingsScrollContent + "GeneralTab/TextSize",
                 settingsScrollContent + "GeneralTab/HighContrast",
                 settingsScrollContent + "GeneralTab/Language",
                 settingsScrollContent + "GeneralTab/ResetTutorialButton",
@@ -3683,6 +3837,12 @@ namespace RoyalDecisions.Editor
                 ? RequireSingleComponent<AudioService>(audioObject, scene.path, report)
                 : null;
             ValidateReference(settingsController, "audioService", audio, scene.path,
+                "/SettingsController", report);
+            AccessibilityPresentationController mainMenuAccessibility = settingsControllerObject != null
+                ? RequireSingleComponent<AccessibilityPresentationController>(
+                    settingsControllerObject, scene.path, report)
+                : null;
+            ValidateReference(settingsController, "accessibility", mainMenuAccessibility, scene.path,
                 "/SettingsController", report);
 
             GameObject aboutPanelObject = RequirePath(
@@ -3907,17 +4067,6 @@ namespace RoyalDecisions.Editor
             return graphic;
         }
 
-        /// <summary>Wires a radio-style Toggle into its mutually-exclusive ToggleGroup.</summary>
-        private static void AssignToggleGroup(Toggle toggle, ToggleGroup group)
-        {
-            if (toggle == null || group == null)
-            {
-                return;
-            }
-            Undo.RecordObject(toggle, "Assign toggle group");
-            toggle.group = group;
-        }
-
         private static void RemoveStaleComponents<T>(GameObject target) where T : Component
         {
             if (target == null)
@@ -4050,17 +4199,18 @@ namespace RoyalDecisions.Editor
 
         /// <summary>Compact top-right icon-only button that opens Settings from MainMenu.</summary>
         private static Button EnsureSettingsIconButton(
-            RectTransform parent, SceneSetupReport report)
+            RectTransform parent, SceneSetupReport report,
+            float size = SettingsIconButtonSize, float margin = SettingsIconButtonMargin)
         {
             RectTransform transform = EnsureUiChild(parent, "SettingsButton", report);
             Vector2 topRight = new Vector2(1f, 1f);
             SetRect(transform, topRight, topRight,
-                new Vector2(-SettingsIconButtonMargin, -SettingsIconButtonMargin),
-                new Vector2(SettingsIconButtonSize, SettingsIconButtonSize), topRight);
+                new Vector2(-margin, -margin),
+                new Vector2(size, size), topRight);
 
             // A lower-priority, secondary chip: dark like the HUD surfaces, not the gold CTA fill.
             ProceduralRoundedRectGraphic graphic = ConfigureRoundedButtonGraphic(
-                transform.gameObject, StatBackgroundColour, SettingsIconButtonSize * 0.5f, report);
+                transform.gameObject, StatBackgroundColour, size * 0.5f, report);
             Button button = EnsureSingleComponent<Button>(transform.gameObject, report);
             if (button != null && graphic != null)
             {
@@ -4076,7 +4226,7 @@ namespace RoyalDecisions.Editor
             }
 
             RectTransform icon = EnsureUiChild(transform, "Icon", report);
-            float iconSize = SettingsIconButtonSize * 0.56f;
+            float iconSize = size * 0.56f;
             SetRect(icon, Center, Center, Vector2.zero, new Vector2(iconSize, iconSize), Center);
             // A brand-new GameObject's [RequireComponent(typeof(CanvasRenderer))] add-on can lose
             // the race with a single-shot batch -executeMethod/-quit before SaveScene serializes
@@ -4091,6 +4241,47 @@ namespace RoyalDecisions.Editor
                 gear.color = BorderGoldColour;
                 gear.raycastTarget = false;
             }
+
+            return button;
+        }
+
+        /// <summary>
+        /// A top-left icon-only chip matching <see cref="EnsureSettingsIconButton"/>'s size, margin
+        /// and dark-chip style — a plain TMP arrow glyph instead of a procedural mesh, since a
+        /// single reusable back affordance doesn't warrant its own icon-shape class.
+        /// </summary>
+        private static Button EnsureBackIconButton(
+            RectTransform parent, SceneSetupReport report,
+            float size = SettingsIconButtonSize, float margin = SettingsIconButtonMargin)
+        {
+            RectTransform transform = EnsureUiChild(parent, "BackButton", report);
+            Vector2 topLeft = new Vector2(0f, 1f);
+            SetRect(transform, topLeft, topLeft,
+                new Vector2(margin, -margin),
+                new Vector2(size, size), topLeft);
+
+            ProceduralRoundedRectGraphic graphic = ConfigureRoundedButtonGraphic(
+                transform.gameObject, StatBackgroundColour, size * 0.5f, report);
+            Button button = EnsureSingleComponent<Button>(transform.gameObject, report);
+            if (button != null && graphic != null)
+            {
+                Undo.RecordObject(button, "Wire back icon button target graphic");
+                button.targetGraphic = graphic;
+            }
+
+            RectTransform icon = EnsureUiChild(transform, "Icon", report);
+            float iconSize = size * 0.56f;
+            SetRect(icon, Center, Center, Vector2.zero, new Vector2(iconSize, iconSize), Center);
+            // A plain ASCII "<" rather than a Unicode arrow (←): the project's custom Turkish SDF
+            // font atlas is only guaranteed to contain the glyphs its own probe checks for (see
+            // MANUAL_UNITY_STEPS.md), and this project avoids masking a missing glyph with TMP's
+            // fallback substitution.
+            TextMeshProUGUI glyph = EnsureSingleComponent<TextMeshProUGUI>(icon.gameObject, report);
+            ConfigureText(glyph, iconSize * 0.72f);
+            Undo.RecordObject(glyph, "Configure back icon glyph");
+            glyph.text = "<";
+            glyph.color = BorderGoldColour;
+            glyph.raycastTarget = false;
 
             return button;
         }
@@ -5248,16 +5439,23 @@ namespace RoyalDecisions.Editor
             public SettingsParts(
                 RectTransform root,
                 SettingsPanelView view,
-                SettingsController controller)
+                SettingsController controller,
+                PanelFadeAnimator[] panelAnimators)
             {
                 Root = root;
                 View = view;
                 Controller = controller;
+                PanelAnimators = panelAnimators;
             }
 
             public RectTransform Root { get; }
             public SettingsPanelView View { get; }
             public SettingsController Controller { get; }
+
+            /// <summary>The panel-level open/close animator and the tab-crossfade animator built
+            /// inside <see cref="ConfigureSettingsPanel"/>, for the caller to fold into the
+            /// MainMenu-wide <see cref="AccessibilityPresentationController"/>.</summary>
+            public PanelFadeAnimator[] PanelAnimators { get; }
         }
 
         [Serializable]

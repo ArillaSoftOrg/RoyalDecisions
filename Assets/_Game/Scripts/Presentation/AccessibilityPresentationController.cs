@@ -13,6 +13,11 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private CardSwipeController swipeController;
         [SerializeField] private StatItemView[] statItems = System.Array.Empty<StatItemView>();
 
+        [Tooltip("Every panel/tab-crossfade/transition-overlay fade in this scene — Reduced Motion "
+            + "shortens each one's duration via PanelFadeAnimator.SetReducedMotion, the same way it "
+            + "already shortens the card swipe and stat-bar animations above.")]
+        [SerializeField] private PanelFadeAnimator[] panelAnimators = System.Array.Empty<PanelFadeAnimator>();
+
         private readonly Dictionary<TMP_Text, Vector2> baseSizes =
             new Dictionary<TMP_Text, Vector2>();
 
@@ -55,6 +60,10 @@ namespace RoyalDecisions.Presentation
             {
                 statItems[i]?.SetReducedMotion(settings.ReducedMotion);
             }
+            for (int i = 0; i < panelAnimators.Length; i++)
+            {
+                panelAnimators[i]?.SetReducedMotion(settings.ReducedMotion);
+            }
         }
 
         private static float TextScaleFor(TextSizeMode mode)
@@ -72,12 +81,14 @@ namespace RoyalDecisions.Presentation
             TMP_Text[] text,
             TMP_Text[] secondary,
             CardSwipeController swipe,
-            StatItemView[] stats)
+            StatItemView[] stats,
+            PanelFadeAnimator[] panels = null)
         {
             scalableText = text ?? System.Array.Empty<TMP_Text>();
             secondaryText = secondary ?? System.Array.Empty<TMP_Text>();
             swipeController = swipe;
             statItems = stats ?? System.Array.Empty<StatItemView>();
+            panelAnimators = panels ?? System.Array.Empty<PanelFadeAnimator>();
         }
 #endif
     }

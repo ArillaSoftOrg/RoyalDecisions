@@ -37,6 +37,11 @@ namespace RoyalDecisions.Composition
         [SerializeField] private AudioService audioService;
         [SerializeField] private FeedbackCueProfile cues;
 
+        [Header("Accessibility")]
+        [Tooltip("Optional. Applies Reduced Motion and Text Size to this scene's card/HUD text and "
+            + "animations, exactly as the Settings menu already applies them in MainMenu.")]
+        [SerializeField] private AccessibilityPresentationController accessibility;
+
         [Header("Start mode")]
         [Tooltip("Optional. Set by the main menu; when absent the fallback below is used.")]
         [SerializeField] private SessionIntent sessionIntent;
@@ -181,6 +186,14 @@ namespace RoyalDecisions.Composition
             return true;
         }
 
+        /// <summary>
+        /// Re-reads and re-applies persisted settings against this already-running scene — needed
+        /// because Settings can now be opened from inside an active run (not only loaded once at
+        /// <see cref="Start"/>), so a change confirmed there must take effect immediately rather
+        /// than only on the next scene load.
+        /// </summary>
+        public void ReapplySettings() => ApplySettings();
+
         private void ApplySettings()
         {
             if (settingsStore == null)
@@ -189,6 +202,10 @@ namespace RoyalDecisions.Composition
             }
 
             GameSettings settings = settingsStore.Load();
+
+            // Same reasoning as the swipe/audio settings below: Settings lives in MainMenu, this
+            // controller in Game, so each scene re-applies its own runtime preferences on load.
+            accessibility?.Apply(settings);
 
             if (audioService != null)
             {
@@ -379,7 +396,8 @@ namespace RoyalDecisions.Composition
             RunStatusView status = null,
             FooterView footer = null,
             TutorialCoordinator tutorial = null,
-            TapChoiceButtonsView tapChoices = null)
+            TapChoiceButtonsView tapChoices = null,
+            AccessibilityPresentationController accessibilityController = null)
         {
             catalogue = contentCatalogue;
             cardView = card;
@@ -392,6 +410,7 @@ namespace RoyalDecisions.Composition
             footerView = footer;
             tutorialCoordinator = tutorial;
             tapChoiceButtonsView = tapChoices;
+            accessibility = accessibilityController;
         }
 #endif
     }

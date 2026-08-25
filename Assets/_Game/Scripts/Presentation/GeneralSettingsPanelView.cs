@@ -19,10 +19,11 @@ namespace RoyalDecisions.Presentation
     {
         [SerializeField] private Toggle reducedMotion;
 
-        [Tooltip("A three-way radio group (ToggleGroup): Small / Normal / Large.")]
-        [SerializeField] private Toggle textSizeSmall;
-        [SerializeField] private Toggle textSizeNormal;
-        [SerializeField] private Toggle textSizeLarge;
+        /// <summary>A three-step slider: 0 = Small, 1 = Normal, 2 = Large.</summary>
+        [SerializeField] private Slider textSizeSlider;
+
+        [Tooltip("Optional. Shows the current step's name (e.g. \"Normal\") next to the slider.")]
+        [SerializeField] private TMP_Text textSizeValueLabel;
 
         [SerializeField] private Toggle highContrast;
 
@@ -47,21 +48,9 @@ namespace RoyalDecisions.Presentation
 
         public bool ReducedMotion => reducedMotion != null && reducedMotion.isOn;
 
-        public TextSizeMode TextSizeMode
-        {
-            get
-            {
-                if (textSizeSmall != null && textSizeSmall.isOn)
-                {
-                    return TextSizeMode.Small;
-                }
-                if (textSizeLarge != null && textSizeLarge.isOn)
-                {
-                    return TextSizeMode.Large;
-                }
-                return TextSizeMode.Normal;
-            }
-        }
+        public TextSizeMode TextSizeMode => textSizeSlider != null
+            ? StepToMode(Mathf.RoundToInt(textSizeSlider.value))
+            : TextSizeMode.Normal;
 
         public bool HighContrast => highContrast != null && highContrast.isOn;
         public bool IsResetProgressArmed { get; private set; }
@@ -72,9 +61,7 @@ namespace RoyalDecisions.Presentation
             if (resetTutorialButton != null) resetTutorialButton.onClick.AddListener(HandleResetTutorialClicked);
             if (aboutButton != null) aboutButton.onClick.AddListener(HandleAboutClicked);
             if (reducedMotion != null) reducedMotion.onValueChanged.AddListener(HandleToggleChanged);
-            if (textSizeSmall != null) textSizeSmall.onValueChanged.AddListener(HandleTextSizeOptionChanged);
-            if (textSizeNormal != null) textSizeNormal.onValueChanged.AddListener(HandleTextSizeOptionChanged);
-            if (textSizeLarge != null) textSizeLarge.onValueChanged.AddListener(HandleTextSizeOptionChanged);
+            if (textSizeSlider != null) textSizeSlider.onValueChanged.AddListener(HandleTextSizeChanged);
             if (highContrast != null) highContrast.onValueChanged.AddListener(HandleToggleChanged);
         }
 
@@ -84,9 +71,7 @@ namespace RoyalDecisions.Presentation
             if (resetTutorialButton != null) resetTutorialButton.onClick.RemoveListener(HandleResetTutorialClicked);
             if (aboutButton != null) aboutButton.onClick.RemoveListener(HandleAboutClicked);
             if (reducedMotion != null) reducedMotion.onValueChanged.RemoveListener(HandleToggleChanged);
-            if (textSizeSmall != null) textSizeSmall.onValueChanged.RemoveListener(HandleTextSizeOptionChanged);
-            if (textSizeNormal != null) textSizeNormal.onValueChanged.RemoveListener(HandleTextSizeOptionChanged);
-            if (textSizeLarge != null) textSizeLarge.onValueChanged.RemoveListener(HandleTextSizeOptionChanged);
+            if (textSizeSlider != null) textSizeSlider.onValueChanged.RemoveListener(HandleTextSizeChanged);
             if (highContrast != null) highContrast.onValueChanged.RemoveListener(HandleToggleChanged);
             DisarmResetProgress();
         }
@@ -97,9 +82,8 @@ namespace RoyalDecisions.Presentation
             if (reducedMotion != null) reducedMotion.SetIsOnWithoutNotify(settings.ReducedMotion);
 
             TextSizeMode mode = settings.TextSizeMode;
-            if (textSizeSmall != null) textSizeSmall.SetIsOnWithoutNotify(mode == TextSizeMode.Small);
-            if (textSizeNormal != null) textSizeNormal.SetIsOnWithoutNotify(mode == TextSizeMode.Normal);
-            if (textSizeLarge != null) textSizeLarge.SetIsOnWithoutNotify(mode == TextSizeMode.Large);
+            if (textSizeSlider != null) textSizeSlider.SetValueWithoutNotify(ModeToStep(mode));
+            SetTextSizeLabel(mode);
 
             if (highContrast != null) highContrast.SetIsOnWithoutNotify(settings.HighContrast);
 
@@ -143,15 +127,47 @@ namespace RoyalDecisions.Presentation
 
         private void HandleToggleChanged(bool value) => ToggleChanged?.Invoke();
 
-        /// <summary>
-        /// A grouped radio toggle fires <c>onValueChanged</c> twice per selection: the option
-        /// turning off, then the one turning on. Only the "turned on" half is a real user choice.
-        /// </summary>
-        private void HandleTextSizeOptionChanged(bool isOn)
+        private void HandleTextSizeChanged(float value)
         {
-            if (isOn)
+            SetTextSizeLabel(StepToMode(Mathf.RoundToInt(value)));
+            ToggleChanged?.Invoke();
+        }
+
+        private void SetTextSizeLabel(TextSizeMode mode)
+        {
+            if (textSizeValueLabel != null)
             {
-                ToggleChanged?.Invoke();
+                textSizeValueLabel.text = DisplayNameForTextSize(mode);
+            }
+        }
+
+        private static string DisplayNameForTextSize(TextSizeMode mode)
+        {
+            switch (mode)
+            {
+                case TextSizeMode.Small: return "Küçük";
+                case TextSizeMode.Large: return "Büyük";
+                default: return "Normal";
+            }
+        }
+
+        private static int ModeToStep(TextSizeMode mode)
+        {
+            switch (mode)
+            {
+                case TextSizeMode.Small: return 0;
+                case TextSizeMode.Large: return 2;
+                default: return 1;
+            }
+        }
+
+        private static TextSizeMode StepToMode(int step)
+        {
+            switch (step)
+            {
+                case 0: return TextSizeMode.Small;
+                case 2: return TextSizeMode.Large;
+                default: return TextSizeMode.Normal;
             }
         }
 
@@ -165,9 +181,8 @@ namespace RoyalDecisions.Presentation
 #if UNITY_EDITOR
         public void SetAuthoringReferences(
             Toggle motion,
-            Toggle textSmall,
-            Toggle textNormal,
-            Toggle textLarge,
+            Slider textSize,
+            TMP_Text textSizeLabel,
             Toggle contrast,
             Button resetProgress,
             GameObject resetProgressIdle,
@@ -177,9 +192,8 @@ namespace RoyalDecisions.Presentation
             TMP_Text languageLabel = null)
         {
             reducedMotion = motion;
-            textSizeSmall = textSmall;
-            textSizeNormal = textNormal;
-            textSizeLarge = textLarge;
+            textSizeSlider = textSize;
+            textSizeValueLabel = textSizeLabel;
             highContrast = contrast;
             resetProgressButton = resetProgress;
             resetProgressIdleLabel = resetProgressIdle;

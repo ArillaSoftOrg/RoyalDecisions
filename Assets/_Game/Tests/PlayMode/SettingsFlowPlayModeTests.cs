@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Reflection;
 using NUnit.Framework;
 using RoyalDecisions.Composition;
 using RoyalDecisions.Domain;
@@ -12,15 +13,13 @@ namespace RoyalDecisions.Tests.PlayMode
     /// <summary>
     /// Drives the real Settings screen — <see cref="SettingsController"/>, <see cref="SettingsPanelView"/>
     /// and all four tab views — through actual <see cref="Slider"/>/<see cref="Toggle"/>/
-    /// <see cref="Button"/>/<see cref="ToggleGroup"/> components, exactly as SceneSetupAutomation wires
-    /// the real MainMenu scene.
+    /// <see cref="Button"/> components, exactly as SceneSetupAutomation wires the real MainMenu scene.
     /// </summary>
     /// <remarks>
     /// EditMode proves each view's isolated logic against fakes. This proves the whole stack wired
     /// together the way a player actually touches it — a slider drag firing through a real Unity
-    /// UI component, a grouped toggle actually excluding its siblings, Apply/Cancel/Reset actually
-    /// round-tripping through a persisted store — which no EditMode assertion can, since it never
-    /// exercises a real Selectable's value-change pipeline or a real ToggleGroup.
+    /// UI component, Apply/Cancel/Reset actually round-tripping through a persisted store — which
+    /// no EditMode assertion can, since it never exercises a real Selectable's value-change pipeline.
     /// </remarks>
     [TestFixture]
     public class SettingsFlowPlayModeTests
@@ -51,15 +50,17 @@ namespace RoyalDecisions.Tests.PlayMode
         private Toggle disableSwipe;
         private Toggle haptics;
         private Toggle reducedMotion;
-        private Toggle textSmall;
-        private Toggle textNormal;
-        private Toggle textLarge;
+        private Slider textSizeSlider;
+        private TMP_Text textSizeLabel;
         private Toggle highContrast;
         private Button applyButton;
         private Button cancelButton;
         private Button resetButton;
         private Button resetProgressButton;
         private Button resetTutorialButton;
+        private RoyalDecisions.Presentation.AccessibilityPresentationController accessibility;
+        private TMP_Text scalableLabel;
+        private RoyalDecisions.Presentation.PanelFadeAnimator dummyPanelAnimator;
 
         [TearDown]
         public void TearDown()
@@ -149,14 +150,11 @@ namespace RoyalDecisions.Tests.PlayMode
             Transform generalTab = new GameObject("GeneralTab").transform;
             generalTab.SetParent(panelRoot.transform, false);
             reducedMotion = Child<Toggle>(generalTab, "ReducedMotion");
-            textSmall = Child<Toggle>(generalTab, "TextSmall");
-            textNormal = Child<Toggle>(generalTab, "TextNormal");
-            textLarge = Child<Toggle>(generalTab, "TextLarge");
-            ToggleGroup textGroup = generalTab.gameObject.AddComponent<ToggleGroup>();
-            textGroup.allowSwitchOff = false;
-            textSmall.group = textGroup;
-            textNormal.group = textGroup;
-            textLarge.group = textGroup;
+            textSizeSlider = Child<Slider>(generalTab, "TextSize");
+            textSizeSlider.minValue = 0f;
+            textSizeSlider.maxValue = 2f;
+            textSizeSlider.wholeNumbers = true;
+            textSizeLabel = Child<TextMeshProUGUI>(generalTab, "TextSizeLabel");
             highContrast = Child<Toggle>(generalTab, "HighContrast");
             TMP_Text languageLabel = Child<TextMeshProUGUI>(generalTab, "LanguageLabel");
             resetProgressButton = Child<Button>(generalTab, "ResetProgress");
@@ -169,7 +167,7 @@ namespace RoyalDecisions.Tests.PlayMode
             generalPanel = generalTab.gameObject
                 .AddComponent<RoyalDecisions.Presentation.GeneralSettingsPanelView>();
             generalPanel.SetAuthoringReferences(
-                reducedMotion, textSmall, textNormal, textLarge, highContrast,
+                reducedMotion, textSizeSlider, textSizeLabel, highContrast,
                 resetProgressButton, idleLabel, armedLabel, resetTutorialButton, about, languageLabel);
 
             // --- Bottom actions ---
@@ -194,8 +192,24 @@ namespace RoyalDecisions.Tests.PlayMode
             // --- Controller ---
             GameObject controllerObject = new GameObject("SettingsController");
             controllerObject.transform.SetParent(root.transform, false);
+
+            // --- Accessibility: proves Reduced Motion/Text Size reach real wired views, not just
+            // the GameSettings model ---
+            scalableLabel = Child<TextMeshProUGUI>(panelRoot.transform, "ScalableLabel");
+            scalableLabel.fontSizeMin = 20f;
+            scalableLabel.fontSizeMax = 30f;
+            GameObject animatorHost = new GameObject("DummyPanelAnimator");
+            animatorHost.transform.SetParent(root.transform, false);
+            CanvasGroup dummyGroup = animatorHost.AddComponent<CanvasGroup>();
+            dummyPanelAnimator = animatorHost.AddComponent<RoyalDecisions.Presentation.PanelFadeAnimator>();
+            dummyPanelAnimator.SetAuthoringReferences(animatorHost, dummyGroup);
+            accessibility = controllerObject
+                .AddComponent<RoyalDecisions.Presentation.AccessibilityPresentationController>();
+            accessibility.SetAuthoringReferences(
+                new TMP_Text[] { scalableLabel }, null, null, null, new[] { dummyPanelAnimator });
+
             controller = controllerObject.AddComponent<SettingsController>();
-            controller.SetAuthoringReferences(view, audioService, null);
+            controller.SetAuthoringReferences(view, audioService, accessibility);
 
             store = existingStore ?? new StubSettingsStore();
             if (seed != null)
@@ -230,9 +244,8 @@ namespace RoyalDecisions.Tests.PlayMode
             Assert.That(frameRateLabel.text, Is.EqualTo("30 FPS"));
             Assert.That(sensitivitySlider.value, Is.EqualTo(0.7f).Within(0.001f));
             Assert.That(disableSwipe.isOn, Is.True);
-            Assert.That(textLarge.isOn, Is.True);
-            Assert.That(textSmall.isOn, Is.False);
-            Assert.That(textNormal.isOn, Is.False);
+            Assert.That(textSizeSlider.value, Is.EqualTo(2f).Within(0.001f), "Large is step 2");
+            Assert.That(textSizeLabel.text, Is.EqualTo("Büyük"));
         }
 
         // --- 2. Sliders move, percentages track live, 0% and 100% render correctly ----------
@@ -431,10 +444,10 @@ namespace RoyalDecisions.Tests.PlayMode
             Assert.That(disableSwipe.isOn, Is.True);
         }
 
-        // --- 7. Text size is a real mutually-exclusive choice --------------------------------
+        // --- 7. Text size slider steps through all three modes and previews live -------------
 
         [UnityTest]
-        public IEnumerator TextSizeOptionsAreMutuallyExclusiveAndDefaultIsNormal()
+        public IEnumerator TextSizeSliderStepsThroughAllThreeModesAndDefaultIsNormal()
         {
             BuildScene(GameSettings.CreateDefault());
             yield return null;
@@ -443,18 +456,93 @@ namespace RoyalDecisions.Tests.PlayMode
             view.ShowGeneralTab();
             yield return null;
 
-            Assert.That(textNormal.isOn, Is.True, "Normal must match the old default appearance");
+            Assert.That(textSizeSlider.value, Is.EqualTo(1f).Within(0.001f),
+                "Normal must match the old default appearance");
+            Assert.That(textSizeLabel.text, Is.EqualTo("Normal"));
 
-            textLarge.isOn = true;
+            textSizeSlider.value = 2f;
             yield return null;
-            Assert.That(textNormal.isOn, Is.False);
-            Assert.That(textSmall.isOn, Is.False);
             Assert.That(generalPanel.TextSizeMode, Is.EqualTo(TextSizeMode.Large));
+            Assert.That(textSizeLabel.text, Is.EqualTo("Büyük"), "the label must preview live as the slider moves");
 
-            textSmall.isOn = true;
+            textSizeSlider.value = 0f;
             yield return null;
-            Assert.That(textLarge.isOn, Is.False);
             Assert.That(generalPanel.TextSizeMode, Is.EqualTo(TextSizeMode.Small));
+            Assert.That(textSizeLabel.text, Is.EqualTo("Küçük"));
+        }
+
+        // --- 7b. Reduced Motion and Text Size preview live against real wired views, exactly
+        //         like the volume sliders already preview live against AudioService -------------
+
+        private static float PrivateFloat(object target, string fieldName)
+        {
+            FieldInfo field = target.GetType().GetField(
+                fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, "field " + fieldName + " must exist");
+            return (float)field.GetValue(target);
+        }
+
+        [UnityTest]
+        public IEnumerator TextSizeSliderPreviewsLiveAgainstTheRealWiredTextBeforeApply()
+        {
+            BuildScene(GameSettings.CreateDefault());
+            yield return null;
+            controller.Open();
+            yield return null;
+            view.ShowGeneralTab();
+            yield return null;
+
+            Assert.That(scalableLabel.fontSizeMin, Is.EqualTo(20f).Within(0.001f), "precondition");
+
+            textSizeSlider.value = 2f; // Büyük
+            yield return null;
+
+            Assert.That(scalableLabel.fontSizeMin, Is.EqualTo(20f * 1.15f).Within(0.001f),
+                "moving the slider must scale the real wired text immediately, not only on Apply");
+            Assert.That(scalableLabel.fontSizeMax, Is.EqualTo(30f * 1.15f).Within(0.001f));
+
+            cancelButton.onClick.Invoke();
+            yield return null;
+
+            Assert.That(scalableLabel.fontSizeMin, Is.EqualTo(20f).Within(0.001f),
+                "Cancel must revert the live text-scale preview along with everything else");
+        }
+
+        [UnityTest]
+        public IEnumerator ReducedMotionTogglePreviewsLiveAgainstTheRealWiredPanelAnimatorBeforeApply()
+        {
+            BuildScene(GameSettings.CreateDefault());
+            yield return null;
+            controller.Open();
+            yield return null;
+            view.ShowGeneralTab();
+            yield return null;
+            float authoredShow = PrivateFloat(dummyPanelAnimator, "showDuration");
+
+            reducedMotion.isOn = true;
+            yield return null;
+
+            Assert.That(PrivateFloat(dummyPanelAnimator, "showDuration"), Is.LessThanOrEqualTo(0.05f),
+                "flipping the toggle must shorten the real wired PanelFadeAnimator immediately");
+
+            applyButton.onClick.Invoke();
+            yield return null;
+            Assert.That(store.Load().ReducedMotion, Is.True);
+
+            // Fresh controller from the same persisted store — the restored value must re-apply.
+            StubSettingsStore survivingStore = store;
+            Object.Destroy(root);
+            root = null;
+            yield return null;
+            BuildScene(null, survivingStore);
+            yield return null;
+            controller.Open();
+            yield return null;
+
+            Assert.That(reducedMotion.isOn, Is.True);
+            Assert.That(PrivateFloat(dummyPanelAnimator, "showDuration"), Is.LessThanOrEqualTo(0.05f),
+                "reopening after a simulated restart must re-apply Reduced Motion to the real view, "
+                + "not just restore the toggle's own visual state");
         }
 
         // --- 8. Reset to defaults restores every field, in UI and in the store --------------
@@ -483,7 +571,7 @@ namespace RoyalDecisions.Tests.PlayMode
             Assert.That(frameRateLabel.text, Is.EqualTo("60 FPS"));
             Assert.That(sensitivitySlider.value, Is.EqualTo(GameSettings.DefaultSwipeSensitivity).Within(0.001f));
             Assert.That(disableSwipe.isOn, Is.False);
-            Assert.That(textNormal.isOn, Is.True);
+            Assert.That(textSizeSlider.value, Is.EqualTo(1f).Within(0.001f));
 
             GameSettings persisted = store.Load();
             Assert.That(persisted.MasterVolume, Is.EqualTo(GameSettings.MaxVolume));
@@ -591,7 +679,7 @@ namespace RoyalDecisions.Tests.PlayMode
             frameRateSlider.value = 0f;
             sensitivitySlider.value = 0.7f;
             disableSwipe.isOn = true;
-            textLarge.isOn = true;
+            textSizeSlider.value = 2f;
             applyButton.onClick.Invoke();
             yield return null;
 
@@ -615,7 +703,7 @@ namespace RoyalDecisions.Tests.PlayMode
             Assert.That(frameRateSlider.value, Is.EqualTo(0f).Within(0.001f));
             Assert.That(sensitivitySlider.value, Is.EqualTo(0.7f).Within(0.001f));
             Assert.That(disableSwipe.isOn, Is.True);
-            Assert.That(textLarge.isOn, Is.True);
+            Assert.That(textSizeSlider.value, Is.EqualTo(2f).Within(0.001f));
         }
 
         // --- 14. Small-viewport-adjacent safety net: nothing here throws with a bare panel ---
@@ -645,7 +733,7 @@ namespace RoyalDecisions.Tests.PlayMode
                 haptics.isOn = false;
                 reducedMotion.isOn = true;
                 highContrast.isOn = true;
-                textSmall.isOn = true;
+                textSizeSlider.value = 0f;
                 applyButton.onClick.Invoke();
             }, Throws.Nothing);
 

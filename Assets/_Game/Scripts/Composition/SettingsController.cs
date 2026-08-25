@@ -19,6 +19,11 @@ namespace RoyalDecisions.Composition
         [SerializeField] private AccessibilityPresentationController accessibility;
         [SerializeField] private AboutPanelView aboutPanel;
 
+        [Tooltip("Optional. Only set when this Settings panel lives in the Game scene itself (opened "
+            + "mid-run), so Controls-tab changes (swipe sensitivity/invert/disable, tap buttons) take "
+            + "effect immediately instead of only on the next scene load.")]
+        [SerializeField] private GameSceneController gameSceneController;
+
         /// <summary>
         /// Deactivated for real while Settings (or About, reached from within it) is open, rather
         /// than merely covered by an opaque overlay — so the menu behind can neither be seen nor
@@ -61,6 +66,7 @@ namespace RoyalDecisions.Composition
             view.ToggleChanged += PlayUiClick;
             view.TabPressed += PlayUiClick;
             view.MasterMuteChanged += HandleMasterMuteChanged;
+            view.ToggleChanged += PreviewAccessibility;
             if (aboutPanel != null) aboutPanel.CloseRequested += HandleAboutClosed;
         }
 
@@ -79,6 +85,7 @@ namespace RoyalDecisions.Composition
                 view.ToggleChanged -= PlayUiClick;
                 view.TabPressed -= PlayUiClick;
                 view.MasterMuteChanged -= HandleMasterMuteChanged;
+                view.ToggleChanged -= PreviewAccessibility;
             }
             if (aboutPanel != null) aboutPanel.CloseRequested -= HandleAboutClosed;
         }
@@ -192,6 +199,7 @@ namespace RoyalDecisions.Composition
             }
             haptics?.SetEnabled(settings.HapticsEnabled);
             accessibility?.Apply(settings);
+            gameSceneController?.ReapplySettings();
 
             // Global engine settings: take effect immediately and need no scene-local reference.
             // The card's own swipe sensitivity/rotation live in the Game scene's CardSwipeController
@@ -201,6 +209,28 @@ namespace RoyalDecisions.Composition
             // (or a fixed divisor of it) wins instead.
             UnityEngine.QualitySettings.vSyncCount = 0;
             UnityEngine.Application.targetFrameRate = ResolveTargetFrameRate(settings);
+        }
+
+        /// <summary>
+        /// Previews Reduced Motion/Text Size/High Contrast against the real wired views the
+        /// instant the user drags the slider or flips the toggle — mirroring how the volume
+        /// sliders already preview live against <see cref="AudioService"/> before Apply. Reads
+        /// straight from the view's own draft state, so it never mutates <see cref="current"/>
+        /// (which must stay exactly what <see cref="Cancel"/> reverts to). Fires on every General/
+        /// Graphics/Controls control change, not only the two settings it previews — cheap (a
+        /// handful of float multiplications), and always correct regardless of what triggered it.
+        /// </summary>
+        private void PreviewAccessibility()
+        {
+            if (accessibility == null || view == null)
+            {
+                return;
+            }
+            GameSettings preview = GameSettings.CreateDefault();
+            preview.SetTextSizeMode(view.TextSizeMode);
+            preview.SetReducedMotion(view.ReducedMotion);
+            preview.SetHighContrast(view.HighContrast);
+            accessibility.Apply(preview);
         }
 
         /// <summary>
@@ -324,13 +354,15 @@ namespace RoyalDecisions.Composition
             AudioService audio,
             AccessibilityPresentationController accessibilityController,
             AboutPanelView about = null,
-            GameObject mainMenu = null)
+            GameObject mainMenu = null,
+            GameSceneController gameScene = null)
         {
             view = settingsView;
             audioService = audio;
             accessibility = accessibilityController;
             aboutPanel = about;
             mainMenuRoot = mainMenu;
+            gameSceneController = gameScene;
         }
 #endif
     }
