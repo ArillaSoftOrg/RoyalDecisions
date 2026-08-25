@@ -65,7 +65,7 @@ namespace RoyalDecisions.Tests.EditMode
             view.ApplyTheme(theme);
 
             view.ShowImpact(-10, 0.5f);
-            Assert.That(view.ImpactText, Is.EqualTo("▼▼"));
+            Assert.That(view.ImpactText, Is.EqualTo("--"));
             Assert.That(group.alpha, Is.EqualTo(0.5f));
 
             view.SetValue(10);

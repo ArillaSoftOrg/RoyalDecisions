@@ -15,7 +15,7 @@ MonoBehaviour:
   id: story_k047
   speaker: Zeynep (Doktor)
   bodyText: "Ate\u015F y\xFCkseldi, \u015Fimdi vermek zorunda."
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 6a45e58d53fce9b4a91ff3c26eaa3633, type: 3}
   leftChoice:
     previewText: Anla
     deltas:

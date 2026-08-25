@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\xD6mer (G\xF6zc\xFC)"
   bodyText: "\xD6mer, zombilerin \"toplanma\" davran\u0131\u015F\u0131 sergiledi\u011Fini
     fark ediyor. \u0130zle mi, rapor mu?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 356fc806c45f4904b9418104638d1863, type: 3}
   leftChoice:
     previewText: "Yak\u0131ndan izle"
     deltas:

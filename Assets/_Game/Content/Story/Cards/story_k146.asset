@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "Aziz (Tar\u0131mc\u0131)"
   bodyText: "Aziz yeni bir tarif \xFCzerinde \xE7al\u0131\u015F\u0131yor. Katk\u0131
     ver mi, izle mi?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 71f6939f9f555744d9bd244d39493d7f, type: 3}
   leftChoice:
     previewText: "Katk\u0131 ver"
     deltas:

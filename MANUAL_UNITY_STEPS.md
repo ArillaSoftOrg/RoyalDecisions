@@ -2406,3 +2406,343 @@ disconnected circles floating in dead space, not a designed toolbar. Fixed:
 - [ ] Re-check touch comfort on a real device or at 1x Simulator scale: the icons shrank from
       112px to 96px (still ≥ the 96px accessibility floor, but worth a real fingertip check, not
       just a measurement).
+---
+
+## Card/HUD visual redesign — Reigns-inspired composition (2026-08-25)
+
+Restyled the decision screen toward a persistent top resource HUD, a situation/question panel
+above the swipe card, a lighter swipe card dominated by character/event artwork with the name at
+its bottom edge, and drag-revealed colored choice banners — per the approved plan. No gameplay
+rule code was touched (`CardSwipeController.cs`, `ChoiceResolver`, `CardDeckService`, `GameSession`,
+`StatSystem`, `Data/*` all untouched); this is a presentation/scene-authoring change only.
+
+### What changed
+
+- `Assets/_Game/Scripts/Editor/SceneSetupAutomation.cs`:
+  - New `ConfigureSituationArea` builds `SafeArea/SituationArea/SituationPanel/SituationText` — a
+    light parchment panel (via the existing `ProceduralRoundedRectGraphic`, no new bitmap asset)
+    sitting between `HUD` and `CardArea`, outside `Card` so it never moves with the drag.
+    `CardView.bodyText` is now wired to this object instead of an in-card `Body` text.
+  - `ConfigureCard`: removed the in-card `Body` text band (with `RemoveLegacyCardBody`, an
+    idempotent one-time migration that deletes a leftover `Card/Body` object from the previous
+    layout); expanded `PortraitRegion` to fill most of the card; added a `NameScrim` + repositioned
+    `Speaker` as a name band at the bottom of the card (matching the reference's character-name
+    treatment); retuned `CardArea`'s margins to make room for `SituationArea` above it.
+  - `ConfigurePreview` (`ChoicePreviewView`'s `Label`/`EdgeHighlight`): widened from an 8%-wide edge
+    strip to a ~34%-wide flag-style band positioned mid-card, matching the reference's drag-revealed
+    colored choice banner. No change to `CardSwipeController` or `ChoicePreviewView`'s strength/alpha
+    behavior — only where the existing pieces are anchored.
+  - `ConfigureHud`: restyled each `StatItemView` from an icon-left/label-value-right row with a
+    24-unit fill bar into an icon-over-value column with the fill bar shrunk to a 6-unit accent
+    underline — the consequence-preview glyphs (`▲`/`▼`/`▲▲`/`▲▲▲` etc.) were already fully wired
+    end-to-end via `CardSwipeController.ChoicePreviewChanged` →
+    `GameSceneController.HandleChoicePreviewChanged` → `HUDView.ShowChoiceImpact` →
+    `StatItemView.ShowImpact`/`ChoiceImpactMath` before this pass; only their position changed.
+  - Canonical SafeArea sibling order (near the end of `ApplyGameScene`) now includes
+    `SituationArea` at index 1 (`HUD, SituationArea, CardArea, TapChoiceButtons, Footer,
+    TutorialOverlay, GameOverPanel`), and the validator's CardArea-margin, HUD-bar-height, and
+    `Card/Body` checks were updated to match.
+- `Assets/_Game/Scripts/Presentation/CardView.cs`: added one new optional
+  `[SerializeField] private Image nameScrimImage` (+ `ApplyTheme` styling, + the existing
+  `SetAuthoringReferences` editor hook extended with a trailing optional parameter — backward
+  compatible with every existing call site). `bodyText`'s `ApplyTheme` colour source changed from
+  `theme.PrimaryText` to a new `theme.SituationText` (dark ink, for legibility on the now-light
+  parchment panel it renders on instead of the card's dark surface).
+- `Assets/_Game/Scripts/Presentation/GameUITheme.cs`: added `situationText` (`Color`, default
+  `#2A1E14`) + its `SituationText` property. No other new theme fields; the situation panel's own
+  background colour is a `SceneSetupAutomation.cs`-local constant (`SituationPanelColour`,
+  `#D9C79E`), matching how the file already hardcodes several other authoring-time colours (e.g.
+  `BodyTextColour`, `SpeakerTextColour`) alongside the theme.
+- `Assets/_Game/Tests/EditMode/SceneSetupAutomationTests.cs`: updated
+  `GeneratedTurkishLayout_UsesOwnedFontReadableCardAndTurnFooter` to assert against
+  `SituationArea/SituationPanel/SituationText` (anchors, font, auto-size range) instead of the
+  removed `Card/Body`, and added an assertion that `CardView.bodyText` is actually wired to it.
+
+### Missing art — reported, not fabricated
+
+Per your explicit instruction and the project's actual state (verified: zero bitmap art, zero
+prefabs, zero shaders exist anywhere in `Assets/` before this pass), no placeholder art was
+invented:
+
+- **HUD stat icons** (`GameUITheme.peopleIcon`/`securityIcon`/`authorityIcon`/`wealthIcon`) are
+  still empty `Sprite` slots. `StatItemView` already falls back to a letter glyph (`P`/`S`/`A`/`W`)
+  via the existing `GraphicFallback` chain, so the HUD renders correctly without them.
+- **Background art** (`GameUITheme.backgroundSprite`) is still empty — there is no background image
+  anywhere in the project despite it having been assumed to exist. `BackgroundView` already falls
+  back to a flat colour + the existing `ProceduralVignetteGraphic`.
+- **Card frame / portrait-frame / portrait-mask art** (`GameUITheme.cardFrameSprite` etc.) are still
+  empty — the card renders via its existing procedural `Outline`/`temporaryBorderImages` fallback.
+- **Per-card portrait art** — unchanged from before this pass; all 20 placeholder cards still have
+  no `portrait` assigned and render the existing procedural silhouette fallback.
+
+Once real art exists for any of these, assigning it to the relevant `GameUITheme`/`CardDefinition`
+sprite field in the Inspector is the only step needed — no code changes, per the theme's existing
+`GraphicFallback`-based design.
+
+### Verified this session (Unity 6000.3.18f1 via CLI)
+
+- `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup`
+  (`SceneSetupAutomation.ApplyBatch`) run for real, twice: first run applied the new layout to
+  `Game.unity` (also touching `MainMenu.unity` and `Bootstrap.unity`, which `ApplyBatch` always
+  processes together) — `0 errors, 0 warnings, 4 info`, `VALIDATION_OK`, `APPLY_COMPLETE`. Second
+  run confirmed idempotency: also `0 errors`, same result.
+  - Getting to a clean run took four attempts; the first three failed and were **automatically
+    reverted by the tool's own backup/restore** (no data loss at any point) while fixing validator
+    expectations this pass's layout changes broke: a hardcoded `CardArea` margin check, a hardcoded
+    HUD stat-bar-height check, an explicit `Card/Body`-must-exist check, and — the real root cause
+    of the last two failures — a **canonical SafeArea sibling-order block** near the end of
+    `ApplyGameScene` that pins each of the six pre-existing top-level children
+    (`HUD`/`CardArea`/`TapChoiceButtons`/`Footer`/`TutorialOverlay`/`GameOverPanel`) to a hardcoded
+    index; it didn't know about the new `SituationArea` object and kept shoving it past
+    `GameOverPanel`, which must stay last. Fixed by adding `SituationArea` into that same block
+    (as `SituationAreaParts`, mirroring the existing `CardParts`/`FooterParts` struct pattern)
+    rather than trying to out-guess it with a one-off `SetSiblingIndex` inside
+    `ConfigureSituationArea` (an earlier attempt at that, informed by a wrong assumption about
+    `Footer`'s actual current position, also failed — the file's real sibling order had drifted
+    from `ApplyGameScene`'s call order over the project's history, exactly because of this
+    canonical-order block).
+  - `MainMenu.unity`'s 142-line diff from these runs is the tool's own pre-existing idempotent
+    upkeep (an `ArmedText (TMP)` orphan getting removed/recreated, i.e. `ORPHAN_REMOVED`, matching
+    the pattern already documented above under "Follow-up fixes") — unrelated to this pass's card/
+    HUD scope, not reverted.
+  - `ProjectSettings/ProjectSettings.asset` picked up the same unrelated scripting-define-symbol
+    churn as every earlier CLI pass; reverted (`git checkout --`) per CLAUDE.md §11.
+- Full `EditMode -runTests`: **835/835 passed, 0 failed**.
+- Full `PlayMode -runTests`: **55/55 passed, 0 failed** — confirms `CardSwipeController`'s drag/
+  snap-back/confirm/exit behavior, `CardView`/`ChoicePreviewView` rendering, and the
+  `GameSceneController` composition wiring all still work with real Unity components, not just
+  mocks, even though none of those files' own code changed.
+- Manually computed WCAG contrast for the new situation-panel palette (dark ink `#2A1E14` text on
+  light parchment `#D9C79E` panel): **≈9.7:1**, comfortably above the `4.5:1` AA threshold the
+  project's existing `UIContrastMathTests.cs` enforces for other theme colour pairs (not added as
+  an automated test, since the panel colour is a `SceneSetupAutomation.cs`-local constant rather
+  than a `GameUITheme` field — see above).
+
+### Not verified — please check with your own eyes
+
+This session has no way to render or screenshot the Unity Game view, so nothing below was seen
+rendered, only driven structurally through the automation/tests above:
+
+- [ ] The actual visual result: open `Game.unity`, enter Play Mode, and look. The HUD's icon-over-
+      value layout, the parchment situation panel's contrast and spacing, the card's now-larger
+      portrait area, the bottom name band with its scrim, and the mid-card drag-reveal choice
+      banners are all new layout math that has never been seen rendered.
+- [ ] Drag left/right on an actual card and confirm the widened `EdgeHighlight` band and
+      repositioned `Label` look intentional (a colored flag-style banner) rather than oversized or
+      misaligned — the anchors are reasoned estimates from the reference composition, not
+      pixel-tuned against a live render.
+- [ ] `Window > General > Device Simulator` across 16:9, 18:9, 19.5:9, 20:9 — confirm the new
+      `SituationArea` panel and the resized `CardArea` still fit comfortably above `Footer`/
+      `TapChoiceButtons` on the shortest supported aspect ratio (the margins were computed
+      arithmetically from the existing reference-resolution scheme, not verified against every
+      ratio visually).
+- [ ] Short vs. long situation text in `SituationText` (TMP auto-size range 28–40pt) — confirm
+      neither a one-line nor a near-maximum-length situation paragraph looks broken in the panel.
+- [ ] The HUD's new small caption ("Name" object, now 14–18pt above each icon) and the impact-glyph
+      badge's new position near the icon's corner — confirm neither clips at 3-digit stat values.
+
+### Polish pass after the first eyes-on review (2026-08-25, same day)
+
+The first real Game-view look flagged the situation panel as too tall/dominant, the card as too
+small and too low, a visible gold "debug box" outline, a redundant HUD (name + fallback letter +
+value + a prominent fill bar), the tap buttons competing with the card, a detached name label, and
+a permanently-visible footer. All fixed through `SceneSetupAutomation.cs` (plus one Range-attribute
+widening on `ResponsiveCardSizer.cs`); no gameplay file touched.
+
+- **SituationArea**: width inset `-64`→`-130` (≈88% of SafeArea width, ≈85–90% across 16:9–20:9),
+  height `232`→`160` (2-4 lines), corner radius `28`→`14`, text padding `10%/10%`→`8%/6%`, gap to
+  `CardArea` `24`→`12` units.
+- **CardArea**: top margin `464`→`380` (moved up), bottom margin `112`→`80` (tight, since Footer is
+  now hidden and TapChoiceButtons are dimmed); `ResponsiveCardSizer.preferredWidthRatio` `0.78`→
+  `0.82`, `maximumWidth` `920`→`960` (its `[Range]` attribute widened from `(0.7,0.8)` to
+  `(0.7,0.85)` to accommodate). Card is now the visually dominant element and sits higher.
+- **"Debug box" border, identified**: `Card`'s own `Outline` component and the four
+  `TemporaryBorder` edge `Image`s (both intentional fallbacks, gated on `theme.CardFrameSprite ==
+  null`) were rendering `BorderGoldColour` at full opacity in a perfect rectangle at the card's
+  exact bounds. Not deleted (still signal "no frame art yet") — recoloured to a new
+  `TemporaryCardBorderColour` (same gold, 25% alpha) via a new `Color colour` parameter on
+  `ConfigureTemporaryCardBorders`.
+- **HUD**: the per-stat "Name" label (`Halk`/`Güvenlik`/`Otorite`/`Servet`) is now
+  `SetActiveIfNeeded(..., false)` by default — object, `TextMeshProUGUI`, and `StatItemView`/
+  `HUDView` wiring (`SetLabel` etc.) are all untouched, it just isn't shown, so assigning real icons
+  later needs no code change here either. Fallback letter (`P`/`S`/`A`/`W`) is unchanged and is now
+  the primary identifier alongside the enlarged value text (`36/32/40`→`44/40/48`pt). Fill bar
+  (the accent underline from the first pass) shrunk further: width `60%`→`36%` of the slot,
+  height `6`→`3` units.
+- **TapChoiceButtons**: **dimmed, not hidden.** A `CanvasGroup` (`alpha 0.45`, `interactable`/
+  `blocksRaycasts` both still `true`) was added to the root — fully tappable, just visually
+  secondary. They were **not** hidden outright because `GameSettings.tapButtonsEnabled` defaults to
+  **`true`** (`Assets/_Game/Scripts/Domain/GameSettings.cs:53`) — this is a default-on alternate-
+  input/accessibility path (`TapChoiceButtonsView`'s own doc comment: "Optional on-screen
+  alternative to the swipe gesture"), and `GameSceneController.ApplySettings` (line 214) already
+  proactively shows/hides them from live settings on every scene load — hiding them at authoring
+  time would have fought that logic for players who have the (default-on) setting enabled, silently
+  removing an accessibility feature most players start with active. A brief in this project's usual
+  "ask the user first" AskUserQuestion style would have been the ideal way to confirm this trade-off,
+  but the task explicitly asked for a single polish pass with a written rationale instead — this is
+  that rationale, flagged here for review, not a silent judgment call.
+- **NameScrim/Speaker**: scrim height `15%`→`11%` of the card, `Speaker` font `34/28/38`→`38/32/42`pt
+  (larger, per the request), inset now sits inside the shrunk scrim (`0.02–0.13`→`0.015–0.105`
+  height). `PortraitRegion`'s bottom anchor moved from `0.14` to `0.03` (portrait art now extends
+  under the scrim; sibling order already had `NameScrim`/`Speaker` after `PortraitRegion`, so the
+  scrim renders as a proper overlay on the art rather than a separate blank strip beneath it).
+- **Footer**: fully hidden (`SetActiveIfNeeded(root.gameObject, false)`) — unlike TapChoiceButtons,
+  nothing shows/hides it live from a setting, it is purely decorative ("Tur N" turn count + the
+  static "Royal Decisions" ruler-name string), and the requested target vertical composition
+  (HUD → situation → card → minimal bottom margin) has no footer row at all. `FooterView`/
+  `RunStatusView` and their wiring are completely untouched — `RenderTurn`/`ShowTurn` still run and
+  still write real text every turn, it simply isn't rendered.
+- **Sprite-support note (situation panel)**: not yet wired — `SituationPanel`'s background is still
+  the procedural `ProceduralRoundedRectGraphic` only, with no `GameUITheme` sprite slot of its own
+  (unlike `Card`'s frame/portrait-frame/portrait-mask, which already follow the sprite-first/
+  procedural-fallback pattern). Adding that parity is straightforward when real parchment art
+  exists — one new `GameUITheme` `Sprite` field plus an `Image` toggled the same way
+  `ConfigureOptionalSlicedImage` already does elsewhere — but was not built speculatively this pass.
+
+**Verified this session**: `ApplyBatch` — `0 errors, 0 warnings, 4 info`, `VALIDATION_OK`,
+`APPLY_COMPLETE`, confirmed idempotent across two consecutive runs (this pass needed no validator
+fixes, unlike the first). Full `EditMode -runTests`: **835/835 passed, 0 failed**. Full
+`PlayMode -runTests`: **55/55 passed, 0 failed**. `ProjectSettings/ProjectSettings.asset` picked up
+the same recurring unrelated scripting-define-symbol churn as every earlier CLI pass; reverted.
+
+This pass, too, has only been driven through automation — the actual rendered result (whether the
+new proportions, dimming, and hidden elements read correctly together) has not been seen and needs
+the next eyes-on screenshot pass.
+
+---
+
+## Character portrait integration and parchment re-check
+
+Two new art drops landed in the untracked `Assets/Tasarım/` (folder and file names still contain
+Turkish characters, same as before): a wider `Parşömen.png` replacing the old one, and
+`Assets/Tasarım/Characters/` with seven portrait PNGs. This pass imported all of it, wired six
+character portraits onto every real Story `CardDefinition` whose authored `speaker` field matches,
+and re-verified the parchment fit. No gameplay rule, swipe/stat/save code, or story text changed —
+only `portrait` fields on 73 `CardDefinition` assets, one new presentation math class
+(`PortraitCoverFitMath` + `CardView` wiring), and `SceneSetupAutomation.cs` (new art-path constants
+and an `AssignCharacterPortraits` step). Nothing was committed.
+
+**Parchment finding — the gap is not solved.** The new `Parşömen.png` is 2079×756 (aspect ~2.75:1),
+essentially the same proportions as the file it replaced (~2.9:1), not meaningfully closer to
+`SituationPanel`'s approved ~5.9:1. Unity's own auto-slice detection on import measured the actually
+-painted parchment shape at ~2025×710 (~2.85:1), so there's very little wasted transparent canvas to
+trim — the shape itself is simply drawn at roughly this aspect. `Simple` + `Preserve Aspect` (already
+the code's policy) remains correct — it avoids distortion — but the transparent side margins inside
+`SituationPanel` are only marginally smaller than before. Closing the gap needs art actually drawn
+wider relative to its height, or accepting the margins, or widening `SituationPanel` itself (out of
+scope for this pass, and not done).
+
+**Character coverage.** Of the 22 named/recurring characters in the real 250-card story (see the
+character-inventory pass earlier this session), 6 now have a base portrait: **Ömer, Sabiha, Zeynep,
+Atilla, Aziz, İsmet** — 73 cards total. `BandajlıSağlıkçıZeynep.png` ("bandaged Zeynep") was imported
+but deliberately **not** assigned to any card: it is still byte-for-byte identical to the base
+`SağlıkçıDoktorZeynep.png`, and no card in the 250-card story asks for a wounded/bandaged Zeynep —
+assigning it would have been guessing an alternate state the content doesn't support. 16 characters
+remain with no art at all: Kemal, Ali, Mustafa, Mete, Gül, Sibel, "Lider" Zombi, Necati, Fatma, Veli,
+Tarık, Cem, Yusuf, Rıza, Semra, Emine Teyze.
+
+**Known limitation, not fixed here (schema unchanged, as instructed):** `CardVariant` has no
+portrait field of its own, only `CardDefinition` does. Ten cards have a variant that overrides the
+speaker away from the card's main speaker; on one of them, `story_k041` (main speaker Ömer, variant
+speaker İsmet — both now have art), the portrait will keep showing Ömer even while the İsmet variant
+'s text and name are on screen. `story_k166` (main Sabiha, variant Kemal — Kemal has no art yet) will
+show Sabiha under Kemal's dialogue once Kemal's variant is authored a portrait later. Both are
+pre-existing structural limits, not something this pass introduced or silently patched around.
+
+### PC1 — Visual check (not done this session — batch mode cannot screenshot)
+
+- [ ] Open a card for each of the 6 newly portraited speakers and confirm the face reads correctly
+      inside `KartÇerçevesi.png`'s frame opening — cropped by `PortraitMask`, not stretched. The new
+      `PortraitCoverFitMath`-driven sizing in `CardView` was only verified by EditMode math tests
+      (8 cases, pure geometry, no live Canvas), not by looking at an actual rendered card.
+- [ ] Play through `story_k041` and `story_k166` specifically and confirm the (expected, documented)
+      portrait/speaker mismatch described above looks acceptable for now, or decide it needs a
+      schema change in a future pass.
+- [ ] Look at the `SituationPanel` with the new parchment at a real device width and judge whether
+      the remaining side margins are acceptable as-is.
+
+### PC2 — Next portraits to commission
+
+Ranked by recurrence, narrative weight, and how early each character appears:
+
+1. **Kemal (Mühendis)** — 18 appearances, first card `story_k006`
+2. **Ali (Halktan)** — 15 appearances, first card `story_k016`
+3. **Mustafa (Asker)** — 11 appearances, first card `story_k004`
+4. **Mete (Asker)** — 8 appearances, first card `story_k014` (pairs with Mustafa — good test of two
+   visually distinct-but-consistent soldiers)
+5. **Gül (Halktan)** — 7 appearances, first card `story_k042`
+
+Suggested filenames follow the existing convention exactly as delivered (no ASCII renaming was
+applied to existing files): `KemalMühendis.png`, `AliHalktan.png`, `MustafaAsker.png`,
+`MeteAsker.png`, `GülHalktan.png`, dropped into `Assets/Tasarım/Characters/`. Re-running
+`Tools > Royal Decisions > Content > Assign Character Portraits` after adding them (and adding their
+speaker string to `CharacterPortraitMap` in `SceneSetupAutomation.cs`) will pick them up the same way
+this pass did — idempotently, by exact `speaker` match, never by guessing from a filename.
+
+**Verified this session:** `AssignCharacterPortraitsBatch` — `0 errors, 0 warnings, 1 info`, exactly
+73 cards newly assigned, 0 already correct (first run). `ApplyBatch` (parchment + theme wiring) —
+`0 errors, 0 warnings, 4 info`, `VALIDATION_OK`, `APPLY_COMPLETE`. Full `EditMode -runTests`:
+**845/845 passed, 0 failed**. Full `PlayMode -runTests`: **55/55 passed, 0 failed**.
+`ProjectSettings/ProjectSettings.asset` picked up the same recurring unrelated scripting-define
+-symbol churn as every earlier CLI pass; reverted.
+
+---
+
+## SituationText overflow and missing HUD glyphs
+
+After the user visually reviewed the Game View from the pass above and approved the overall card
+composition, two defects remained: a 3+ line situation string reading as too close to / outside the
+parchment's own readable band, and missing-glyph tofu squares next to some HUD stat icons. Fixed
+both without touching `SituationPanel`'s size/position, the parchment art, `CardSwipeController`,
+rotation, `CardFrame`/`NextCard` positioning, banners, HUD icon positions, or any story/consequence
+data.
+
+**SituationText** (`ConfigureSituationArea` in `SceneSetupAutomation.cs`): vertical margin widened
+18px→26px per side (`sizeDelta` -36→-52; the ~50px horizontal margin is unchanged, as requested).
+Auto-size range tightened 28-40pt→20-36pt and line spacing 6→2 to buy back the room the wider
+margin cost, so ~4 lines still fit before Ellipsis would trigger. New
+`Assets/_Game/Tests/PlayMode/SituationTextLayoutPlayModeTests.cs` reproduces this exact box against
+three real authored strings (`story_k192` 1 line, `story_k007` 3 lines, `story_k150` 4 lines) using
+the real project-owned Turkish TMP font, asserting `isTextOverflowing == false` and the settled
+font size never drops below the 20pt floor — this is a permanent regression test, not a one-off
+check. `SceneSetupAutomationTests.cs`'s existing structural assertion on this RectTransform/font
+config was updated to match.
+
+**HUD glyphs**: traced to `StatItemView.ShowImpact` → `ChoiceImpactMath.Format`, which repeats
+`GameUITheme.PositiveImpactGlyph`/`NegativeImpactGlyph` (▲/▼, U+25B2/U+25BC) 1-3× by delta
+magnitude. Verified empirically (a live `TurkishFontGlyphTests` run against the two codepoints) that
+the project-owned static `LiberationSans-Turkish SDF` atlas does not contain them. Attempted the
+preferred fix — extending the atlas via the existing `Tools > Royal Decisions > Generate Turkish TMP
+Font` — but it threw `FileNotFoundException`: **the source `.ttf` this atlas was built from is
+missing from the repo** (`Assets/_Game/Art/Fonts/Resources/LiberationSans-Turkish.ttf` doesn't
+exist, nor does `Assets/TextMesh Pro/Fonts/LiberationSans.ttf`; a search of the Editor install and
+package cache found no copy to restore from either). This is a pre-existing environment gap, not
+something introduced this session, and out of scope to chase further. Used the explicitly-sanctioned
+fallback instead: `GameUITheme`'s default glyphs (both the C# field defaults and
+`DefaultGameUITheme.asset`'s explicit values) changed from ▲/▼ to **`+`/`-`** — guaranteed already
+in the atlas (full printable ASCII is baked in), no code/logic change in `ChoiceImpactMath` or
+`StatItemView`. `UIFoundationViewTests` and `GameUITheme.cs`/`StatItemView.cs`'s own local
+pre-`ApplyTheme` defaults were updated to match; `ChoiceImpactMathTests.cs` needed no change since it
+already tests the pure repeat-by-magnitude logic with its own explicit glyph parameters, independent
+of the theme.
+
+**If the missing `.ttf` is restored later:** the font pipeline can then properly bake ▲/▼ (or any
+other symbol) and the theme's glyphs can be switched back — nothing about this fallback is
+permanent or hard to undo, it's one string each in `GameUITheme.cs` and `DefaultGameUITheme.asset`.
+
+### PC3 — Visual check (not done this session)
+
+- [ ] Confirm the 1-, 3- and 4-line situation text samples above actually read as centred and clear
+      of the parchment's decorative edges at a real device width, not just via the layout math the
+      new PlayMode tests check.
+- [ ] Confirm `+3` / `--` / `+++` etc. read acceptably in the HUD in place of the original ▲▼
+      triangles — a deliberate but untested design substitution.
+
+**Verified this session:** `ApplyBatch` — `0 errors, 0 warnings, 4 info`, `VALIDATION_OK`,
+`APPLY_COMPLETE`, confirmed idempotent (byte-identical diffstat across two consecutive runs). Full
+`EditMode -runTests`: **845/845 passed, 0 failed**. Full `PlayMode -runTests`: **59/59 passed, 0
+failed** (60 on the first run — one newly-added assertion used `TMP_Text.GetPreferredValues`
+incorrectly against auto-sizing text and was removed as invalid, not worked around; the four
+`isTextOverflowing`-based assertions it sat alongside all passed both times).
+`ProjectSettings/ProjectSettings.asset` again picked up the same recurring unrelated
+scripting-define-symbol churn; reverted again.

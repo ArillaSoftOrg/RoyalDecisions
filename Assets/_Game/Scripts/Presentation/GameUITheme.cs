@@ -28,6 +28,9 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private Color portraitFallbackForeground =
             new Color32(0xB9, 0xAA, 0x90, 0xFF);
 
+        [Tooltip("Ink colour for text on the light parchment situation panel above the card.")]
+        [SerializeField] private Color situationText = new Color32(0x2A, 0x1E, 0x14, 0xFF);
+
         [Header("Typography")]
         [SerializeField] private TMP_FontAsset titleFont;
         [SerializeField] private TMP_FontAsset bodyFont;
@@ -49,6 +52,10 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private Sprite cornerDecorationSprite;
         [SerializeField] private Sprite sealSprite;
         [SerializeField] private Sprite nextCardFrameSprite;
+        [Tooltip(
+            "Optional. The parchment/situation-panel background above the card. Missing falls " +
+            "back to the procedural rounded panel rather than failing.")]
+        [SerializeField] private Sprite situationPanelSprite;
 
         [Header("Presentation text")]
         [SerializeField] private string peopleName = "People";
@@ -59,8 +66,13 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private string securityFallbackSymbol = "S";
         [SerializeField] private string authorityFallbackSymbol = "A";
         [SerializeField] private string wealthFallbackSymbol = "W";
-        [SerializeField] private string positiveImpactGlyph = "▲";
-        [SerializeField] private string negativeImpactGlyph = "▼";
+        // "+"/"-", not the originally-intended ▲/▼ triangles: the project-owned static Turkish
+        // TMP atlas (TurkishGlyphValidator) does not bake U+25B2/U+25BC, and its source .ttf is
+        // not present in this repo to extend it, so those glyphs render as missing-glyph tofu in
+        // the HUD. ASCII +/- is guaranteed to already be in the atlas (BuildCharacterSet bakes the
+        // full printable ASCII range) and reads just as clearly as a signed stat delta.
+        [SerializeField] private string positiveImpactGlyph = "+";
+        [SerializeField] private string negativeImpactGlyph = "-";
 
         [Header("Presentation thresholds")]
         [Range(1, 49)]
@@ -78,6 +90,7 @@ namespace RoyalDecisions.Presentation
         public Color RightChoice => rightChoice;
         public Color PortraitFallbackBackground => portraitFallbackBackground;
         public Color PortraitFallbackForeground => portraitFallbackForeground;
+        public Color SituationText => situationText;
         public TMP_FontAsset TitleFont => titleFont;
         public TMP_FontAsset BodyFont => bodyFont;
         public Sprite BackgroundSprite => backgroundSprite;
@@ -90,6 +103,7 @@ namespace RoyalDecisions.Presentation
         public Sprite CornerDecorationSprite => cornerDecorationSprite;
         public Sprite SealSprite => sealSprite;
         public Sprite NextCardFrameSprite => nextCardFrameSprite;
+        public Sprite SituationPanelSprite => situationPanelSprite;
         public string PositiveImpactGlyph => string.IsNullOrEmpty(positiveImpactGlyph) ? "+" : positiveImpactGlyph;
         public string NegativeImpactGlyph => string.IsNullOrEmpty(negativeImpactGlyph) ? "-" : negativeImpactGlyph;
         public int CriticalBoundary => criticalBoundary;

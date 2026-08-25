@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\u0130smet (Telsizci)"
   bodyText: "\u0130smet eski g\xFCnl\xFCkleri d\xFCzenliyor, s\u0131\u011F\u0131na\u011F\u0131n
     tarihini yazmaya karar veriyor. Anlat m\u0131, ona m\u0131 b\u0131rak?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 080b9f3a76de2844cbc5abec36f04b6d, type: 3}
   leftChoice:
     previewText: Anlat
     deltas:

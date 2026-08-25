@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\u0130smet (Telsizci)"
   bodyText: "S\u0131\u011F\u0131na\u011F\u0131n g\xFCnl\xFC\u011F\xFCne son bir kay\u0131t
     d\xFC\u015F\xFCl\xFCyor. Sen mi yaz, \u0130smet mi?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 080b9f3a76de2844cbc5abec36f04b6d, type: 3}
   leftChoice:
     previewText: Sen yaz
     deltas:

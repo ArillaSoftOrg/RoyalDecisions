@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "Sabiha (Erzak\xE7\u0131)"
   bodyText: "Sabiha elinde defterle gelir. Depo h\u0131zla azal\u0131yor, der. Paylar\u0131
     nas\u0131l b\xF6lelim?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: d91ca0be1dd9e6e429e02752628fedb5, type: 3}
   leftChoice:
     previewText: "K\u0131s\u0131tl\u0131 pay ver"
     deltas:

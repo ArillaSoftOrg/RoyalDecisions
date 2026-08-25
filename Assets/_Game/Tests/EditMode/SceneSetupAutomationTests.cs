@@ -150,24 +150,34 @@ namespace RoyalDecisions.Tests.EditMode
                 TurkishGlyphValidator.FontAssetPath);
             Assert.That(font, Is.Not.Null);
 
-            TextMeshProUGUI body = Find("/UICanvas/SafeArea/CardArea/Card/Body")
+            TextMeshProUGUI situationText = Find(
+                    "/UICanvas/SafeArea/SituationArea/SituationPanel/SituationText")
                 .GetComponent<TextMeshProUGUI>();
-            Assert.That(body.rectTransform.anchorMin, Is.EqualTo(new Vector2(0.09f, 0.19f)));
-            Assert.That(body.rectTransform.anchorMax, Is.EqualTo(new Vector2(0.91f, 0.42f)));
-            Assert.That(body.font, Is.SameAs(font));
-            Assert.That(body.enableAutoSizing, Is.True);
-            Assert.That(body.fontSizeMin, Is.EqualTo(34f));
-            Assert.That(body.fontSizeMax, Is.EqualTo(46f));
-            Assert.That(body.textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
-            Assert.That(body.overflowMode, Is.EqualTo(TextOverflowModes.Ellipsis));
+            Assert.That(situationText.rectTransform.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(situationText.rectTransform.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(situationText.rectTransform.sizeDelta, Is.EqualTo(new Vector2(-100f, -52f)),
+                "Fixed pixel margins (~50px sides, ~26px top/bottom) keep text off the parchment's torn edges.");
+            Assert.That(situationText.font, Is.SameAs(font));
+            Assert.That(situationText.enableAutoSizing, Is.True);
+            Assert.That(situationText.fontSizeMin, Is.EqualTo(20f));
+            Assert.That(situationText.fontSizeMax, Is.EqualTo(36f));
+            Assert.That(situationText.textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+            Assert.That(situationText.overflowMode, Is.EqualTo(TextOverflowModes.Ellipsis));
+
+            CardView cardView = Find("/UICanvas/SafeArea/CardArea/Card")
+                .GetComponent<CardView>();
+            SerializedProperty bodyTextReference = new SerializedObject(cardView)
+                .FindProperty("bodyText");
+            Assert.That(bodyTextReference.objectReferenceValue, Is.SameAs(situationText),
+                "CardView.bodyText must be wired to the situation panel's text, not an in-card one.");
 
             TextMeshProUGUI speaker = Find("/UICanvas/SafeArea/CardArea/Card/Speaker")
                 .GetComponent<TextMeshProUGUI>();
             TextMeshProUGUI leftChoice = Find(
                     "/UICanvas/SafeArea/CardArea/Card/PreviewLeft/Label")
                 .GetComponent<TextMeshProUGUI>();
-            Assert.That(speaker.fontSizeMin, Is.EqualTo(28f));
-            Assert.That(speaker.fontSizeMax, Is.EqualTo(38f));
+            Assert.That(speaker.fontSizeMin, Is.EqualTo(32f));
+            Assert.That(speaker.fontSizeMax, Is.EqualTo(42f));
             Assert.That(leftChoice.fontSizeMin, Is.EqualTo(26f));
             Assert.That(leftChoice.fontSizeMax, Is.EqualTo(34f));
             Assert.That(speaker.font, Is.SameAs(font));
@@ -323,9 +333,9 @@ namespace RoyalDecisions.Tests.EditMode
             ResponsiveCardSizer sizer = cardArea.GetComponent<ResponsiveCardSizer>();
             SerializedObject serializedSizer = new SerializedObject(sizer);
             Assert.That(serializedSizer.FindProperty("preferredWidthRatio").floatValue,
-                Is.EqualTo(0.78f));
+                Is.EqualTo(0.82f));
             Assert.That(serializedSizer.FindProperty("maximumWidth").floatValue,
-                Is.EqualTo(920f));
+                Is.EqualTo(960f));
             Assert.That(serializedSizer.FindProperty("widthReference").objectReferenceValue,
                 Is.SameAs(Find("/UICanvas/SafeArea").transform));
 

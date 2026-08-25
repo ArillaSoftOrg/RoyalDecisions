@@ -89,13 +89,16 @@ namespace RoyalDecisions.Presentation
 
             if (edgeHighlight != null)
             {
-                edgeHighlight.sprite = side == ChoiceSide.Left
-                    ? theme.LeftEdgeSprite
-                    : theme.RightEdgeSprite;
-                edgeHighlight.color = side == ChoiceSide.Left
-                    ? theme.LeftChoice
-                    : theme.RightChoice;
+                Sprite banner = side == ChoiceSide.Left ? theme.LeftEdgeSprite : theme.RightEdgeSprite;
+                edgeHighlight.sprite = banner;
                 edgeHighlight.raycastTarget = false;
+                // Real banner art must render untinted (white) to show its own painted colours;
+                // the flat fallback fill still needs the theme's directional tint to read as a
+                // choice-side colour cue.
+                edgeHighlight.color = banner != null
+                    ? Color.white
+                    : (side == ChoiceSide.Left ? theme.LeftChoice : theme.RightChoice);
+                edgeHighlight.preserveAspect = banner != null;
             }
         }
 

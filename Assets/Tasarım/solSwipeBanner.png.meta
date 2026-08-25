@@ -1,0 +1,702 @@
+fileFormatVersion: 2
+guid: a3ff7f63f9f00c449afa44ecab6c606d
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -6648436462652275445
+    second: solSwipeBanner_0
+  - first:
+      213: -4924097736009772158
+    second: solSwipeBanner_1
+  - first:
+      213: -5987179965484807518
+    second: solSwipeBanner_2
+  - first:
+      213: -3563912305797527008
+    second: solSwipeBanner_3
+  - first:
+      213: -1729432200620584654
+    second: solSwipeBanner_4
+  - first:
+      213: 7255516993624874166
+    second: solSwipeBanner_5
+  - first:
+      213: -3639218373571297162
+    second: solSwipeBanner_6
+  - first:
+      213: -8416594104433865066
+    second: solSwipeBanner_7
+  - first:
+      213: -1099262278587864354
+    second: solSwipeBanner_8
+  - first:
+      213: 8459178375102594278
+    second: solSwipeBanner_9
+  - first:
+      213: -166875159181578311
+    second: solSwipeBanner_10
+  - first:
+      213: 3342786458539974286
+    second: solSwipeBanner_11
+  - first:
+      213: -5095566190796994859
+    second: solSwipeBanner_12
+  - first:
+      213: 4195282690194011627
+    second: solSwipeBanner_13
+  - first:
+      213: 2968556975828437301
+    second: solSwipeBanner_14
+  - first:
+      213: -4047497584647699507
+    second: solSwipeBanner_15
+  - first:
+      213: -2142910248385023256
+    second: solSwipeBanner_16
+  - first:
+      213: 8912263289397888822
+    second: solSwipeBanner_17
+  - first:
+      213: 7233465524253626171
+    second: solSwipeBanner_18
+  - first:
+      213: -679365483149395937
+    second: solSwipeBanner_19
+  - first:
+      213: 4097312441537366896
+    second: solSwipeBanner_20
+  - first:
+      213: -7644986809146363340
+    second: solSwipeBanner_21
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 0
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 4096
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: solSwipeBanner_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 1383
+        height: 1024
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b054bdb13420cb3a0800000000000000
+      internalID: -6648436462652275445
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_1
+      rect:
+        serializedVersion: 2
+        x: 1336
+        y: 861
+        width: 189
+        height: 133
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 28315d5b2371aabb0800000000000000
+      internalID: -4924097736009772158
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_2
+      rect:
+        serializedVersion: 2
+        x: 1342
+        y: 775
+        width: 19
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2aa41f6fa8349eca0800000000000000
+      internalID: -5987179965484807518
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_3
+      rect:
+        serializedVersion: 2
+        x: 1360
+        y: 631
+        width: 9
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 02a8b4ae3a07a8ec0800000000000000
+      internalID: -3563912305797527008
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_4
+      rect:
+        serializedVersion: 2
+        x: 1366
+        y: 417
+        width: 153
+        height: 283
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 23153e29392dff7e0800000000000000
+      internalID: -1729432200620584654
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_5
+      rect:
+        serializedVersion: 2
+        x: 1362
+        y: 358
+        width: 21
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6bc12daa346c0b460800000000000000
+      internalID: 7255516993624874166
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_6
+      rect:
+        serializedVersion: 2
+        x: 1438
+        y: 355
+        width: 21
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 670453fab26ee7dc0800000000000000
+      internalID: -3639218373571297162
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_7
+      rect:
+        serializedVersion: 2
+        x: 1376
+        y: 311
+        width: 19
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 69e829a4140423b80800000000000000
+      internalID: -8416594104433865066
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_8
+      rect:
+        serializedVersion: 2
+        x: 1390
+        y: 324
+        width: 13
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: edaa8c128c2aeb0f0800000000000000
+      internalID: -1099262278587864354
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_9
+      rect:
+        serializedVersion: 2
+        x: 1400
+        y: 319
+        width: 21
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6ecf7abd9e9056570800000000000000
+      internalID: 8459178375102594278
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_10
+      rect:
+        serializedVersion: 2
+        x: 1355
+        y: 293
+        width: 8
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9bf25274de32fadf0800000000000000
+      internalID: -166875159181578311
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_11
+      rect:
+        serializedVersion: 2
+        x: 1359
+        y: 247
+        width: 44
+        height: 50
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e8ed24db296f36e20800000000000000
+      internalID: 3342786458539974286
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_12
+      rect:
+        serializedVersion: 2
+        x: 1382
+        y: 203
+        width: 11
+        height: 26
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5d60e040c89e849b0800000000000000
+      internalID: -5095566190796994859
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_13
+      rect:
+        serializedVersion: 2
+        x: 1398
+        y: 21
+        width: 109
+        height: 199
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: be5fb511163a83a30800000000000000
+      internalID: 4195282690194011627
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_14
+      rect:
+        serializedVersion: 2
+        x: 1424
+        y: 239
+        width: 15
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 53903c767de623920800000000000000
+      internalID: 2968556975828437301
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_15
+      rect:
+        serializedVersion: 2
+        x: 1460
+        y: 215
+        width: 53
+        height: 43
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dc382dd246664d7c0800000000000000
+      internalID: -4047497584647699507
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_16
+      rect:
+        serializedVersion: 2
+        x: 1502
+        y: 119
+        width: 19
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8e277739b7ad242e0800000000000000
+      internalID: -2142910248385023256
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_17
+      rect:
+        serializedVersion: 2
+        x: 528
+        y: 23
+        width: 49
+        height: 35
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 637c0551e38beab70800000000000000
+      internalID: 8912263289397888822
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_18
+      rect:
+        serializedVersion: 2
+        x: 600
+        y: 17
+        width: 21
+        height: 12
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b3f0c2cd19e626460800000000000000
+      internalID: 7233465524253626171
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_19
+      rect:
+        serializedVersion: 2
+        x: 636
+        y: 0
+        width: 173
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f18f73841b86296f0800000000000000
+      internalID: -679365483149395937
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_20
+      rect:
+        serializedVersion: 2
+        x: 838
+        y: 15
+        width: 9
+        height: 14
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 07b8f9305f39cd830800000000000000
+      internalID: 4097312441537366896
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: solSwipeBanner_21
+      rect:
+        serializedVersion: 2
+        x: 846
+        y: 15
+        width: 11
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 432b840800d87e590800000000000000
+      internalID: -7644986809146363340
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      solSwipeBanner_0: -6648436462652275445
+      solSwipeBanner_1: -4924097736009772158
+      solSwipeBanner_10: -166875159181578311
+      solSwipeBanner_11: 3342786458539974286
+      solSwipeBanner_12: -5095566190796994859
+      solSwipeBanner_13: 4195282690194011627
+      solSwipeBanner_14: 2968556975828437301
+      solSwipeBanner_15: -4047497584647699507
+      solSwipeBanner_16: -2142910248385023256
+      solSwipeBanner_17: 8912263289397888822
+      solSwipeBanner_18: 7233465524253626171
+      solSwipeBanner_19: -679365483149395937
+      solSwipeBanner_2: -5987179965484807518
+      solSwipeBanner_20: 4097312441537366896
+      solSwipeBanner_21: -7644986809146363340
+      solSwipeBanner_3: -3563912305797527008
+      solSwipeBanner_4: -1729432200620584654
+      solSwipeBanner_5: 7255516993624874166
+      solSwipeBanner_6: -3639218373571297162
+      solSwipeBanner_7: -8416594104433865066
+      solSwipeBanner_8: -1099262278587864354
+      solSwipeBanner_9: 8459178375102594278
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

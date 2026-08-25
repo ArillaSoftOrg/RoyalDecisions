@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\xD6mer (G\xF6zc\xFC)"
   bodyText: "\xD6mer n\xF6bette gelir. \xC7itin \xF6tesinde bir \u015Fey konu\u015Fuyor
     gibi, der. Yakla\u015Fal\u0131m m\u0131, uzaktan m\u0131 izleyelim?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 356fc806c45f4904b9418104638d1863, type: 3}
   leftChoice:
     previewText: "Yakla\u015F"
     deltas:

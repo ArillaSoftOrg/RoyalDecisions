@@ -16,7 +16,7 @@ MonoBehaviour:
   speaker: "\xD6mer (G\xF6zc\xFC)"
   bodyText: "\xD6mer, zombinin d\xFCzenli ziyaret edip bir y\xF6n i\u015Faret etti\u011Fini
     fark ediyor. Takip et mi, g\xF6rmezden mi?"
-  portrait: {fileID: 0}
+  portrait: {fileID: 21300000, guid: 356fc806c45f4904b9418104638d1863, type: 3}
   leftChoice:
     previewText: Takip et
     deltas:

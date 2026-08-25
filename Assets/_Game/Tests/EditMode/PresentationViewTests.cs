@@ -4,6 +4,7 @@ using RoyalDecisions.Data;
 using RoyalDecisions.Domain;
 using RoyalDecisions.Presentation;
 using TMPro;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -560,6 +561,71 @@ namespace RoyalDecisions.Tests.EditMode
             GameOverView view = BuildGameOverView(out _, out _, out _);
 
             Assert.That(() => view.HandleRestartButton(), Throws.Nothing);
+        }
+
+        // --- GameUIThemeController: situation panel sprite/procedural fallback -----------------
+
+        private static GameUITheme BuildTheme(Sprite situationPanelSprite)
+        {
+            GameUITheme theme = ScriptableObject.CreateInstance<GameUITheme>();
+            SerializedObject serialized = new SerializedObject(theme);
+            serialized.FindProperty("situationPanelSprite").objectReferenceValue = situationPanelSprite;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            return theme;
+        }
+
+        private static GameUIThemeController BuildThemeController(
+            GameUITheme theme, out Image artwork, out ProceduralRoundedRectGraphic fallback)
+        {
+            artwork = PresentationTestObjects.CreateImage("Artwork");
+            fallback = PresentationTestObjects.CreateComponent<ProceduralRoundedRectGraphic>("Fallback");
+            GameUIThemeController controller =
+                PresentationTestObjects.CreateComponent<GameUIThemeController>("ThemeController");
+            controller.SetAuthoringReferences(
+                theme, null, null, null, null, null, artwork, fallback);
+            return controller;
+        }
+
+        [Test]
+        public void SituationPanel_ShowsArtworkAndHidesFallback_WhenThemeSpriteAssigned()
+        {
+            Sprite sprite = PresentationTestObjects.CreateSprite();
+            GameUITheme theme = BuildTheme(sprite);
+            try
+            {
+                GameUIThemeController controller = BuildThemeController(
+                    theme, out Image artwork, out ProceduralRoundedRectGraphic fallback);
+
+                controller.ApplyTheme();
+
+                Assert.That(artwork.enabled, Is.True);
+                Assert.That(artwork.sprite, Is.SameAs(sprite));
+                Assert.That(fallback.enabled, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(theme);
+            }
+        }
+
+        [Test]
+        public void SituationPanel_ShowsFallbackAndHidesArtwork_WhenThemeHasNoSprite()
+        {
+            GameUITheme theme = BuildTheme(null);
+            try
+            {
+                GameUIThemeController controller = BuildThemeController(
+                    theme, out Image artwork, out ProceduralRoundedRectGraphic fallback);
+
+                controller.ApplyTheme();
+
+                Assert.That(artwork.enabled, Is.False);
+                Assert.That(fallback.enabled, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(theme);
+            }
         }
     }
 }

@@ -225,13 +225,37 @@ namespace RoyalDecisions.Tests.EditMode
         }
 
         [Test]
-        public void CoversARandomOutcomeChoice()
+        public void NoChoiceUsesRandomOutcome()
         {
-            // K18-B: "variable" improvised treatment.
-            CardDefinition card = CardById("story_k018");
-            Assert.That(card, Is.Not.Null);
-            Assert.That(card.RightChoice.HasRandomOutcome, Is.True);
-            Assert.That(card.RightChoice.RandomOutcome.Options.Count, Is.EqualTo(2));
+            // v12's determinism principle (Hıkaye.md §3): every outcome is driven by an existing
+            // flag, a resource threshold, or a prior player decision — never by chance. K18-B used
+            // to be the one RandomStatOutcome example in this catalogue; it is now a plain
+            // deterministic choice, and no other card should reintroduce randomness in its place.
+            foreach (CardDefinition card in cards)
+            {
+                AssertChoiceHasNoRandomOutcome(card.Id, "left", card.LeftChoice);
+                AssertChoiceHasNoRandomOutcome(card.Id, "right", card.RightChoice);
+
+                foreach (CardVariant variant in card.Variants)
+                {
+                    if (variant.LeftChoice != null)
+                    {
+                        AssertChoiceHasNoRandomOutcome(card.Id, "variant left", variant.LeftChoice);
+                    }
+
+                    if (variant.RightChoice != null)
+                    {
+                        AssertChoiceHasNoRandomOutcome(card.Id, "variant right", variant.RightChoice);
+                    }
+                }
+            }
+        }
+
+        private static void AssertChoiceHasNoRandomOutcome(
+            string cardId, string side, ChoiceDefinition choice)
+        {
+            Assert.That(choice.HasRandomOutcome, Is.False,
+                cardId + " (" + side + ") still uses RandomStatOutcome.");
         }
 
         [Test]
