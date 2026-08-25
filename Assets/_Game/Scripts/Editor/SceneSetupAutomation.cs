@@ -277,7 +277,9 @@ namespace RoyalDecisions.Editor
                 interfaceText = AssetDatabase.LoadAssetAtPath<InterfaceTextDefinition>(
                     InterfaceTextPath);
                 turkishFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(TurkishFontPath);
-                ApplyMainMenuScene(mainMenu, intent, interfaceText, turkishFont, report);
+                FeedbackCueProfile menuFeedback =
+                    AssetDatabase.LoadAssetAtPath<FeedbackCueProfile>(DefaultFeedbackCueProfilePath);
+                ApplyMainMenuScene(mainMenu, intent, interfaceText, turkishFont, menuFeedback, report);
                 EditorSceneManager.MarkSceneDirty(mainMenu);
                 if (!EditorSceneManager.SaveScene(mainMenu, MainMenuScenePath))
                 {
@@ -495,8 +497,10 @@ namespace RoyalDecisions.Editor
             RectTransform topBar = EnsureUiChild(safeArea, "TopBar", report);
             SetRect(topBar, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
                 new Vector2(0f, GameTopBarHeight), new Vector2(0.5f, 1f));
+            // Left fully transparent (rather than SurfaceColour) so this strip reads as part of the
+            // background artwork/vignette instead of a distinct flat panel behind Geri/Ayarlar.
             Image topBarSurface = EnsureSingleComponent<Image>(topBar.gameObject, report);
-            ConfigureSimpleImage(topBarSurface, LoadBuiltInUiSprite(report), SurfaceColour, false);
+            ConfigureSimpleImage(topBarSurface, LoadBuiltInUiSprite(report), Color.clear, false);
             Button backButton = EnsureBackIconButton(
                 topBar, report, GameTopBarIconSize, GameTopBarIconMargin);
             Button settingsButton = EnsureSettingsIconButton(
@@ -548,7 +552,8 @@ namespace RoyalDecisions.Editor
             // The same full Settings/About panel MainMenu has, reachable mid-run via the Ayarlar
             // icon above — reuses ConfigureSettingsPanel/ConfigureAboutPanel as-is (both are scene-
             // agnostic already) rather than building a second, different settings UI.
-            SettingsParts gameSettings = ConfigureSettingsPanel(canvasObject.transform, font, audio, report);
+            SettingsParts gameSettings = ConfigureSettingsPanel(
+                canvasObject.transform, font, audio, feedback, report);
             AboutPanelView gameAboutPanel = ConfigureAboutPanel(canvasObject.transform, font, report);
             SetObjectProperty(gameSettings.Controller, "aboutPanel", gameAboutPanel, report);
             // Hides the whole gameplay screen (TopBar/HUD/Card/Footer) while Settings or About is
@@ -765,8 +770,10 @@ namespace RoyalDecisions.Editor
                 Vector2.zero, new Vector2(0f, 208f), new Vector2(0.5f, 1f));
 
             HUDView hud = EnsureSingleComponent<HUDView>(hudTransform.gameObject, report);
+            // Left fully transparent (rather than SurfaceColour) so this row reads as part of the
+            // background artwork/vignette instead of a distinct flat panel behind the stat bars.
             Image hudSurface = EnsureSingleComponent<Image>(hudTransform.gameObject, report);
-            ConfigureSimpleImage(hudSurface, LoadBuiltInUiSprite(report), SurfaceColour, false);
+            ConfigureSimpleImage(hudSurface, LoadBuiltInUiSprite(report), Color.clear, false);
             HorizontalLayoutGroup layout = EnsureSingleComponent<HorizontalLayoutGroup>(
                 hudTransform.gameObject, report);
             if (layout != null)
@@ -1346,11 +1353,11 @@ namespace RoyalDecisions.Editor
             const float sideInset = 32f;
 
             Button left = ConfigureTapChoiceButton(
-                root, "LeftChoiceButton", "◀", Vector2.zero,
-                new Vector2(sideInset, bottomOffset), buttonSize, font, report);
+                root, "LeftChoiceButton", pointsRight: false, Vector2.zero,
+                new Vector2(sideInset, bottomOffset), buttonSize, report);
             Button right = ConfigureTapChoiceButton(
-                root, "RightChoiceButton", "▶", Vector2.right,
-                new Vector2(-sideInset, bottomOffset), buttonSize, font, report);
+                root, "RightChoiceButton", pointsRight: true, Vector2.right,
+                new Vector2(-sideInset, bottomOffset), buttonSize, report);
 
             TapChoiceButtonsView view =
                 EnsureSingleComponent<TapChoiceButtonsView>(root.gameObject, report);
@@ -1363,11 +1370,10 @@ namespace RoyalDecisions.Editor
         private static Button ConfigureTapChoiceButton(
             RectTransform parent,
             string name,
-            string glyph,
+            bool pointsRight,
             Vector2 anchor,
             Vector2 anchoredPosition,
             float size,
-            TMP_FontAsset font,
             SceneSetupReport report)
         {
             RectTransform transform = EnsureUiChild(parent, name, report);
@@ -1381,8 +1387,30 @@ namespace RoyalDecisions.Editor
                 Undo.RecordObject(button, "Wire tap choice button target graphic");
                 button.targetGraphic = graphic;
             }
-            EnsureButtonText(transform, glyph, report);
-            ConfigureButtonFont(button, font, 44f, 36f, 48f);
+
+            // A prior authoring pass rendered this as a TMP "◀"/"▶" glyph; drop the stale label —
+            // those characters fall outside the project's Turkish SDF atlas and rendered as the
+            // missing-glyph fallback box.
+            TextMeshProUGUI staleGlyph = transform.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (staleGlyph != null)
+            {
+                Undo.DestroyObjectImmediate(staleGlyph.gameObject);
+            }
+
+            RectTransform icon = EnsureUiChild(transform, "Icon", report);
+            float iconSize = size * 0.4f;
+            SetRect(icon, Center, Center, Vector2.zero, new Vector2(iconSize, iconSize), Center);
+            EnsureSingleComponent<CanvasRenderer>(icon.gameObject, report);
+            ProceduralTriangleIconGraphic triangle =
+                EnsureSingleComponent<ProceduralTriangleIconGraphic>(icon.gameObject, report);
+            if (triangle != null)
+            {
+                Undo.RecordObject(triangle, "Configure tap choice arrow");
+                triangle.color = Color.white;
+                triangle.raycastTarget = false;
+                triangle.PointsRight = pointsRight;
+            }
+
             ConfigureMinimumTouchTarget(button, report);
             return button;
         }
@@ -1919,6 +1947,7 @@ namespace RoyalDecisions.Editor
             SessionIntent intent,
             InterfaceTextDefinition interfaceText,
             TMP_FontAsset font,
+            FeedbackCueProfile feedback,
             SceneSetupReport report)
         {
             if (!CheckRootDuplicates(scene, CanvasName, report)
@@ -2014,7 +2043,8 @@ namespace RoyalDecisions.Editor
             // SafeArea-nested location the first time this runs against an older scene.
             MigrateChildIfNeeded(canvasObject.transform, safeArea, "SettingsPanel", report);
             MigrateChildIfNeeded(canvasObject.transform, safeArea, "AboutPanel", report);
-            SettingsParts settings = ConfigureSettingsPanel(canvasObject.transform, font, audio, report);
+            SettingsParts settings = ConfigureSettingsPanel(
+                canvasObject.transform, font, audio, feedback, report);
             AboutPanelView aboutPanel = ConfigureAboutPanel(canvasObject.transform, font, report);
             SetObjectProperty(settings.Controller, "aboutPanel", aboutPanel, report);
             SetObjectProperty(settings.Controller, "mainMenuRoot", panel.gameObject, report);
@@ -2066,6 +2096,7 @@ namespace RoyalDecisions.Editor
             Transform canvasTransform,
             TMP_FontAsset font,
             AudioService audio,
+            FeedbackCueProfile cues,
             SceneSetupReport report)
         {
             // Stretches the full Canvas (not SafeArea) so the background genuinely covers the
@@ -2343,6 +2374,7 @@ namespace RoyalDecisions.Editor
                 controllerObject, report);
             SetObjectProperty(controller, "view", view, report);
             SetObjectProperty(controller, "audioService", audio, report);
+            SetObjectProperty(controller, "cues", cues, report);
 
             // Last sibling under the Canvas so it always renders above SafeArea (MainMenu)
             // regardless of authoring-time ordering; SettingsPanelView.Show() re-asserts this
@@ -3463,6 +3495,9 @@ namespace RoyalDecisions.Editor
                 : null;
             ValidateReference(gameSettingsController, "view", gameSettingsView, scene.path,
                 "/SettingsController", report);
+            ValidateReference(gameSettingsController, "cues",
+                AssetDatabase.LoadAssetAtPath<FeedbackCueProfile>(DefaultFeedbackCueProfilePath),
+                scene.path, "/SettingsController", report);
             Button gameSettingsButton = gameSettingsButtonObject != null
                 ? RequireSingleComponent<Button>(gameSettingsButtonObject, scene.path, report) : null;
             ValidateExpectedListener(gameSettingsButton, gameSettingsController,
@@ -3838,6 +3873,9 @@ namespace RoyalDecisions.Editor
                 : null;
             ValidateReference(settingsController, "audioService", audio, scene.path,
                 "/SettingsController", report);
+            ValidateReference(settingsController, "cues",
+                AssetDatabase.LoadAssetAtPath<FeedbackCueProfile>(DefaultFeedbackCueProfilePath),
+                scene.path, "/SettingsController", report);
             AccessibilityPresentationController mainMenuAccessibility = settingsControllerObject != null
                 ? RequireSingleComponent<AccessibilityPresentationController>(
                     settingsControllerObject, scene.path, report)
@@ -4272,16 +4310,26 @@ namespace RoyalDecisions.Editor
             RectTransform icon = EnsureUiChild(transform, "Icon", report);
             float iconSize = size * 0.56f;
             SetRect(icon, Center, Center, Vector2.zero, new Vector2(iconSize, iconSize), Center);
-            // A plain ASCII "<" rather than a Unicode arrow (←): the project's custom Turkish SDF
-            // font atlas is only guaranteed to contain the glyphs its own probe checks for (see
-            // MANUAL_UNITY_STEPS.md), and this project avoids masking a missing glyph with TMP's
-            // fallback substitution.
-            TextMeshProUGUI glyph = EnsureSingleComponent<TextMeshProUGUI>(icon.gameObject, report);
-            ConfigureText(glyph, iconSize * 0.72f);
-            Undo.RecordObject(glyph, "Configure back icon glyph");
-            glyph.text = "<";
-            glyph.color = BorderGoldColour;
-            glyph.raycastTarget = false;
+
+            // A prior authoring pass rendered this as a TMP "<" glyph; drop the stale label so it
+            // doesn't linger alongside the procedural arrow below.
+            TextMeshProUGUI staleGlyph = icon.GetComponent<TextMeshProUGUI>();
+            if (staleGlyph != null)
+            {
+                Undo.DestroyObjectImmediate(staleGlyph);
+            }
+
+            // A procedural mesh rather than a font glyph, matching the settings gear: guaranteed to
+            // render regardless of which characters the project's custom Turkish SDF atlas contains.
+            EnsureSingleComponent<CanvasRenderer>(icon.gameObject, report);
+            ProceduralArrowIconGraphic arrow =
+                EnsureSingleComponent<ProceduralArrowIconGraphic>(icon.gameObject, report);
+            if (arrow != null)
+            {
+                Undo.RecordObject(arrow, "Configure back icon arrow");
+                arrow.color = BorderGoldColour;
+                arrow.raycastTarget = false;
+            }
 
             return button;
         }
