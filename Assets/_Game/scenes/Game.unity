@@ -3017,7 +3017,7 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 248398566}
   m_CullTransparentMesh: 1
---- !u!1 &265262855
+--- !u!1 &255809347
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3025,9 +3025,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 265262858}
-  - component: {fileID: 265262857}
-  - component: {fileID: 265262856}
+  - component: {fileID: 255809350}
+  - component: {fileID: 255809349}
+  - component: {fileID: 255809348}
   m_Layer: 0
   m_Name: ArmedText (TMP)
   m_TagString: Untagged
@@ -3035,13 +3035,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 0
---- !u!114 &265262856
+--- !u!114 &255809348
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 265262855}
+  m_GameObject: {fileID: 255809347}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
@@ -3127,21 +3127,21 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!222 &265262857
+--- !u!222 &255809349
 CanvasRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 265262855}
+  m_GameObject: {fileID: 255809347}
   m_CullTransparentMesh: 1
---- !u!224 &265262858
+--- !u!224 &255809350
 RectTransform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 265262855}
+  m_GameObject: {fileID: 255809347}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
@@ -6083,7 +6083,7 @@ MonoBehaviour:
   languageValueLabel: {fileID: 326105092}
   resetProgressButton: {fileID: 610129763}
   resetProgressIdleLabel: {fileID: 1509802990}
-  resetProgressArmedLabel: {fileID: 265262855}
+  resetProgressArmedLabel: {fileID: 255809347}
   resetTutorialButton: {fileID: 321598932}
   aboutButton: {fileID: 650267824}
 --- !u!1 &451959339
@@ -8517,7 +8517,7 @@ RectTransform:
   m_Children:
   - {fileID: 1509802993}
   - {fileID: 1036315492}
-  - {fileID: 265262858}
+  - {fileID: 255809350}
   m_Father: {fileID: 449764287}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
@@ -20081,8 +20081,6 @@ MonoBehaviour:
   - {fileID: 294495644}
   - {fileID: 994625500}
   - {fileID: 143782811}
-  - {fileID: 2004454381}
-  - {fileID: 1728829862}
   - {fileID: 32385569}
   - {fileID: 684125597}
   - {fileID: 1538326959}
@@ -20137,7 +20135,7 @@ MonoBehaviour:
   - {fileID: 1351290228}
   - {fileID: 1509802991}
   - {fileID: 1036315490}
-  - {fileID: 265262856}
+  - {fileID: 255809348}
   - {fileID: 437242454}
   - {fileID: 372135506}
   - {fileID: 2027629027}
@@ -21910,7 +21908,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0225494e8149425880b19ba5e281826d, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: RoyalDecisions.Presentation::RoyalDecisions.Presentation.ProceduralTriangleIconGraphic
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -25539,7 +25537,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0225494e8149425880b19ba5e281826d, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: RoyalDecisions.Presentation::RoyalDecisions.Presentation.ProceduralTriangleIconGraphic
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
