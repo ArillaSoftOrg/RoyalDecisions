@@ -20,17 +20,6 @@ namespace RoyalDecisions.Presentation
         // prominent than the active card while still sharing the same art.
         private static readonly Color NextCardDimTint = new Color(0.62f, 0.62f, 0.62f, 1f);
 
-        // Without frame art, the name sits in the plain NameScrim band at the card's bottom edge
-        // (authored default, set by SceneSetupAutomation). With the real card frame active, its
-        // own built-in lower nameplate is higher up and off-centre from that band — measured from
-        // KartÇerçevesi.png's alpha channel: the nameplate spans y 0.0156-0.1875 (bottom-up),
-        // centred at ~0.102 — so the name must move up into it, or it overlaps the frame's bottom
-        // ornament instead of sitting inside the panel meant for it.
-        private static readonly Vector2 NameAnchorMinNoFrame = new Vector2(0.08f, 0.015f);
-        private static readonly Vector2 NameAnchorMaxNoFrame = new Vector2(0.92f, 0.105f);
-        private static readonly Vector2 NameAnchorMinWithFrame = new Vector2(0.14f, 0.055f);
-        private static readonly Vector2 NameAnchorMaxWithFrame = new Vector2(0.86f, 0.148f);
-
         [Header("Layout")]
         [Tooltip("The transform Phase 6 will drag. Defaults to this object's RectTransform.")]
         [SerializeField] private RectTransform cardRoot;
@@ -52,6 +41,8 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private Image portraitMaskImage;
         [Tooltip("Dark scrim behind the name label at the bottom of the portrait, for legibility.")]
         [SerializeField] private Image nameScrimImage;
+        [Tooltip("Dark scrim behind the situation/body text near the top of the portrait.")]
+        [SerializeField] private Image bodyScrimImage;
         [SerializeField] private Image[] cornerImages = System.Array.Empty<Image>();
         [SerializeField] private Image[] temporaryBorderImages = System.Array.Empty<Image>();
         [SerializeField] private PortraitFallbackView portraitFallbackView;
@@ -180,39 +171,33 @@ namespace RoyalDecisions.Presentation
             }
 
             ConfigureText(speakerText, theme.HighlightGold, theme.TitleFont);
-            // bodyText renders the situation panel above the card (light parchment), not the
-            // card's own dark surface, so it needs the theme's ink colour rather than PrimaryText.
-            ConfigureText(bodyText, theme.SituationText, theme.BodyFont);
-            RepositionNameForFrame(theme.CardFrameSprite != null);
+            // bodyText now renders directly over the bottom of the portrait (the parchment
+            // situation panel above the card was removed), so it needs a light colour readable
+            // over painted art, not the parchment ink colour SituationText used.
+            ConfigureText(bodyText, theme.PrimaryText, theme.BodyFont);
 
             if (nameScrimImage != null)
             {
-                // The real frame art already has its own dark nameplate band with enough contrast
-                // on its own (measured); stacking a second heavy scrim on top would double up on
-                // darkening for no benefit. Only the flat-card fallback (no frame art) needs it.
-                bool hasFrame = theme.CardFrameSprite != null;
-                nameScrimImage.color = new Color(0f, 0f, 0f, 0.55f);
+                // The themed plaque tried here read as a washed-out brown box behind the name, not
+                // the visual interest it was meant to add — the user asked for it gone. Disabled,
+                // not deleted, same as bodyScrimImage below: cheap to bring back with a better
+                // colour/graphic later.
                 nameScrimImage.raycastTarget = false;
-                nameScrimImage.enabled = !hasFrame;
+                nameScrimImage.enabled = false;
+            }
+
+            if (bodyScrimImage != null)
+            {
+                // At the user's explicit request: no dark scrim behind the story text any more —
+                // it now reads directly against the (now full-bleed) portrait. Left in place
+                // disabled, not deleted, so it is one flag flip to bring back if legibility over
+                // busy art turns out to need it.
+                bodyScrimImage.enabled = false;
             }
 
             portraitFallbackView?.ApplyTheme(theme);
             leftPreview?.ApplyTheme(theme);
             rightPreview?.ApplyTheme(theme);
-        }
-
-        private void RepositionNameForFrame(bool hasFrame)
-        {
-            RectTransform nameRect = speakerText != null ? speakerText.rectTransform : null;
-            if (nameRect == null)
-            {
-                return;
-            }
-
-            nameRect.anchorMin = hasFrame ? NameAnchorMinWithFrame : NameAnchorMinNoFrame;
-            nameRect.anchorMax = hasFrame ? NameAnchorMaxWithFrame : NameAnchorMaxNoFrame;
-            nameRect.offsetMin = Vector2.zero;
-            nameRect.offsetMax = Vector2.zero;
         }
 
         public float GetChoicePreviewStrength(ChoiceSide side)
@@ -375,7 +360,8 @@ namespace RoyalDecisions.Presentation
             Image queuedFrame = null,
             Image[] generatedBorders = null,
             PortraitFallbackView generatedPortraitFallback = null,
-            Image nameScrim = null)
+            Image nameScrim = null,
+            Image bodyScrim = null)
         {
             speakerText = speaker;
             bodyText = body;
@@ -395,6 +381,7 @@ namespace RoyalDecisions.Presentation
             portraitFrameImage = portraitFrame;
             portraitMaskImage = portraitMask;
             nameScrimImage = nameScrim;
+            bodyScrimImage = bodyScrim;
             cornerImages = corners ?? System.Array.Empty<Image>();
             nextCardRoot = queuedCard;
             nextCardSurface = queuedSurface;

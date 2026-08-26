@@ -2746,3 +2746,425 @@ incorrectly against auto-sizing text and was removed as invalid, not worked arou
 `isTextOverflowing`-based assertions it sat alongside all passed both times).
 `ProjectSettings/ProjectSettings.asset` again picked up the same recurring unrelated
 scripting-define-symbol churn; reverted again.
+
+---
+
+## HUD stat icons + SituationArea hidden, then restored (Game.unity)
+
+**Reverted same session** — the user asked to bring this back shortly after, with no relocation
+of `bodyText` ever implemented. `Game.unity` is back to its original committed state (both
+GameObjects `m_IsActive: 1`, matching `git diff` showing no change on this file). The rest of this
+section is kept as a record of what happened and why it's fragile, in case it's hidden again.
+
+**Re-hidden, then root-caused and restored, same day (2026-08-26).** After the restore above, a
+user screenshot showed the icon row rendering as four plain cream/beige rectangles and the
+situation panel as a plain white box (missing-sprite fallback rendering), and a later screenshot
+showed the card's gold frame gone too. `SituationArea`/`HUD` were hidden again as a stopgap, then
+**the real cause was found: six files under `Assets/Tasarım/` had been deleted from disk outside
+this session** (`git status` showed them as unstaged deletions — not something this session's `cp`
+overwrites could cause, since none of those commands ever remove a file). Three were files this
+session never touched at all (`KartÇerçevesi.png` — the card frame — plus both swipe banners);
+the other three-turned-five were `Otorite.png`, `Güvenlik.png`, `People.png`, `Servet.png`,
+`Parşömen.png`, which this session had repeatedly overwritten with new art but never committed.
+Fixed by `git checkout --` on the untouched files and all six `.meta`s (restoring the original
+GUIDs), then re-copying this session's latest processed versions over the five edited PNGs from
+scratchpad backups. `SituationArea`/`HUD` were then set back to active — **nothing was actually
+wrong with the scene, the theme asset, or the sprite pipeline; the asset files were simply gone.**
+If icons/frame/panel ever go blank again, check `git status` under `Assets/Tasarım/` for deletions
+before suspecting the scene or `DefaultGameUITheme.asset`.
+
+At the user's explicit request, the top stat-icon row and the parchment "situation" panel
+(speaker-less body text — the "Ömer kapıya koşar..." line shown above the card) are now hidden in
+`Game.unity`. This was a **two-line hand edit**, not a rebuild:
+
+- `SituationArea` GameObject (`fileID 1817811540`) — `m_IsActive: 1` → `0`
+- `HUD` GameObject (`fileID 1890239425`, holds the four `StatSlot_*`/`StatItemView` icons) —
+  `m_IsActive: 1` → `0`
+
+Both are simple `SetActive(false)`-equivalent flips — no hierarchy restructuring, no deleted
+references, trivially reversible (flip back to `1`). Nothing in code re-enables either object at
+runtime (`CardView` only toggles its own `root`/`nextCardRoot`; `StatItemView`/`HUDView` never call
+`SetActive` on their own slot), so the change sticks through Play Mode.
+
+**Important — this will NOT survive `Scene Setup > Apply Remaining Setup`.** Both objects are
+created via `EnsureUiChild` in `SceneSetupAutomation.cs` (`ConfigureSituationArea`, `ConfigureHud`),
+which does not preserve a disabled state — re-running Apply Remaining Setup / `ApplyBatch` will
+recreate or touch these objects and likely re-enable them. If that happens, just re-apply the same
+two `m_IsActive: 0` edits, or ask for them again.
+
+**Deferred, not decided:** hiding `SituationArea` removes the *only* place `CardView.bodyText` is
+displayed (`GameUITheme`/`SceneSetupAutomation` wire `CardView.bodyText` to
+`SituationArea/SituationPanel/SituationText`) — the card's narrative sentence has nowhere to render
+right now. The user was asked where it should go (back on the card, an overlay, etc.) and chose to
+defer that decision. **Before shipping, this needs a follow-up**: either give `CardView` its own
+body-text slot again, or re-enable `SituationArea` some other way — otherwise cards have no visible
+story text at all.
+
+- [ ] Decide where `bodyText` should render, then implement it
+- [ ] Re-check `SceneSetupAutomation.cs` (`ConfigureSituationArea`/`ConfigureHud`) if the decision is
+      "never show this again" — right now the generator still authors both objects active every time
+
+---
+
+## HUD stat numbers moved beside their icons (Game.unity, 2026-08-26)
+
+The numeric value next to each HUD stat icon was **not a new feature** — `StatItemView.SetValue`
+and its `valueText` field already existed, and `Game.unity` already had all four `Value` TMP
+objects wired and active, showing `50` under each icon. At the user's explicit request, the layout
+changed from icon-over-value (number below the icon) to icon-left/value-right (number beside it).
+
+**No Unity Editor/CLI was available this session**, so this was a **direct hand edit** of
+`Game.unity` — normally against CLAUDE.md §11, done here only because the user explicitly asked for
+this specific change. `SceneSetupAutomation.cs` (`ConfigureHud`) was updated to the same numbers
+first, so a future `Scene Setup > Apply Remaining Setup` / `ApplyBatch` run regenerates this same
+layout instead of reverting it (unlike the `SituationArea`/`HUD` visibility flip above, which the
+generator does still fight).
+
+Per-stat `Icon` and `IconFallback` RectTransforms (mirrored, same anchors) — center `(0.25, 0.50)`,
+half-extents `= (0.20, 0.22) * iconScale`:
+
+| Stat | `iconScale` | Icon/IconFallback `fileID`s | New anchors |
+|---|---|---|---|
+| Security | 0.79 | `59821391` / `658879000` | min `(0.092, 0.3262)` max `(0.408, 0.6738)` |
+| Wealth | 0.92 | `1739104486` / `409676871` | min `(0.066, 0.2976)` max `(0.434, 0.7024)` |
+| People | 1.14 | `1415560162` / `1809810430` | min `(0.022, 0.2492)` max `(0.478, 0.7508)` |
+| Authority | 1.17 | `980017105` / `2073392532` | min `(0.016, 0.2426)` max `(0.484, 0.7574)` |
+
+`Value` RectTransforms — same box for all four: min `(0.52, 0.25)` max `(0.98, 0.75)`.
+`fileID`s: Security `1304995193`, Wealth `2124949868`, People `451959342`, Authority `1478265319`.
+
+`Name` (hidden label), `Impact` (+/- flash badge) and `Critical` ("!" badge) rects were left
+untouched — they already overlay near the icon's top corner and still make sense there.
+
+**Not visually verified** — there is no way to render Unity from this session. Please check in the
+Editor:
+
+- [ ] Open `Game.unity`, enter Play Mode (or just look in Scene view) — each of the four stat icons
+      should have its number immediately to its right, vertically centered, not clipped or
+      overlapping the icon or the impact/critical badges
+- [ ] All four numbers stay legible at 0, 50 and 100 (2 vs 3 digits) — auto-size range is unchanged
+      (`40`–`48`pt)
+- [ ] If it looks wrong, the fastest fix is nudging the `m_AnchorMin`/`m_AnchorMax` values above
+      directly in the Inspector (Icon/Value RectTransforms) rather than re-running scene automation
+
+**Reverted (same session, minutes later) — the user asked to remove the numbers again.** Rather
+than deleting the four `Value` GameObjects (which would also drop `StatItemView.valueText`'s
+wiring and need re-adding by hand later), they were **hidden** the same way the `Name` label
+already is: `m_IsActive: 1` → `0` on each of the four `Value` objects (`fileID`s `451959339`
+People, `1304995190` Security, `1478265316` Authority, `2124949865` Wealth). `SceneSetupAutomation.
+cs` (`ConfigureHud`) now calls `SetActiveIfNeeded(valueTransform.gameObject, false)` right after
+configuring the `Value` text, mirroring the `Name` label, so `Apply Remaining Setup`/`ApplyBatch`
+won't re-enable it. `StatItemView.SetValue` still runs and still writes the number every turn —
+it's just invisible. Flip `m_IsActive` back to `1` (and delete that one `SetActiveIfNeeded` call)
+to bring the numbers back.
+
+**Icons moved up (same session, right after).** Per-stat `Icon`/`IconFallback` boxes (same eight
+`fileID`s listed above) kept their size and x-position but their vertical center moved from `0.50`
+to `0.68` within the slot — `ConfigureHud`'s icon anchor formula changed from
+`(0.25, 0.50) ± (0.20, 0.22) * iconScale` to `(0.25, 0.68) ± (0.20, 0.22) * iconScale`. `Value`
+boxes were left where they are (still hidden, so it doesn't matter visually right now, but if the
+numbers are ever re-shown they'll sit lower/off-center from the icons — re-check then).
+
+**Icons pulled closer together (same session, right after that).** The four icons were each
+hugging the left edge of their own slot (x-center `0.25`) — a leftover from the icon-left/
+value-right layout, but with the number now hidden it just left a large empty gap to the right of
+every icon between it and the next one. Recentered to slot-center (x `0.5`) instead, same eight
+`fileID`s, same y and size — `ConfigureHud`'s formula is now `(0.5, 0.68) ± (0.20, 0.22) *
+iconScale`. If this still isn't tight enough, the next lever is the `HUD` object's
+`HorizontalLayoutGroup` (`spacing: 8`, `padding: 12,12,12,12`), not the icon boxes.
+
+**Icons enlarged (same session, right after that).** Base half-extent multipliers raised
+`0.20 → 0.23` (width) and `0.22 → 0.25` (height), about a 13–15% size increase, same eight
+`fileID`s, same center. `ConfigureHud`'s formula is now `(0.5, 0.68) ± (0.23, 0.25) * iconScale`.
+The tallest icon (People, `iconScale 1.14`) now spans y `0.395`–`0.965` of its slot — comfortably
+inside `0..1`, no clipping, but there isn't much headroom left for another size increase without
+also lowering the `0.68` vertical center or shrinking `iconScale`'s spread.
+
+**Icons pulled closer together again, this time via layout (same session, right after that).** The
+per-icon box was already centered in its own slot (see above), so there was no more room to close
+the gap that way — the four `StatSlot_*` columns themselves needed to shrink. Changed the `HUD`
+GameObject's `HorizontalLayoutGroup` (`fileID 1890239429`): `m_Padding` left/right `12 → 48` (top/
+bottom unchanged), `m_Spacing` `8 → 2`. With `childForceExpandWidth` on, all four slots still
+divide the remaining width equally, but that remaining width is now smaller, so each slot — and
+the icon centered in it — sits closer to its neighbours. `ConfigureHud` updated to match
+(`layout.padding = new RectOffset(48, 48, 12, 12); layout.spacing = 2f;`). The first/last icons are
+also now inset further from the screen's left/right edges as a side effect — check that still looks
+right at 16:9 vs. 21:9 in Device Simulator.
+
+**One more notch, same lever (same session, right after that).** `m_Padding` left/right `48 → 64`
+(kept equal to each other, top/bottom still `12`), `m_Spacing` `2 → 0`. All four slots are equal
+width by construction (`childForceExpandWidth`), so with spacing now zero every slot boundary sits
+flush against the next — the four icons are evenly spaced by definition, not just visually close.
+
+**Wealth (gold/Servet) icon enlarged to match the others' apparent height (same session, right
+after that).** The user confirmed it was reading visibly shorter than the other three. Its
+`iconScale` in `ConfigureHud`'s `iconScales` array went `0.92 → 1.05` (People `1.14`, Security
+`0.79`, Authority `1.17` unchanged) — this is a **visual estimate, not a re-measurement** of
+`Servet.png`'s alpha bounding box (no Unity Editor available this session to check), so it may need
+another nudge. `fileID`s `1739104486` (Icon) and `409676871` (IconFallback) both moved to anchors
+min `(0.2585, 0.4175)` max `(0.7415, 0.9425)`.
+
+- [ ] Compare all four icon heights side by side in the Editor; if gold is still off, adjust
+      `iconScales[3]` in `SceneSetupAutomation.cs` up or down and re-derive the two `fileID`s above
+      with the same `(0.5, 0.68) ± (0.23, 0.25) * iconScale` formula used for the others.
+
+**Wealth artwork replaced entirely (2026-08-27).** `Assets/Tasarım/Servet.png` was overwritten with
+a new "ERZAK" (survival-supplies tin/canteen/rations) badge the user supplied, at their explicit
+request, to fit the zombie/post-apocalypse re-theme better than the old gold-pile art. Same
+filename, same `.meta`/GUID (`49f2c3aa704870441a8c0da0849286d2`) — a straight byte replacement, so
+nothing in `Game.unity` or `SceneSetupAutomation.cs` needed to change to pick it up. Old `1322×1190`
+→ new `1346×1168`, both RGBA.
+
+- [ ] **The `iconScales[3] = 1.05f` tuning above was calibrated for the old artwork's padding, not
+      this one — treat it as stale.** The new badge looks like a tight circular coin nearly filling
+      its canvas (high alpha fill, more like Security's `0.79` than the old Wealth guess), so it
+      will very likely render too large now. Compare against the other three icons in the Editor
+      and adjust `iconScales[3]` (then re-derive `fileID`s `1739104486`/`409676871` with the
+      `(0.5, 0.68) ± (0.23, 0.25) * iconScale` formula) rather than assuming `1.05` still holds.
+- [ ] Confirm the label/theme still reads correctly if "Servet" (Wealth) is now visually
+      "provisions" — `GetStatName`/`GetStatLabel` text wasn't touched here and may want a rename to
+      match (out of scope for this edit; flagging only).
+
+**Card frame artwork replaced (2026-08-27).** `Assets/Tasarım/KartÇerçevesi.png` was overwritten
+with new rusted/scorched-metal frame art the user supplied, matching the zombie/post-apocalypse
+re-theme. Same filename, same `.meta`/GUID, same `1024×1536` RGBA dimensions as the file it
+replaced — a straight byte swap, nothing in `Game.unity`/`SceneSetupAutomation.cs` needed to
+change. The user first sent a *full card mockup* (baked title/body/portrait/card-number) for this
+same request; that was correctly identified as a style reference only and not applied, then this
+frame-only (transparent-feeling black center, no baked text) follow-up image was applied instead.
+
+- [ ] Check the card in the Editor — confirm the new frame's proportions still leave room for
+      `CardView`'s `Speaker`/`Body`/`Portrait`/preview children without the rust/crack detailing at
+      the edges clipping into them.
+
+**Unrelated file also showing modified:** `git status` reports
+`Assets/_Game/Art/Fonts/Resources/LiberationSans-Turkish SDF.asset` as changed. Nothing in this
+session touched TMP font assets — likely Unity regenerating the font atlas in the background if the
+Editor is open. Verify before committing; revert it if it's not an intentional change.
+
+---
+
+## Portrait fill + situation text moved onto the card (2026-08-27)
+
+Two related, user-requested changes, both **hand-edited directly in `Game.unity`** (no Unity
+Editor/CLI available this session) and mirrored into `SceneSetupAutomation.cs` so a future
+`Apply Remaining Setup`/`ApplyBatch` regenerates the same result instead of reverting it.
+
+### 1 — Portrait now fills nearly the whole frame
+
+The user reported (via a screenshot) a visible black gap between the portrait and the new rusted
+frame's inner edge — expected, since `PortraitRegion`'s anchors were still the *old* ornate frame's
+hand-measured window (`0.117,0.188`–`0.887,0.914`), never updated when `KartÇerçevesi.png` was
+replaced. `GetPixel` via PowerShell/System.Drawing reported this PNG's alpha channel as uniformly 0
+everywhere (including clearly-opaque border pixels) — unreliable for this file, not used. Instead,
+RGB-brightness transitions were sampled along the image's center row/column (see the code comment
+at `ConfigureCard`'s `PortraitRegion` block) to estimate the border thickness, giving new anchors
+`0.0352,0.0514`–`0.9639,0.9329`. Changed in both `Game.unity` (`fileID 1255454278`) and
+`SceneSetupAutomation.cs`.
+
+- [ ] **Confirm visually — this is an estimate, not a measured value.** If the portrait now bleeds
+      past the frame's inner edge, or a gap remains, adjust `PortraitRegion`'s anchors (same file,
+      same fileID) directly, or re-derive from a real alpha/pixel measurement inside Unity (which
+      can read this PNG's actual alpha correctly, unlike the external tool used here).
+
+### 2 — Situation text moved from the parchment panel onto the card itself
+
+At the user's explicit decision (resolving the "deferred" item from the frame-swap session above):
+`SituationArea` (the parchment panel showing the narrative line above the card) is now **hidden**
+(`m_IsActive: 0`, `fileID 1817811540` — not deleted, so it's cheap to bring back), and `CardView`
+gained a body-text slot on the card itself, styled like the existing bottom `NameScrim`/`Speaker`
+pair but at the top of the portrait:
+
+- New `Card/BodyScrim` (`Image`, dark `0,0,0,0.55` scrim, anchors `0,0.75`–`1,0.9329` — flush with
+  `PortraitRegion`'s new top edge from change #1) and `Card/Body` (`TextMeshProUGUI`, wrapping,
+  32pt auto-sizing 20–32, anchors `0.08,0.765`–`0.92,0.918`). New scene `fileID`s: `900000101`–
+  `900000104` (BodyScrim's GameObject/RectTransform/Image/CanvasRenderer) and `900000201`–
+  `900000204` (Body's GameObject/RectTransform/TextMeshProUGUI/CanvasRenderer) — hand-authored by
+  cloning `NameScrim`'s and the old `SituationText`'s exact structure with new unique fileIDs, added
+  to `Card`'s `m_Children` list (`fileID 569737566`) right after `Speaker`, sibling indices 5–6.
+- `CardView.cs`: added a `bodyScrimImage` field (mirrors `nameScrimImage`, but **unconditionally**
+  enabled in `ApplyTheme` — unlike the name plate, no frame art has ever had a built-in band for
+  situation text, so it isn't gated on `hasFrame`). `bodyText`'s runtime colour changed from
+  `theme.SituationText` (dark ink, meant for parchment) to `theme.PrimaryText` (light, meant for a
+  dark scrim over art) — the old colour would have been unreadable in the new location.
+  `SetAuthoringReferences` gained a `bodyScrim` parameter.
+- `SceneSetupAutomation.cs`: `ConfigureCard` now builds `BodyScrim`/`Body` and wires
+  `CardView.bodyText`/`bodyScrimImage` directly (previously the caller wired `bodyText` to
+  `SituationArea`'s text — that line is gone). `ConfigureSituationArea` now hides its own root via
+  `SetActiveIfNeeded`. **Deleted** `RemoveLegacyCardBody` — it existed specifically to destroy a
+  leftover `Card/Body` object from *before* the parchment-panel design; that design is now reversed,
+  so the method's entire premise is gone. The `ValidateBatch` check at the same site flipped from
+  "`Card/Body` must not exist" to "`Card/BodyScrim` and a correctly-coloured `Card/Body` must
+  exist, and `SituationArea` must be inactive".
+
+- [ ] **Not visually verified — confirm in the Editor.** Check the body text band doesn't collide
+      with the `Speaker` name plate at the bottom, reads clearly over busy portrait art, and that
+      `BodyScrim`'s top edge (`0.9329`) actually lines up with the portrait's new top edge from
+      change #1 (both were set to the same value by hand; re-check if change #1's estimate gets
+      adjusted later, since these two are no longer linked by a shared variable, just by two edits
+      that happened to use the same number).
+- [ ] Re-run `Tools > Royal Decisions > Scene Setup > Validate` once Unity is available — this was
+      never executed this session; the validator changes above are logic-reviewed, not tool-run.
+- [ ] Full `EditMode`/`PlayMode` test run needed — nothing here was executed. In particular check
+      any test that asserts on `SituationArea`'s active state, `CardView.bodyText`'s wiring target,
+      or `SituationTextLayoutPlayModeTests` (which targets the still-present but now-inactive
+      `SituationPanel/SituationText`, unaffected by these changes but worth re-confirming).
+
+---
+
+## Card layout overhaul: full-bleed portrait, name/story swap, bigger icons (2026-08-27)
+
+Follow-up in the same session, after the compile error above (`CS0102`, a genuine duplicate
+`BodyTextColour` constant from the previous edit — fixed by deleting my duplicate and reusing the
+pre-existing one). All still hand-edited directly in `Game.unity`; still no Unity available.
+
+1. **Portrait is now full-bleed.** `PortraitRegion` (`fileID 1255454278`) anchors changed from the
+   brightness-estimated window to a plain `(0,0)`–`(1,1)` stretch. Reasoning: `Frame` already
+   renders *above* `PortraitRegion` in sibling order with an opaque border, so the frame itself
+   masks the portrait's edges — no need to estimate the window at all. Simpler and more robust than
+   the previous estimate; supersedes it.
+2. **Speaker name and story text swapped ends of the card**, at the user's explicit request:
+   - `NameScrim`/`Speaker` (`fileID`s `1620275353` RectTransform, `1620275351` Image, `850269775`
+     Speaker RectTransform) moved from the bottom band to the top (`y 0.88–1`, text `y 0.895–0.985`).
+   - `BodyScrim`/`Body` (`fileID`s `900000102`, `900000202`) moved from the top band to the bottom
+     (`y 0–0.19`, text `y 0.017–0.173`) — the exact mirror of where the name used to sit.
+   - Field/object names were **not** renamed (`nameScrimImage` now backs the top plaque,
+     `bodyScrimImage` the — now invisible — bottom one) to avoid touching every reference; this is a
+     naming/reality mismatch worth cleaning up later, not a functional issue.
+3. **Top plaque instead of empty space.** The user said the top looked too bare even with the name
+   there and left the treatment up to me: `NameScrim`'s Image (`fileID 1620275351`) is no longer a
+   black scrim — it's a dark olive/khaki plaque (`Color32(0x2E,0x2A,0x1C,0xCC)`, new
+   `TopPlaqueColour` constant), now unconditionally enabled (previously `!hasFrame`-gated, since the
+   old logic assumed the frame art itself supplied a nameplate band — untrue for the new frame, and
+   moot now that this isn't a "name scrim" anymore). `CardView.RepositionNameForFrame` and its four
+   `NameAnchorMin/MaxWithFrame/NoFrame` constants were **deleted outright** — they existed only to
+   runtime-override the name's position for the old frame's baked nameplate, which no longer applies
+   and was fighting the new authored position every time `ApplyTheme` ran.
+4. **Story background darkness removed**, at the user's explicit request
+   ("hikayenin arkaplanındaki siyahlığı kaldır"): `bodyScrimImage.enabled = false` unconditionally in
+   `CardView.ApplyTheme` (was `true` unconditionally, added the same session). The GameObject/Image
+   is still authored (`m_Enabled: 0` baked into the scene too) — one flag flip to bring back if the
+   story text turns out illegible over busy portrait art now that there's no scrim and the portrait
+   is full-bleed behind it.
+5. **HUD icons enlarged again**, at the user's request ("iconları da daha da büyültmeye çalış"):
+   half-extent multipliers `0.23/0.25 → 0.26/0.29`, vertical center lowered `0.68 → 0.62` to keep
+   the tallest icon (Authority, `iconScale 1.17`, now spanning y `0.2807–0.9593`) inside `0..1` —
+   the previous center had no headroom left for this. Same eight `fileID`s as every prior icon-size
+   pass. This is the fourth icon-size iteration this session; there is very little margin left for a
+   fifth without lowering the center further or increasing slot height.
+
+All of `SceneSetupAutomation.cs`'s `ConfigureCard`/`ConfigureHud` were updated to match, so a future
+`Apply Remaining Setup`/`ApplyBatch` reproduces this layout rather than reverting it.
+
+- [ ] **None of this has been seen rendered.** Open `Game.unity` and check, in order: portrait
+      reaches the frame's actual edges without under- or over-shooting; the name plaque at the top
+      doesn't collide with the `CornerTopLeft`/`CornerTopRight` decorations (also anchored to the
+      top corners, unrelated to this change); the story text at the bottom is legible directly over
+      portrait art with no scrim; all four HUD icons look consistently sized and don't clip their
+      slot.
+- [ ] Recompile clean — reload the project / let Unity finish recompiling and confirm the Console
+      has no errors (the `CS0102` from this session's previous turn should be the only one that
+      occurred, and it's fixed).
+
+---
+
+## Name/story bands pulled onto the visible card, plaque removed (2026-08-27)
+
+A screenshot after the change above showed the name floating in the *background above the card*,
+not on it — `KartÇerçevesi.png`'s 1024×1536 canvas has more transparent/glow margin above and below
+the drawn metal border than assumed, so both bands (name at `y 0.88–1`, story at `y 0–0.19`),
+anchored flush to the Card RectTransform's own edges, landed partly or fully in that margin instead
+of on the visible card. Also: the olive/khaki name plaque read as a washed-out muddy brown box, not
+the visual interest it was meant to add — user asked for it gone outright, not recoloured again.
+
+- `nameScrimImage` (`fileID 1620275351`) — disabled again (`m_Enabled: 0` in the scene,
+  `enabled = false` unconditionally in `CardView.ApplyTheme`, same treatment as `bodyScrimImage`).
+  Not deleted — the GameObject/RectTransform stay, just invisible.
+- Name band pulled down 0.08: `NameScrim` (`fileID 1620275353`) `y 0.88–1 → 0.8–0.92`; `Speaker`
+  (`fileID 850269775`) `y 0.895–0.985 → 0.815–0.905`.
+- Story band pulled up 0.08 (the mirror move): `BodyScrim` (`fileID 900000102`) `y 0–0.19 →
+  0.08–0.27`; `Body` (`fileID 900000202`) `y 0.017–0.173 → 0.097–0.253`.
+- `SceneSetupAutomation.cs`'s `ConfigureCard` updated to the same values so `Apply Remaining
+  Setup`/`ApplyBatch` reproduces this instead of reverting it.
+
+This is a **flat 0.08 shift guess, not a remeasurement** — GDI+ still can't read this PNG's alpha
+reliably (see the portrait-fill note earlier in this file), and there was no second screenshot to
+confirm the new numbers land correctly.
+
+- [ ] **Confirm both bands now sit fully within the card's visible frame**, not spilling above the
+      top edge or below the bottom edge, and not touching `PortraitRegion`'s masked content in a way
+      that looks cramped. If either is still off, nudge `y` on the four `fileID`s above directly —
+      they no longer share a single variable/constant, so each needs its own adjustment.
+- [ ] Top of the card will read as empty again now that the plaque is gone — expected, matches what
+      the user asked for this turn. If they want the "give the top some visual interest" request
+      revisited, that's a separate follow-up, not implied by this change.
+
+---
+
+## HeaderDivider — ornamental divider filling the HUD-to-card gap (2026-08-27)
+
+A later screenshot showed a different empty area — not the card, but the gap between the HUD icons
+and the top of the card (the space `SituationArea`'s parchment panel used to occupy before it was
+hidden). Asked what to do about it; user picked "add something" over "shrink the gap", and said to
+make it professional/polished, leaving the exact treatment up to me.
+
+Added `SafeArea/HeaderDivider`: two thin gold bars flanking a small two-layer diamond ornament (a
+dark `CardSurfaceColour` diamond behind a smaller `BorderGoldColour` one, for a rivet/gem look
+instead of a flat rotated square) — reusing colours already established throughout the game's
+buttons/borders rather than introducing anything new. New method `ConfigureHeaderDivider` in
+`SceneSetupAutomation.cs`, called right after `ConfigureSituationArea`; added to the canonical
+SafeArea sibling-ordering block (now `topBar, hud, situationArea, headerDivider, card, tapChoices,
+footer, tutorial, gameOver`) and to `ValidateBatch`. New scene `fileID`s: `900001001`/`900001002`
+(root GameObject/RectTransform), `900001101`–`900001104` (LineLeft), `900001201`–`900001204`
+(LineRight), `900001301`–`900001304` (DiamondOuter), `900001401`–`900001404` (DiamondInner) — added
+to `SafeArea`'s (`fileID 185074434`) `m_Children` at index 3.
+
+Positioned deliberately by **reusing `SituationArea`'s own proven coordinates** (top-anchored,
+`anchoredPosition.y = -288`, spanning the same 208–368-units-below-top band that panel used) rather
+than re-deriving the HUD/card gap from scratch — that band is known-good since it's exactly where
+the parchment panel rendered correctly before being hidden, sidestepping the whole "can't reliably
+read this file's measurements" problem that affected the portrait/frame work earlier in this file.
+
+- [ ] **Not visually verified.** Confirm in the Editor: the divider sits centred in the gap, doesn't
+      collide with the HUD's icons/bars above or the card's top edge below, the diamond looks like a
+      deliberate ornament (not a stray rotated square if the rotation didn't apply correctly), and it
+      reads as "structural/branding" rather than random clutter.
+- [ ] Re-run `Tools > Royal Decisions > Scene Setup > Validate` — the four new `RequirePath` checks
+      added for `HeaderDivider`'s children were never executed this session.
+
+**Reverted, same session, before ever being seen rendered.** The user changed their mind (chose
+"shrink the gap" over "decorate it" — see the entry directly below) before this was checked in the
+Editor. All of it removed cleanly: the `ConfigureHeaderDivider` method, its call site, its four
+`ValidateBatch` checks, and its `SetSiblingIndex` ordering-block entry, from
+`SceneSetupAutomation.cs`; all 18 objects/components (`fileID`s `900001001`–`900001404`) and the
+`SafeArea` (`fileID 185074434`) `m_Children` entry pointing at it, from `Game.unity`. Verified
+afterward: zero remaining references to any `900001*` `fileID` anywhere in the scene file.
+
+---
+
+## HUD-to-card gap shrunk instead (2026-08-27)
+
+Chosen over the divider above. `CardArea`'s top margin — the space between `HUD` and the card,
+previously sized to clear `HUD` (208) + the old `SituationArea` panel (160) + a 12-unit gap (380
+total) — reduced to just `HUD` (208) + the same 12-unit gap (220 total), reclaiming the 160 units
+`SituationArea` used to occupy now that its panel is hidden. Bottom margin (80) unchanged.
+
+`CardArea`'s RectTransform (`fileID 2068159500`) is a full-stretch rect (`anchorMin (0,0)` –
+`anchorMax (1,1)`) with `pivot (0.5, 0.5)`, so top/bottom margins aren't independent offsets — both
+come out of `anchoredPosition.y` and `sizeDelta.y` together
+(`bottom = anchoredPosition.y - sizeDelta.y × 0.5`, `top = -anchoredPosition.y - sizeDelta.y × 0.5`).
+Solved for the target `(top 220, bottom 80)`: `anchoredPosition.y: -150 → -70`,
+`sizeDelta.y: -460 → -300`. Changed in both `Game.unity` and `SceneSetupAutomation.cs`'s
+`ConfigureCard` (which now also documents the formula, so the next margin change doesn't need to
+re-derive it from scratch).
+
+`Card` itself keeps a fixed authored size (`880×1320`) in the scene, but `ResponsiveCardSizer`
+(already attached, already reacting to `CardArea`'s bounds at runtime — see
+`ConfigureCard`'s `sizer?.RecalculateLayout()`) should pick up the 160-unit-taller `CardArea`
+automatically in Play Mode without any further scene change; nothing needed to be done to `Card`'s
+own RectTransform by hand.
+
+- [ ] **Not visually verified.** Confirm the card now sits directly under the HUD with just a small
+      gap, doesn't crowd the icons above it, and — since `CardArea` is now taller — check whether
+      `ResponsiveCardSizer` grows the card noticeably (it read as a bonus while writing this, not
+      something separately requested; flag it if it looks like too much).
