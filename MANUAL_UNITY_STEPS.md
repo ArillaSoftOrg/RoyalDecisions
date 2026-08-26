@@ -3300,3 +3300,74 @@ necessary but not sufficient.
 - [ ] `Assets/_Game/scenes/Game.unity` and `MainMenu.unity` are now modified in the working tree
       (`git status`) — nothing was committed. Review and commit when satisfied with the Play Mode
       check above.
+
+---
+
+## Coded startup intro (Bootstrap)
+
+A native Unity UI/C# logo reveal that plays before `MainMenu` loads. **No video file is used or
+shipped anywhere in this feature** — `IntroSequenceController` animates a `CanvasGroup` (alpha),
+a `RectTransform` (scale) and an `Image` (brightness) with plain coroutines and an
+`AnimationCurve`; there is no `VideoPlayer`, no MP4, no third-party tween library. `IntroSceneSetup`
+is a standalone Editor tool that wires it into `Bootstrap.unity`. Neither runs automatically —
+**Bootstrap.unity has not been touched by this change**; the scene file on disk still matches
+`origin/main` until I2 below is run once in the Editor.
+
+### I1 — Provide the logo artwork
+
+- [ ] Place one transparent PNG of the complete Arilla Games logo at
+      `Assets/_Game/Art/Branding/ArillaGamesLogo.png`
+- [ ] On import, set `Texture Type` = **Sprite (2D and UI)**
+
+Until this file exists, `Tools > Royal Decisions > Scene Setup > Intro > Apply Intro Setup` still
+runs and wires everything else, but the intro has no sprite to show — `IntroSequenceController`
+detects that and skips straight to `MainMenu`, so the game is never blocked on missing art.
+
+### I2 — Run the Intro scene setup
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Intro > Apply Intro Setup`
+- [ ] Console reports `[IntroSceneSetup] Bootstrap intro wiring applied.` with no errors
+
+This creates/updates `IntroCanvas` (`BlackBackground` + `Logo`) and an `EventSystem` inside
+`Bootstrap.unity` (1080x1920 `CanvasScaler`, matching every other scene), assigns `Logo`'s sprite
+from I1 if present, and wires `BootstrapController.introSequence` to the new controller. Safe to
+re-run at any time — every step finds-or-creates rather than duplicating, sibling order and
+component state are re-asserted each run, and re-running after adding the PNG from I1 picks it up.
+Editor property changes are `Undo`-recorded; `Ctrl+Z` right after running it reverts them in that
+Editor session if the result looks wrong before you save.
+
+If this step has **not** been run yet, `BootstrapController.introSequence` is unassigned and the
+game behaves exactly as it did before this feature existed: Bootstrap loads MainMenu immediately,
+no intro, no behavior change.
+
+### Expected behavior once wired
+
+- **Timeline (unscaled seconds, ~3.30s total):** `0.00–0.35` pure black · `0.35–1.25` logo fades
+  in (alpha 0→1) while scaling 0.92→1.0 with a quick-start/settle ease and a subtle brightness
+  ramp · `1.25–2.30` hold with one gentle scale/brightness breathing pulse (≤1.5% scale, peaks at
+  the midpoint, zero at both ends — no pop against the fades) · `2.30–3.10` fades out (alpha 1→0)
+  while scaling 1.0→1.02 · `3.10–3.30` black hold · then `MainMenu` loads, exactly once.
+- **Skip:** one tap/click anywhere on screen (the black background is the full-screen hit target)
+  jumps straight to `MainMenu`. Safe against rapid repeated taps and against a tap arriving before
+  the sequence has started — both resolve to exactly one `MainMenu` load, never zero, never two.
+- **Fallback:** if the logo sprite, any of its three component references, or Play Mode itself is
+  missing, the intro completes immediately with no animation and `MainMenu` loads right away —
+  startup is never blocked on missing art or misconfiguration.
+- **Reduced motion:** `BootstrapController` reads the already-loaded `GameSettings.ReducedMotion`
+  and calls `IntroSequenceController.SetReducedMotion` before playing — when on, the intro becomes
+  a brief plain fade (no scale/glow motion, no black holds, capped durations) rather than being
+  skipped outright, matching how `CardSwipeController`/`PanelFadeAnimator` already treat reduced
+  motion elsewhere in the game.
+
+### I3 — Verify in the Editor
+
+- [ ] Enter Play Mode from `Bootstrap.unity` — logo fades/scales in, holds, fades out, then
+      `MainMenu` loads exactly once
+- [ ] Tap/click anywhere during the intro — it skips straight to `MainMenu`, still exactly once
+- [ ] Temporarily clear `Logo`'s sprite and re-enter Play Mode — `MainMenu` loads immediately, no
+      error in the Console
+- [ ] In Settings, enable **Reduced Motion**, re-enter Play Mode — a short plain fade plays instead
+      of the full reveal, still exactly one `MainMenu` load
+- [ ] Console clean throughout
+- [ ] `Window > General > Test Runner > EditMode` — `IntroSequenceControllerTests` and
+      `BootstrapControllerTests` both green alongside the existing suite

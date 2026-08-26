@@ -1,0 +1,455 @@
+fileFormatVersion: 2
+guid: 2f718281db1aef24cbe53cf165dbf182
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -3710140225042401558
+    second: ArillaGamesLogo_0
+  - first:
+      213: -4309841736535624495
+    second: ArillaGamesLogo_1
+  - first:
+      213: 8046092198519969588
+    second: ArillaGamesLogo_2
+  - first:
+      213: 8857162894884392144
+    second: ArillaGamesLogo_3
+  - first:
+      213: -2784424515552846445
+    second: ArillaGamesLogo_4
+  - first:
+      213: -8778880719831244155
+    second: ArillaGamesLogo_5
+  - first:
+      213: -9104420505697272416
+    second: ArillaGamesLogo_6
+  - first:
+      213: -5068788053961737780
+    second: ArillaGamesLogo_7
+  - first:
+      213: 3382542368939995243
+    second: ArillaGamesLogo_8
+  - first:
+      213: -1296181478593813847
+    second: ArillaGamesLogo_9
+  - first:
+      213: -1595539157164102554
+    second: ArillaGamesLogo_10
+  - first:
+      213: -7395186433844432757
+    second: ArillaGamesLogo_11
+  - first:
+      213: 5502837827683929811
+    second: ArillaGamesLogo_12
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: ArillaGamesLogo_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 385
+        width: 762
+        height: 869
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ae6b57b5f1fe28cc0800000000000000
+      internalID: -3710140225042401558
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_1
+      rect:
+        serializedVersion: 2
+        x: 498
+        y: 385
+        width: 756
+        height: 869
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1d434af66cd5034c0800000000000000
+      internalID: -4309841736535624495
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_2
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 164
+        height: 322
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 43713da793679af60800000000000000
+      internalID: 8046092198519969588
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_3
+      rect:
+        serializedVersion: 2
+        x: 201
+        y: 256
+        width: 59
+        height: 66
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0dcca53c9b6faea70800000000000000
+      internalID: 8857162894884392144
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_4
+      rect:
+        serializedVersion: 2
+        x: 302
+        y: 256
+        width: 17
+        height: 66
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 39d5596d7acbb59d0800000000000000
+      internalID: -2784424515552846445
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_5
+      rect:
+        serializedVersion: 2
+        x: 364
+        y: 256
+        width: 50
+        height: 66
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 582eee07f762b2680800000000000000
+      internalID: -8778880719831244155
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_6
+      rect:
+        serializedVersion: 2
+        x: 453
+        y: 256
+        width: 50
+        height: 66
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0adb12099c996a180800000000000000
+      internalID: -9104420505697272416
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_7
+      rect:
+        serializedVersion: 2
+        x: 541
+        y: 256
+        width: 73
+        height: 66
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cc9fdd9de1c08a9b0800000000000000
+      internalID: -5068788053961737780
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_8
+      rect:
+        serializedVersion: 2
+        x: 698
+        y: 255
+        width: 65
+        height: 68
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b607062fc5431fe20800000000000000
+      internalID: 3382542368939995243
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_9
+      rect:
+        serializedVersion: 2
+        x: 797
+        y: 257
+        width: 72
+        height: 65
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9a2a9fb00d9030ee0800000000000000
+      internalID: -1296181478593813847
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_10
+      rect:
+        serializedVersion: 2
+        x: 906
+        y: 256
+        width: 73
+        height: 66
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 66ce10017918bd9e0800000000000000
+      internalID: -1595539157164102554
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_11
+      rect:
+        serializedVersion: 2
+        x: 1021
+        y: 256
+        width: 52
+        height: 66
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b803aeaae150f5990800000000000000
+      internalID: -7395186433844432757
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ArillaGamesLogo_12
+      rect:
+        serializedVersion: 2
+        x: 1113
+        y: 255
+        width: 53
+        height: 68
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3decea759d10e5c40800000000000000
+      internalID: 5502837827683929811
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      ArillaGamesLogo_0: -3710140225042401558
+      ArillaGamesLogo_1: -4309841736535624495
+      ArillaGamesLogo_10: -1595539157164102554
+      ArillaGamesLogo_11: -7395186433844432757
+      ArillaGamesLogo_12: 5502837827683929811
+      ArillaGamesLogo_2: 8046092198519969588
+      ArillaGamesLogo_3: 8857162894884392144
+      ArillaGamesLogo_4: -2784424515552846445
+      ArillaGamesLogo_5: -8778880719831244155
+      ArillaGamesLogo_6: -9104420505697272416
+      ArillaGamesLogo_7: -5068788053961737780
+      ArillaGamesLogo_8: 3382542368939995243
+      ArillaGamesLogo_9: -1296181478593813847
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

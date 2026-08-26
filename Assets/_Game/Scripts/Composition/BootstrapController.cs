@@ -22,6 +22,11 @@ namespace RoyalDecisions.Composition
         [Tooltip("Optional. Absent audio is a supported configuration.")]
         [SerializeField] private AudioService audioService;
 
+        [Header("Intro")]
+        [Tooltip("Optional. Plays once before the menu loads. Absent intro loads MainMenu "
+            + "immediately, exactly as before this existed.")]
+        [SerializeField] private IntroSequenceController introSequence;
+
         private ISettingsStore settingsStore;
         private ISceneLoader sceneLoader;
 
@@ -29,16 +34,38 @@ namespace RoyalDecisions.Composition
         public GameSettings AppliedSettings { get; private set; }
 
         /// <summary>Injection seam for tests, which must never touch persistent data.</summary>
-        public void Configure(ISettingsStore store, ISceneLoader loader)
+        public void Configure(ISettingsStore store, ISceneLoader loader, IntroSequenceController intro = null)
         {
             settingsStore = store;
             sceneLoader = loader;
+            introSequence = intro;
         }
 
         private void Start()
         {
             ApplySettings();
-            sceneLoader?.LoadScene(mainMenuSceneName);
+
+            // Already loaded as part of ApplySettings; reusing it here needs no new dependency.
+            introSequence?.SetReducedMotion(AppliedSettings.ReducedMotion);
+
+            ProceedToMainMenu();
+        }
+
+        /// <summary>
+        /// Plays the intro if one is assigned, then loads MainMenu; loads MainMenu immediately
+        /// otherwise. Public (rather than folded into <see cref="Start"/>) so a test can drive it
+        /// directly after <see cref="Configure"/> without waiting on Unity's own lifecycle.
+        /// </summary>
+        public void ProceedToMainMenu()
+        {
+            if (introSequence != null)
+            {
+                introSequence.Play(() => sceneLoader?.LoadScene(mainMenuSceneName));
+            }
+            else
+            {
+                sceneLoader?.LoadScene(mainMenuSceneName);
+            }
         }
 
         /// <summary>Loads settings and applies them through the audio service's public API only.</summary>
