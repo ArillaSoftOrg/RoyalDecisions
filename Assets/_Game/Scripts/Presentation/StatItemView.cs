@@ -37,9 +37,16 @@ namespace RoyalDecisions.Presentation
         [Min(0f)]
         [SerializeField] private float animationSpeed = 2.5f;
 
+        [Tooltip("Seconds for the icon's glow to fade back to normal after a value change.")]
+        [Min(0f)]
+        [SerializeField] private float glowDuration = 0.6f;
+
         private float targetFill;
         private bool animating;
         private int criticalBoundary = 15;
+        private Color iconBaseColor = Color.white;
+        private Color iconGlowColor = Color.white;
+        private float glowTimer;
         private int lastImpactDelta = int.MinValue;
         // "+"/"-" pre-ApplyTheme default, matching GameUITheme's own default — see that class for
         // why the originally-intended ▲/▼ triangles are not used.
@@ -134,6 +141,27 @@ namespace RoyalDecisions.Presentation
             {
                 SetFill(targetFill);
             }
+            if (enabled && glowTimer > 0f)
+            {
+                glowTimer = 0f;
+                ApplyGlow(0f);
+            }
+        }
+
+        /// <summary>
+        /// Briefly tints the icon towards this stat's own colour, then fades it back — a quick
+        /// "this is the one that just changed" cue, distinct from <see cref="ShowImpact"/>'s
+        /// drag-preview badge. A no-op under reduced motion, matching how <see cref="SetValue"/>
+        /// already skips the fill-bar animation there.
+        /// </summary>
+        public void TriggerValueChangeGlow()
+        {
+            if (reducedMotion)
+            {
+                return;
+            }
+
+            glowTimer = glowDuration;
         }
 
         public void ShowImpact(int delta, float strength)
@@ -202,11 +230,17 @@ namespace RoyalDecisions.Presentation
             ConfigureText(iconFallbackLabel, theme.PrimaryText, theme.TitleFont);
             ConfigureText(criticalLabel, theme.HighlightGold, theme.TitleFont);
 
+            iconBaseColor = theme.PrimaryText;
+            // A brightened tint of the stat's own bar colour, not the raw colour: several of the
+            // stat colours (e.g. people's dark maroon) are darker than the cream icon tint, so
+            // using them at full strength would make a "glow" read as the icon dimming instead.
+            iconGlowColor = Color.Lerp(theme.GetStatColor(stat), Color.white, 0.55f);
+
             bool hasIcon = iconSprite != null;
             if (iconImage != null)
             {
                 iconImage.sprite = iconSprite;
-                iconImage.color = theme.PrimaryText;
+                iconImage.color = iconBaseColor;
                 iconImage.raycastTarget = false;
                 iconImage.enabled = hasIcon;
             }
@@ -241,20 +275,37 @@ namespace RoyalDecisions.Presentation
 
         private void Update()
         {
-            // Returns on the first line for every frame the bar is at rest, which is nearly all of
-            // them. No allocation on either path.
-            if (!animating)
+            // Returns on the first line for every frame both effects are at rest, which is nearly
+            // all of them. No allocation on either path.
+            if (!animating && glowTimer <= 0f)
             {
                 return;
             }
 
-            float next = Mathf.MoveTowards(DisplayedFill, targetFill, animationSpeed * Time.deltaTime);
-            ApplyFill(next);
-
-            if (Mathf.Approximately(next, targetFill))
+            if (animating)
             {
-                ApplyFill(targetFill);
-                animating = false;
+                float next = Mathf.MoveTowards(DisplayedFill, targetFill, animationSpeed * Time.deltaTime);
+                ApplyFill(next);
+
+                if (Mathf.Approximately(next, targetFill))
+                {
+                    ApplyFill(targetFill);
+                    animating = false;
+                }
+            }
+
+            if (glowTimer > 0f)
+            {
+                glowTimer = Mathf.Max(0f, glowTimer - Time.deltaTime);
+                ApplyGlow(glowTimer / glowDuration);
+            }
+        }
+
+        private void ApplyGlow(float strength)
+        {
+            if (iconImage != null)
+            {
+                iconImage.color = Color.Lerp(iconBaseColor, iconGlowColor, strength);
             }
         }
 

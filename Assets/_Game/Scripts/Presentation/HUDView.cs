@@ -71,6 +71,11 @@ namespace RoyalDecisions.Presentation
             if (item != null)
             {
                 item.SetValue(change.Current, true);
+
+                if (change.Delta != 0)
+                {
+                    item.TriggerValueChangeGlow();
+                }
             }
         }
 
