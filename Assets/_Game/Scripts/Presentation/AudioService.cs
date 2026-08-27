@@ -204,6 +204,17 @@ namespace RoyalDecisions.Presentation
             musicSource?.Stop();
         }
 
+        /// <summary>
+        /// Cuts any one-shot cue currently playing through <see cref="audioSource"/>. Used by
+        /// callers that need a cue to stop immediately rather than ring out — e.g. the intro being
+        /// skipped mid-cue. Leaves <see cref="musicSource"/> untouched; use <see cref="StopMusic"/>
+        /// for that.
+        /// </summary>
+        public void StopSfx()
+        {
+            audioSource?.Stop();
+        }
+
         private AudioPlayResult ResolveCue(string audioEventId, out AudioClip clip)
         {
             clip = null;

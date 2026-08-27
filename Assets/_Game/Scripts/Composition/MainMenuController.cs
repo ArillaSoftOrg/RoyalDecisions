@@ -24,6 +24,10 @@ namespace RoyalDecisions.Composition
         [Header("Scenes")]
         [SerializeField] private string gameSceneName = "Game";
 
+        [Tooltip("Loaded when Yeni Oyun is pressed, instead of the Game scene directly, so the "
+            + "prologue plays before a brand-new run begins. Continue always goes straight to Game.")]
+        [SerializeField] private string prologueSceneName = "Prologue";
+
         [Header("Wiring")]
         [SerializeField] private SessionIntent sessionIntent;
 
@@ -54,6 +58,12 @@ namespace RoyalDecisions.Composition
 
         /// <summary>Set when a save exists but cannot be used. Shown to the player, never acted on.</summary>
         public SessionError SaveProblem { get; private set; } = SessionError.None;
+
+        /// <summary>Scene Yeni Oyun transitions to. Exposed for tests/diagnostics.</summary>
+        public string NewGameDestinationSceneName => prologueSceneName;
+
+        /// <summary>Scene Continue transitions to. Exposed for tests/diagnostics.</summary>
+        public string ContinueDestinationSceneName => gameSceneName;
 
         private void Awake()
         {
@@ -118,7 +128,8 @@ namespace RoyalDecisions.Composition
             ApplyContinueAvailability();
         }
 
-        /// <summary>Wire a Button's OnClick to this.</summary>
+        /// <summary>Wire a Button's OnClick to this. Loads the prologue rather than Game directly,
+        /// so a brand-new run always plays it first.</summary>
         public void OnNewGamePressed()
         {
             if (isTransitioningToGame)
@@ -129,10 +140,11 @@ namespace RoyalDecisions.Composition
             isTransitioningToGame = true;
             PlayUiClick();
             sessionIntent?.RequestNewGame();
-            StartCoroutine(LoadGameSceneAfterClickCue());
+            BeginSceneTransition(prologueSceneName);
         }
 
-        /// <summary>Wire a Button's OnClick to this. Does nothing when Continue is unavailable.</summary>
+        /// <summary>Wire a Button's OnClick to this. Does nothing when Continue is unavailable.
+        /// Always goes straight to Game — the prologue never plays for Continue.</summary>
         public void OnContinuePressed()
         {
             if (!IsContinueAvailable || isTransitioningToGame)
@@ -143,20 +155,43 @@ namespace RoyalDecisions.Composition
             isTransitioningToGame = true;
             PlayUiClick();
             sessionIntent?.RequestContinue();
-            StartCoroutine(LoadGameSceneAfterClickCue());
+            BeginSceneTransition(gameSceneName);
         }
 
-        private IEnumerator LoadGameSceneAfterClickCue()
+        /// <summary>
+        /// Runs the click-cue delay and optional fade before loading, exactly as before this
+        /// existed — only the destination now varies by caller. Falls back to loading immediately
+        /// when coroutines cannot run (outside Play Mode), the same fail-open pattern every other
+        /// sequence controller in this project already uses, so the destination stays directly
+        /// testable without a running player loop.
+        /// </summary>
+        private void BeginSceneTransition(string destinationSceneName)
+        {
+            if (!CanRunCoroutines())
+            {
+                sceneLoader?.LoadScene(destinationSceneName);
+                return;
+            }
+
+            StartCoroutine(LoadSceneAfterClickCue(destinationSceneName));
+        }
+
+        private bool CanRunCoroutines()
+        {
+            return UnityEngine.Application.isPlaying && isActiveAndEnabled;
+        }
+
+        private IEnumerator LoadSceneAfterClickCue(string destinationSceneName)
         {
             yield return new WaitForSecondsRealtime(sceneTransitionDelaySeconds);
 
             if (transitionOverlay != null)
             {
-                transitionOverlay.Show(() => sceneLoader?.LoadScene(gameSceneName));
+                transitionOverlay.Show(() => sceneLoader?.LoadScene(destinationSceneName));
             }
             else
             {
-                sceneLoader?.LoadScene(gameSceneName);
+                sceneLoader?.LoadScene(destinationSceneName);
             }
         }
 

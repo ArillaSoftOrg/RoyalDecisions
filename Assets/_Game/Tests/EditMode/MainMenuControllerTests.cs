@@ -104,5 +104,93 @@ namespace RoyalDecisions.Tests.EditMode
             Assert.That(saveErrorText.text, Is.EqualTo(interfaceText.CorruptSave));
             Assert.That(saveErrorText.gameObject.activeSelf, Is.True);
         }
+
+        // --- New Game / Continue routing ------------------------------------------------
+
+        [Test]
+        public void NewGameDestination_IsPrologueByDefault()
+        {
+            Assert.That(controller.NewGameDestinationSceneName, Is.EqualTo("Prologue"));
+        }
+
+        [Test]
+        public void ContinueDestination_IsGameByDefault()
+        {
+            Assert.That(controller.ContinueDestinationSceneName, Is.EqualTo("Game"));
+        }
+
+        [Test]
+        public void OnNewGamePressed_OutsidePlayMode_RequestsNewGameAndLoadsPrologueDestination()
+        {
+            FakeSceneLoader loader = new FakeSceneLoader();
+            SessionIntent intent = ScriptableObject.CreateInstance<SessionIntent>();
+            controller.Configure(new FakeRunSaveStore(), loader, intent);
+
+            controller.OnNewGamePressed();
+
+            Assert.That(intent.Mode, Is.EqualTo(SessionStartMode.NewGame),
+                "The existing New Game intent must still be recorded before any scene loads.");
+            Assert.That(loader.Count, Is.EqualTo(1));
+            Assert.That(loader.LastScene, Is.EqualTo(controller.NewGameDestinationSceneName));
+            Assert.That(loader.LastScene, Is.EqualTo("Prologue"));
+
+            Object.DestroyImmediate(intent);
+        }
+
+        [Test]
+        public void OnContinuePressed_WithAvailableSave_RequestsContinueAndLoadsGameDestination()
+        {
+            FakeRunSaveStore store = new FakeRunSaveStore();
+            store.Seed(RunState.CreateNew(123));
+            FakeSceneLoader loader = new FakeSceneLoader();
+            SessionIntent intent = ScriptableObject.CreateInstance<SessionIntent>();
+            controller.Configure(store, loader, intent);
+
+            controller.OnContinuePressed();
+
+            Assert.That(intent.Mode, Is.EqualTo(SessionStartMode.Continue));
+            Assert.That(loader.Count, Is.EqualTo(1));
+            Assert.That(loader.LastScene, Is.EqualTo(controller.ContinueDestinationSceneName));
+            Assert.That(loader.LastScene, Is.EqualTo("Game"),
+                "Continue must never route through the prologue.");
+
+            Object.DestroyImmediate(intent);
+        }
+
+        [Test]
+        public void OnContinuePressed_WithoutAvailableSave_DoesNothing()
+        {
+            FakeSceneLoader loader = new FakeSceneLoader();
+            controller.Configure(new FakeRunSaveStore(), loader, null);
+
+            controller.OnContinuePressed();
+
+            Assert.That(loader.Count, Is.Zero);
+        }
+
+        [Test]
+        public void OnNewGamePressed_CalledTwice_LoadsSceneOnlyOnce()
+        {
+            FakeSceneLoader loader = new FakeSceneLoader();
+            controller.Configure(new FakeRunSaveStore(), loader, null);
+
+            controller.OnNewGamePressed();
+            controller.OnNewGamePressed();
+
+            Assert.That(loader.Count, Is.EqualTo(1),
+                "Double-click protection must still prevent a second transition.");
+        }
+
+        private sealed class FakeSceneLoader : ISceneLoader
+        {
+            public int Count { get; private set; }
+            public string LastScene { get; private set; }
+
+            public void LoadScene(string sceneName)
+            {
+                Count++;
+                LastScene = sceneName;
+            }
+        }
     }
 }

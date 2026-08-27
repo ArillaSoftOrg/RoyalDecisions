@@ -99,6 +99,16 @@ namespace RoyalDecisions.Tests.EditMode
             Assert.That(() => bare.Play("sfx_seal"), Throws.Nothing);
             Assert.That(() => bare.SetVolume(0.5f), Throws.Nothing);
             Assert.That(() => bare.SetMuted(true), Throws.Nothing);
+            Assert.That(() => bare.StopSfx(), Throws.Nothing);
+        }
+
+        [Test]
+        public void StopSfxWithAnAssignedSourceDoesNotThrow()
+        {
+            AudioService service = Service(Source(), Library(new AudioCue("sfx_seal", Clip())));
+            service.Play("sfx_seal");
+
+            Assert.That(() => service.StopSfx(), Throws.Nothing);
         }
 
         [Test]

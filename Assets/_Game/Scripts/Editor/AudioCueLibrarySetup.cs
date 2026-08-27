@@ -33,6 +33,9 @@ namespace RoyalDecisions.Editor
             ("critical", "Assets/_Game/Audio/SFX/critical.wav"),
             ("menu_music", "Assets/_Game/Audio/Music/menu_music.mp3"),
             ("gameplay_music", "Assets/_Game/Audio/Music/gameplay_music.wav"),
+            ("intro_logo_rise", "Assets/_Game/Audio/Intro/intro_logo_rise.wav"),
+            ("intro_wordmark_sweep", "Assets/_Game/Audio/Intro/intro_wordmark_sweep.wav"),
+            ("intro_resolve", "Assets/_Game/Audio/Intro/intro_resolve.wav"),
         };
 
         public const string ProfilePath = "Assets/_Game/Content/UI/DefaultFeedbackCueProfile.asset";

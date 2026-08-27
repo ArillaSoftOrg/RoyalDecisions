@@ -3371,3 +3371,517 @@ no intro, no behavior change.
 - [ ] Console clean throughout
 - [ ] `Window > General > Test Runner > EditMode` — `IntroSequenceControllerTests` and
       `BootstrapControllerTests` both green alongside the existing suite
+
+---
+
+## Wordmark left-to-right reveal (2026-08-26)
+
+Extends the intro above: the AS emblem still fades/scales in as before, but the baked-in
+"ARILLA GAMES" wordmark underneath is now hidden behind a plain black `WordmarkCover` until it
+wipes away left-to-right, with a narrow blue/silver `WordmarkGlint` travelling along the reveal
+edge. **The logo PNG itself is untouched and still one Single Sprite, one Image** —
+`WordmarkCover`/`WordmarkGlint` are two additional siblings under `LogoGroup` next to `LogoImage`,
+sized and positioned from the wordmark's measured pixel row on the 1254x1254 source, not from a
+crop or a second copy of the art. `IntroSceneSetup` computes their geometry from `LogoImage`'s own
+rect, so it stays correct even if `LogoDisplaySize` is retuned later.
+
+### I4 — Re-run the Intro scene setup
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Intro > Apply Intro Setup`
+- [ ] Console reports `[IntroSceneSetup] Bootstrap intro wiring applied.` and
+      `Validation passed: hierarchy and references are correct.`
+
+This is required this time — unlike the earlier pure-numeric timing/scale tweaks, `WordmarkCover`
+and `WordmarkGlint` are new GameObjects that only the Editor tool can safely create (correct
+`RectTransform`/`Image`/`CanvasRenderer` wiring, unique scene identities, `Undo` support). Until
+this is run, `Bootstrap.unity` has no wordmark reveal objects and `IntroSequenceController`'s new
+`wordmarkCoverImage`/`wordmarkGlintImage` fields stay unassigned — which is safe (the whole logo,
+mark and wordmark together, just fades in exactly as it did before this change) but means the new
+effect will not be visible yet. Safe to re-run at any time: it finds-or-creates rather than
+duplicating, and re-running never touches `LogoImage` or the AS-mark animation.
+
+### Expected behavior once wired
+
+- **Timeline (unscaled seconds, ~4.50s total):** `0.00–0.40` black · `0.40–1.45` AS mark fades in
+  (alpha 0→1, scale 0.94→1.0) while the wordmark stays hidden · `1.25–2.65` wordmark wipes in
+  left-to-right (overlaps the tail of the mark's fade-in by design) with a narrow glint travelling
+  along the reveal edge, fading in and back out so it never pops or lingers · `2.65–3.45` full logo
+  holds with the existing subtle breathing pulse · `3.45–4.25` entire composition (mark + revealed
+  wordmark + any cover/glint remnants) fades out together · `4.25–4.50` black hold, then `MainMenu`
+  loads, exactly once.
+- **Skip:** a tap at any point — including mid-wipe — hides everything instantly (the whole
+  `LogoGroup` goes to alpha 0 in one frame) and proceeds to `MainMenu` exactly once. No one-frame
+  leftover of a half-covered wordmark or a stray glint.
+- **Reduced motion:** the wipe and glint are skipped entirely — the wordmark cover opens instantly
+  so the full logo (mark and wordmark together) appears as part of the same short plain fade used
+  for the rest of the reduced-motion intro.
+- **Fallback:** if `WordmarkCover` was never wired (I4 not yet run, or wiring cleared by hand), the
+  logo still fades in normally with the wordmark visible from the start — never blocked or broken.
+
+### I5 — Verify in the Editor
+
+- [ ] Enter Play Mode from `Bootstrap.unity` — AS mark fades in, then the wordmark wipes in
+      left-to-right with a subtle travelling highlight, holds, fades out with everything else,
+      `MainMenu` loads exactly once
+- [ ] Tap/click during the wordmark wipe — skips straight to `MainMenu`, no leftover black bar or
+      highlight visible even for one frame
+- [ ] In Settings, enable **Reduced Motion**, re-enter Play Mode — the full logo (wordmark
+      included) appears together via a short plain fade, no wipe, no glint
+- [ ] Console clean throughout, including `Validate Intro Setup`'s hierarchy/reference report
+- [ ] `Window > General > Test Runner > EditMode` — existing `IntroSequenceControllerTests` and
+      `BootstrapControllerTests` still green (no new tests were added for this pass)
+
+---
+
+## Wordmark soft-edge feather + synchronised intro audio (2026-08-26)
+
+Two additions to the intro above, both intro-only:
+
+1. **Soft feather edge.** The wordmark wipe previously used only the hard-edged `WordmarkCover`
+   fill, which could read as a rectangle shrinking rather than an energised reveal. A new sibling,
+   `WordmarkFeather`, blends a soft black-to-transparent gradient over the current reveal edge
+   (44 px wide, tracks the edge exactly like `WordmarkGlint` already did), so the cut softens into
+   the art instead of stopping abruptly. `WordmarkGlint` itself was also upgraded from a flat-colour
+   `Image` to the same new gradient component, so it now reads as a soft highlight (transparent →
+   peak → transparent) instead of a translucent rectangle. Both use a new,
+   texture-free `ProceduralHorizontalGradientGraphic` (`Assets/_Game/Scripts/Presentation/
+   ProceduralHorizontalGradientGraphic.cs`) — a `MaskableGraphic` subclass in the same style as the
+   existing `ProceduralVignetteGraphic`/`ProceduralGearIconGraphic`: per-vertex colour, no shader,
+   no texture. The wipe's timing (1.25s → 2.65s) and easing were **not** changed.
+2. **Synchronised intro audio.** Three short, original, procedurally generated cues now play through
+   the intro's own `AudioService` + `AudioCueLibrary` — the same architecture every other scene
+   uses, not a bespoke intro-only audio path:
+   - `intro_logo_rise` — plays as the AS mark begins fading in (skipped in reduced motion).
+   - `intro_wordmark_sweep` — plays as the wordmark wipe begins (never plays in reduced motion —
+     there is no wipe to synchronise it to there).
+   - `intro_resolve` — plays the instant the wordmark becomes fully revealed, in both the timed
+     wipe and reduced motion's instant reveal.
+
+   Tapping to skip stops any cue immediately via a new `AudioService.StopSfx()` method (SFX only —
+   `StopMusic()` is untouched). Natural completion instead lets the last cue's short tail decay
+   into the following black hold, then MainMenu's own scene load destroys the intro's `AudioSource`
+   regardless. `BootstrapController.ApplySettings()` was also fixed to forward
+   `MasterVolume`/`MasterMuted` to its audio service (it previously hard-coded unmuted, which was
+   inert until now because no `AudioService` had ever been wired into Bootstrap).
+
+### I6 — Provide the cue library entries, then re-run Intro Setup
+
+The three WAV files already exist at `Assets/_Game/Audio/Intro/intro_logo_rise.wav`,
+`intro_wordmark_sweep.wav`, `intro_resolve.wav` (mono/stereo 16-bit PCM, 44.1kHz, peaks between
+-19 and -16 dBFS — quieter than the existing gameplay/UI SFX). They still need Unity to import them
+and the cue library to point at them:
+
+- [ ] Let Unity import the new `Assets/_Game/Audio/Intro/` folder (automatic on focus/reopen)
+- [ ] `Tools > Royal Decisions > Audio > Update Main Audio Cue Library` — adds `intro_logo_rise`,
+      `intro_wordmark_sweep`, `intro_resolve` to `MainAudioCueLibrary.asset` (existing cues are
+      preserved, matching this tool's normal idempotent behaviour)
+- [ ] `Tools > Royal Decisions > Scene Setup > Intro > Apply Intro Setup` — creates the new
+      `WordmarkFeather` node, upgrades `WordmarkGlint`'s component, creates the scene-root
+      `IntroAudio` object (`AudioSource` + `AudioService` wired to `MainAudioCueLibrary.asset`), and
+      wires both `BootstrapController.audioService` and `IntroSequenceController.audioService` to it
+- [ ] Console reports `[IntroSceneSetup] Bootstrap intro wiring applied.` and
+      `Validation passed: hierarchy and references are correct.`
+
+This is required this time — `WordmarkFeather` and `IntroAudio` are new GameObjects only the Editor
+tool can safely create. Safe to re-run at any time: it finds-or-creates rather than duplicating.
+
+### I7 — Verify in the Editor
+
+- [ ] Enter Play Mode from `Bootstrap.unity` — the wordmark wipe now shows a soft blended edge
+      (not a hard rectangle), the glint reads as a soft highlight, and three cues play in order:
+      a soft low rise under the AS mark, a subtle panned sweep under the wordmark wipe, then a
+      short soft resolve accent the instant the wordmark completes
+  - [ ] Confirm none of the three cues sound like a UI click/notification/loud whoosh — all should
+        read as quiet, dark, cinematic accents
+- [ ] Tap/click mid-wipe — visuals and audio both cut immediately, `MainMenu` loads exactly once,
+      no lingering sound over the menu
+- [ ] Tap repeatedly/rapidly — still exactly one `MainMenu` load, no doubled or overlapping audio
+- [ ] In Settings, set **Master Volume** partway down and re-enter — all three cues play quieter
+      proportionally; set **Master Mute** on and re-enter — the intro is silent throughout, visuals
+      unaffected
+- [ ] In Settings, enable **Reduced Motion**, re-enter Play Mode — no rise cue, no sweep cue; only
+      a short resolve accent plays once, and the intro does not wait for any cue's tail to finish
+- [ ] Confirm MainMenu's own music starts normally afterward — unaffected by anything above
+- [ ] Console clean throughout, including `Validate Intro Setup`'s report
+- [ ] `Window > General > Test Runner > EditMode` — `IntroSequenceControllerTests`,
+      `BootstrapControllerTests`, and `AudioServiceTests` (two new `StopSfx` cases) all green
+
+---
+
+## Android launcher icon — zombie-hand artwork
+
+Replaces the default Unity icon with the supplied `AppIconSource.png` (dark post-apocalyptic
+background, orange circular symbol, chained zombie hand). Scope was deliberately narrow: only
+Android icon slots in `PlayerSettings` and new derived art under
+`Assets/_Game/Art/Branding/AppIcon/`. Package name, keystore, version code/name, scripting
+backend, and Android SDK/API settings were not touched.
+
+**What was found before changing anything:** every Android icon slot in
+`ProjectSettings/ProjectSettings.asset` (`m_BuildTargetPlatformIcons` → `Android`) had
+`m_Textures: []` — Legacy, Round and Adaptive were all empty, so the build was shipping Unity's
+default icon. There was no pre-existing icon-generation tooling in the project.
+
+**What was generated** (deterministic Pillow script, not hand-drawn, source untouched):
+
+- `Legacy_{192,144,96,72,48,36}.png` / `Round_{same sizes}.png` — the full source art resized with
+  high-quality (LANCZOS) downsampling. A pixel analysis showed only ~0.36% of the art's bright
+  content (isolated ember/spark specks near the chain tips) falls outside an inscribed circle at
+  full bleed, so Legacy/Round use the artwork as-is.
+- `AdaptiveForeground_{432,324,216,162,108,81}.png` — the source scaled to **62%** and centered on
+  a transparent canvas, with a radial alpha feather over the outer 10% of the pasted image so it
+  blends into the background layer instead of showing a hard-edged square. 62% was chosen because
+  99% of the source's bright content sits within ~95% of its own half-width from center, and
+  Android's adaptive safe zone is a 66dp circle in a 108dp canvas (radius fraction ≈ 0.611);
+  `0.611 / 0.95 ≈ 0.64`, and 0.62 leaves a small margin.
+- `AdaptiveBackground_{same 6 sizes}.png` — solid fill at `rgb(14, 12, 10)`, the measured mean of
+  the source's own near-black background pixels (not a new color choice).
+- `Assets/_Game/Scripts/Editor/AppIconSetup.cs` — `Tools > Royal Decisions > Configure Android App
+  Icon`, an idempotent menu item that assigns the generated PNGs to the Legacy/Round/Adaptive
+  PlayerSettings slots (Adaptive: foreground = texture index 0, background = index 1) and forces
+  each imported texture to uncompressed RGBA32 with no mipmaps, so the launcher icon build output
+  isn't degraded by default texture compression.
+
+**Applied and verified this session** via
+`Unity.exe -batchmode -nographics -quit -executeMethod RoyalDecisions.Editor.AppIconSetup.Configure`
+(Editor was closed; no second instance was launched):
+
+- [x] `ProjectSettings.asset` diff is scoped to exactly the Android `m_Icons` block — Legacy and
+      Round each now reference one texture per size, Adaptive references two (foreground,
+      background) per size. No other PlayerSettings field changed.
+- [x] `AppIconSource.png` is unmodified (only the derived files under `AppIcon/` were written).
+- [x] The pinned Unity version has no Android module installed on this machine (only 6000.3.20f1
+      does — a pre-existing, pre-dated mismatch, not something this pass caused). The batch run
+      used 6000.3.20f1 to reach the Android `PlayerSettings` APIs; it bumped
+      `ProjectSettings/ProjectVersion.txt` to `6000.3.20f1` on open, which was reverted back to the
+      pinned `6000.3.18f1` afterward via `git checkout`.
+- [x] A circle-mask simulation of the composited adaptive foreground+background at 432px confirmed
+      the hand and full orange ring stay inside the safe zone; only the outer transparent margin
+      (no art content) falls outside the circle.
+
+**Known side effect, not from this task:** the same batch launch also generated a
+`Assets/_Game/Audio/Intro.meta` file (Unity always does a full project asset scan on open — there is
+no way to import only one folder). That folder's `.wav` files belong to the concurrent intro-sequence
+work, not this pass; their content was not touched, only the folder got a `.meta` assigned the first
+time any Editor opened the project. Safe to leave as-is.
+
+### AI1 — Verify on an Android device
+
+- [ ] Console shows no new project-code errors or warnings after this change.
+- [ ] Build and install a debug APK (or use the existing device workflow); check the home screen,
+      app drawer and recent-apps icon.
+- [ ] If your launcher applies a circular or squircle mask (most Android 8.0+ launchers), confirm
+      the hand and orange ring are not clipped — only empty background may be cropped.
+- [ ] On a device below Android 8.0 (API < 26) or with a launcher that ignores adaptive icons, the
+      Legacy/Round icon should show the full artwork.
+- [ ] No manual Inspector wiring is required — icons are assigned via `PlayerSettings`, not scene
+      objects. Re-run `Tools > Royal Decisions > Configure Android App Icon` only if
+      `AppIconSource.png` or the files under `AppIcon/` change.
+
+---
+
+## Intro final recreation pass, matched to `References/ArillaIntroReference.mp4` (2026-08-27)
+
+Retimed and extended the coded intro to match a reference MP4 the team supplied (analysed via
+`ffmpeg`/frame extraction only — **the MP4 was never imported into Unity, never used as a
+VideoPlayer source, and its audio was never extracted**; it exists purely as an external reference
+under `References/`, which is not shipped). Reference: 1080×1920, 30fps, 5.40s total.
+
+Two real differences from the previous pass, both evidenced by the reference's frames, not guessed:
+
+1. **Timing.** The old timeline approximated an earlier, shorter reference. Frame-by-frame analysis
+   of the actual MP4 (bright-pixel bounding boxes/centroids for the AS mark, a brightness-boosted
+   crop strip for the wordmark's letter-by-letter edge, and a mean-brightness curve for the hold/
+   fade-out boundary) gave precise phase durations, which the timing fields below now match almost
+   exactly except the hold (trimmed for mobile — see the timeline table). The one **structural**
+   timing change: the wordmark used to start revealing *while the AS mark's fade-in tail was still
+   playing* (`wordmarkRevealDelaySeconds` < `fadeInDurationSeconds`); the reference shows the AS
+   mark settle fully first, then the wordmark begins about 0.05s later — `wordmarkRevealDelaySeconds`
+   is now slightly *larger* than `fadeInDurationSeconds` to match that clean two-stage cadence.
+   Also: the reference's hold phase is **perfectly flat** (measured mean brightness varies <1% over
+   1.7s) — the old "breathing pulse" during the hold (`holdPulseScaleAmplitude`) is not something the
+   reference does, so its default is now `0` (mechanism kept, just off by default — set it above 0
+   only for a deliberate future breathing effect).
+2. **Wordmark reveal look.** The reference's travelling highlight is a **soft horizontal glow that
+   grows in width beneath the wordmark** (like an underline filling in), not a highlight that sweeps
+   *across* the letters. A new sibling, `WordmarkUnderlineGlow`, reproduces this: it reuses the
+   existing `ProceduralVerticalGradientGraphic` (already in the project for the Loading screen's
+   scrim — reused read-only, not modified) for a soft top/bottom-fading glow bar, left-pivoted so
+   growing its `sizeDelta.x` at runtime extends it rightward in lockstep with the same reveal
+   progress driving the cover/feather. `WordmarkGlint` (the existing bright travelling highlight) was
+   **repositioned** down to this same row instead of the text's own row, so it now reads as the
+   glow's bright leading edge rather than a highlight crossing the glyphs — this is a reposition, not
+   new logic. The letters themselves still reveal via the existing hard-edged `fillAmount` wipe +
+   `WordmarkFeather` soft edge, which the reference does not contradict.
+
+Everything else the reference showed — the AS mark's fade+very subtle (~5-6%) scale-up, no position
+shift when the wordmark appears, the whole composition fading out together at the end, left-to-right
+reveal direction — already matched the previous implementation, so those were **not** touched.
+
+### Exact final timeline (unscaled seconds)
+
+```
+0.00–0.55  black                              (reference: ~0.60)
+0.55–1.45  AS mark fades in (0.90s)            (reference: ~0.90, near-exact)
+1.45–1.50  brief gap (no visual change)         (reference: ~0.08-0.10 gap)
+1.50–2.90  wordmark reveals left-to-right (1.40s) (reference: ~1.40, near-exact)
+2.90–4.10  full logo holds, perfectly still (1.20s) (reference: ~1.70, trimmed for mobile)
+4.10–4.70  entire composition fades out (0.60s) (reference: ~0.60, near-exact)
+4.70–4.85  black → Loading                      (reference: ~0.10 tail)
+Total ≈ 4.85s (reference total: 5.40s)
+```
+
+### Audio decision: kept, retimed only
+
+Inspected the three cues already at `Assets/_Game/Audio/Intro/` (from the previous audio pass):
+`intro_logo_rise.wav` (mono, 1.15s, peak -18.0 dBFS), `intro_wordmark_sweep.wav` (stereo, 1.45s,
+peak -19.2 dBFS), `intro_resolve.wav` (mono, 0.75s, peak -16.5 dBFS). All three still fit the new,
+reference-derived timeline:
+
+- The wordmark reveal duration is unchanged (1.40s), so `intro_wordmark_sweep` (1.45s) needs no
+  retiming at all.
+- `intro_logo_rise`'s envelope (0.90s rise + 0.20s tail) still tracks the new 0.90s AS-mark fade-in
+  closely; its tail now overlaps the sweep's start by ~0.20s, which reads as a natural crossfade,
+  not a clash.
+- `intro_resolve` (0.75s) now has *more* headroom before fade-out (1.20s hold vs. the old 0.80s), so
+  it always finishes decaying well before the composition starts fading.
+
+No new WAV files were generated. No audio was extracted from the reference MP4 — the reference has
+audio (48kHz stereo AAC) but it was never listened to, decoded, or used for anything beyond knowing
+it exists; only the video frames informed this pass. Trigger points did not need code changes either
+— they were already tied to phase *events* (fade-in start, wordmark start, wordmark complete) rather
+than fixed timers, so they retimed automatically when the serialized durations above changed.
+
+### I8 — Re-run the Intro scene setup
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Intro > Apply Intro Setup`
+- [ ] Console reports `[IntroSceneSetup] Bootstrap intro wiring applied.` and
+      `Validation passed: hierarchy and references are correct.`
+
+Required this time — `WordmarkUnderlineGlow` is a new GameObject only the Editor tool can safely
+create, and `WordmarkGlint`'s row changed (existing object, moved, not recreated). Safe to re-run at
+any time: finds-or-creates rather than duplicating, and this never touches `StartupLoadingController`,
+`LoadingBackground.png`, or anything under `Assets/_Game/Art/Branding/AppIcon*`.
+
+### I9 — Verify in the Editor
+
+- [ ] Enter Play Mode from `Bootstrap.unity` — AS mark fades in over ~0.9s, a short beat, then the
+      wordmark reveals left-to-right over ~1.4s with a soft glow growing underneath it (not a
+      highlight sweeping across the letters), holds **perfectly still** for ~1.2s, fades out over
+      ~0.6s, then Loading begins (startup order unchanged: Intro → Loading → MainMenu)
+- [ ] Compare side-by-side against `References/ArillaIntroReference.mp4` if convenient — the overall
+      rhythm and the underline-glow reveal should read as the same intro, not a video, at ~90% the
+      reference's total length
+- [ ] Confirm the hold shows no scale/brightness pulsing (this was intentionally removed by default)
+- [ ] Tap/click at any point, including mid-wipe — skips to Loading instantly, audio cuts
+      immediately, no leftover cover/glint/feather/underline-glow visible even for one frame
+- [ ] In Settings, enable **Reduced Motion** — short plain fade, no wipe, no underline glow, only the
+      resolve cue plays, still exactly one transition to Loading
+- [ ] Console clean throughout
+- [ ] `Window > General > Test Runner > EditMode` — existing `IntroSequenceControllerTests`,
+      `BootstrapControllerTests`, and `AudioServiceTests` all green (no new tests were added for
+      this timing/layout-only pass; the coroutine timing itself is intentionally not
+      unit-tested — see CLAUDE.md's guidance against brittle visual-timing tests)
+
+---
+
+## Intro architecture rebuild — real reveal mask, separated mark/wordmark, no underline (2026-08-27)
+
+Direct feedback against the previous pass identified three problems: the wordmark still read as
+popping in rather than revealing; an unwanted underline/glow bar sat permanently under it; and the
+AS mark was too large relative to the wordmark, which was too small to read comfortably. This pass
+replaces the wordmark reveal mechanism and the logo's internal composition; the intro's overall
+five-phase structure (black → AS fade-in → wordmark reveal → hold → fade-out → black) is unchanged.
+
+### Root cause of the "pop in" look
+
+The previous implementation shared one combined image (AS mark + wordmark baked together) and
+"revealed" the wordmark by animating a black `Image` cover's `fillAmount` over hand-measured pixel
+padding, with a soft-edge blend layered on top. Two things worked against it reading as a reveal:
+the wordmark's own on-screen size was small (baked at the same scale as the much larger AS mark
+inside one combined sprite), so incremental letter-by-letter progress was hard to perceive at a
+glance; and the feather's blend width (44px) was comparable to a single character's width, so the
+reveal read more like a soft brightness wave than a crisp sequential reveal. Small alignment slack
+in the hand-measured padding could also leave a faint hint of text visible before the cover was
+supposed to fully hide it, making the transition to the crisp final glyphs look like a snap rather
+than a reveal. The new architecture removes the ambiguity structurally rather than re-tuning
+padding: the wordmark is now its own tightly-cropped, independently-sized sprite revealed by a real
+`RectMask2D` clip, so what renders at every instant is geometrically exact.
+
+### 1 — Two derived, pixel-exact crops (master PNG untouched)
+
+`Assets/_Game/Art/Branding/ArillaGamesLogo.png` (1254×1254, RGBA) is the unchanged master — its
+SHA-256 was verified identical before and after generation. Two new assets were derived from it by
+plain pixel-array slicing (no resampling, recolouring, or resizing — every kept pixel is
+byte-identical to the source):
+
+- `Assets/_Game/Art/Branding/Generated/ArillaGamesMark.png` — 1050×657, cropped from source pixel
+  bbox (81, 217) to (1130, 873)
+- `Assets/_Game/Art/Branding/Generated/ArillaGamesWordmark.png` — 1085×78, cropped from source
+  pixel bbox (86, 926) to (1170, 1003)
+
+**Method (deterministic, repeatable):** alpha-channel coverage per row found a clean gap between
+the two elements (zero coverage for every row in [868, 931] on the 1254-tall source); the mark's
+own alpha>8 bounding box was measured within rows [0, 900), the wordmark's within rows [900, 1254),
+then each box was padded by 6px on every side (clamped to image bounds) before cropping. Verified
+programmatically that every kept pixel matches the corresponding source pixel exactly. If the
+master PNG is ever replaced, re-run this same method (a Python/Pillow script) to regenerate both
+crops — do not hand-edit them.
+
+- [ ] Let Unity import the new `Assets/_Game/Art/Branding/Generated/` folder (automatic on
+      focus/reopen); `Texture Type` should auto-detect as Sprite, but `Apply Intro Setup` (below)
+      forces Sprite Mode **Single** on both regardless, exactly like it already did for the master.
+
+### 2 — New hierarchy
+
+```
+IntroCanvas
+└ BlackBackground        (unchanged: click-catcher + IntroSequenceController)
+└ LogoGroup              (unchanged root: CanvasGroup + RectTransform, alpha/scale pivot for everything)
+   ├ MarkImage           (AS mark only, 460 reference units wide, preserveAspect)
+   ├ WordmarkRevealRoot  (stable container, centred, sized to the wordmark's full final size)
+   │  └ RevealMask       (RectMask2D, left-pivoted, width animates 0 → full at runtime)
+   │      └ WordmarkImage (ARILLA GAMES only, 560 reference units wide, NEVER resized/moved)
+   └ RevealGlint         (optional travelling highlight, ProceduralHorizontalGradientGraphic)
+```
+
+`WordmarkUnderlineGlow` and the old text-row `WordmarkCover`/`WordmarkFeather`/`WordmarkGlint` are
+gone entirely — `Apply Intro Setup` destroys any of those left over from a previous run
+automatically (they are no longer in the tool's known-children set, so the same generic legacy-node
+cleanup that has always removed stray nodes now removes these).
+
+### 3 — Exact mask mechanics (reasoned through geometrically, not just compiled)
+
+- `WordmarkImage`'s `RectTransform` uses a point anchor (`anchorMin == anchorMax == (0, 0.5)`,
+  pivot `(0, 0.5)`) with `sizeDelta = (560, wordmark height)` — an **absolute, fixed size**,
+  authored once and never touched at runtime. Its left edge is pinned to `RevealMask`'s own left
+  edge regardless of `RevealMask`'s current width, because the anchor is a point, not a stretch.
+- `RevealMask` carries the actual `RectMask2D` component and uses the same left-pivot convention.
+  Only its `sizeDelta.x` is animated, from `0` to `WordmarkImage`'s own full width, via
+  `IntroSequenceController.SetRevealMaskWidth`.
+- Because `RectMask2D` clips children to its own current rect, and `WordmarkImage` never moves or
+  resizes, the visible region at any progress `t` is always an exact, un-stretched, un-scaled
+  left-aligned prefix of the full wordmark:
+  - `t = 0.00` → mask width `0` → nothing visible
+  - `t = 0.25` → mask width `140` → the left ~25% of the wordmark's actual pixels visible
+  - `t = 0.50` → mask width `280` → left half visible
+  - `t = 0.75` → mask width `420` → left three-quarters visible
+  - `t = 1.00` → mask width `560` → the complete "ARILLA GAMES" visible
+  No stretching at any point — the mask reveals a growing window onto stationary, full-size art.
+- `RevealGlint` (optional) tracks the same `t`, positioned at `-280 + 560·t` in `LogoGroup`-local
+  X (i.e. `WordmarkRevealRoot`'s left edge to its right edge), fading in/out around the midpoint via
+  `sin(t·π)` so it is only ever visible mid-travel — never a static fixture, and gone the instant
+  the reveal completes.
+- `RectMask2D.softness = (3, 0)` adds a few pixels of built-in horizontal edge softening on top of
+  the glint, so the hard clip itself doesn't read as razor-sharp — no shader, no extra draw call.
+
+### 4 — Size / composition
+
+- AS mark: **460** reference units wide (within the requested 430–480 range), height derived from
+  its own crop's aspect ratio (1050:657 ≈ 1.60), `preserveAspect` on.
+- ARILLA GAMES: **560** reference units wide (within the requested 520–600 range, noticeably larger
+  than the previous pass), height derived from its own crop's aspect ratio (1085:78 ≈ 13.91).
+- 28-unit gap between the mark's bottom edge and the wordmark's top edge; the whole two-piece block
+  is centred vertically around `LogoGroup`'s own local origin, so both pieces stay horizontally
+  centred and the block re-centres symmetrically if either width is retuned later.
+- `LogoGroup` itself is still anchored at `(0, 50)` — screen centre, 50 units above — unchanged from
+  before, on the 1080×1920 reference canvas with `CanvasScaler` `Match Width Or Height = 1`
+  (height-matched), so this scales consistently to tall Android aspect ratios.
+
+### 5 — Exact final timeline
+
+Only one timing field changed (`wordmarkRevealDelaySeconds` 0.95 → **1.00s**, so the wordmark now
+begins exactly 0.10s after the AS mark's own fade-in finishes, matching "AS settles completely"
+before the wordmark starts); every other duration was already correct from the previous pass and is
+unchanged:
+
+```
+0.00–0.55  black
+0.55–1.45  AS mark fades in (0.90s), scale 0.94 → 1.0
+1.45–1.55  AS mark settles (brief gap, no visual change)
+1.55–2.95  ARILLA GAMES reveals left-to-right (1.40s) via the RectMask2D width animation
+2.95–4.15  full logo holds, perfectly static, no pulse (1.20s)
+4.15–4.75  entire LogoGroup fades out (0.60s)
+4.75–4.90  black → Loading
+Total ≈ 4.90s
+```
+
+### 6 — Audio: unchanged assets, same trigger events
+
+`intro_logo_rise`/`intro_wordmark_sweep`/`intro_resolve` (from the previous audio pass) still fit —
+none needed retiming or replacement. Trigger points are unchanged in spirit and now literally
+correct for the new mechanism: `intro_logo_rise` at the AS fade-in's start; `intro_wordmark_sweep`
+the instant `RevealMask` begins expanding (was: the cover's `fillAmount` beginning to animate — same
+moment, new name); `intro_resolve` the instant `RevealMask` reaches full width (was: `fillAmount`
+reaching 0 — same moment). Skip still calls `AudioService.StopSfx()` immediately; natural completion
+still lets the last cue decay into the following black hold undisturbed.
+
+### I10 — Re-run the Intro scene setup
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Intro > Apply Intro Setup`
+- [ ] Console reports `[IntroSceneSetup] Bootstrap intro wiring applied.` and
+      `Validation passed: hierarchy and references are correct.`
+- [ ] The validation log block should also report: Mark sprite assigned + its rect size; Wordmark
+      sprite assigned + its final width/height; `RevealMask` pivot/anchor confirmed left-aligned;
+      underline glow object absent — read through it once to confirm all of these explicitly say OK
+
+Required this time — `MarkImage` (fresh sprite reference), `WordmarkRevealRoot`/`RevealMask`/
+`WordmarkImage` (an entirely new sub-hierarchy), and `RevealGlint` (repositioned/recreated) all need
+the Editor tool to wire correctly. Old `WordmarkCover`/`WordmarkFeather`/`WordmarkUnderlineGlow`/the
+previous `WordmarkGlint` are destroyed automatically as unrecognised legacy nodes. Safe to re-run at
+any time: finds-or-creates rather than duplicating, and this never touches `StartupLoadingController`,
+`LoadingBackground.png`, `Assets/_Game/Art/Branding/AppIcon*`, or anything Prologue-related.
+
+### I11 — Verify in the Editor
+
+- [ ] Enter Play Mode from `Bootstrap.unity` — AS mark (now visibly smaller) fades in over ~0.9s, a
+      short beat, then **ARILLA GAMES (now visibly larger)** reveals left-to-right over ~1.4s with
+      a small travelling glint and **no underline/glow bar anywhere, at any point, including after
+      the reveal completes** — hold for ~1.2s completely static, fade out ~0.6s, then Loading
+- [ ] Watch the reveal specifically: you should be able to see individual letters becoming visible
+      in sequence (A, then AR, then ARI...) rather than the whole word appearing at once — pause
+      Play Mode partway through if needed to confirm a partial state shows an exact left portion of
+      the text with a clean, un-stretched right edge, not a smeared or fully-formed-but-dim word
+- [ ] Compare mark-vs-wordmark proportions against `References/ArillaIntroReference.mp4` — the
+      wordmark should now read as comfortably legible, not dwarfed by the mark above it
+- [ ] Tap/click mid-reveal — cover/glint disappear instantly, audio cuts immediately, `Loading`
+      begins exactly once, no partial-reveal artifact left visible for even one frame
+- [ ] In Settings, enable **Reduced Motion** — the wordmark appears at full width instantly with no
+      travelling glint, only the resolve cue plays, still exactly one transition to Loading
+- [ ] Console clean throughout
+- [ ] `Window > General > Test Runner > EditMode` — `IntroSequenceControllerTests`,
+      `BootstrapControllerTests`, `AudioServiceTests` all still green (call-site signatures for
+      `SetAuthoringReferences`/`SetWordmarkAuthoringReferences` changed internally but stayed
+      type-compatible with the existing tests; no new tests were added for this visual-geometry
+      pass, consistent with not unit-testing coroutine-driven visual timing)
+
+---
+
+## Intro proportions — mark smaller, wordmark larger (2026-08-27, later same day)
+
+Direct feedback after testing the previous pass in the Editor: the AS mark (460 wide) still
+dominated the screen and "ARILLA GAMES" (560 wide) still read as weak beneath it. Only
+`IntroSceneSetup`'s three size constants changed — no reveal/mask/timing/audio logic was touched:
+
+| Constant | Old | New |
+|---|---|---|
+| `MarkTargetWidth` | 460 | **390** |
+| `WordmarkTargetWidth` | 560 | **680** |
+| `MarkWordmarkGap` | 28 | **20** |
+
+Resulting derived geometry (computed from each crop's own aspect ratio, unchanged since the
+previous pass — mark 1050:657, wordmark 1085:78): mark ≈ 390×244, wordmark ≈ 680×48.9, total
+two-piece block height ≈ 313 (down from ≈ 356) — a visibly smaller emblem sitting closer above a
+noticeably wider, taller wordmark, reading as one composed logo rather than a symbol with small
+text underneath. `IntroSequenceController` was already confirmed to never touch either image's
+`sizeDelta` at runtime (it only reads `wordmarkImage.rectTransform.rect.width` to size the reveal,
+and only ever writes the shared alpha/scale/colour tint) — these authored sizes hold for the whole
+sequence, including the reveal itself.
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Intro > Apply Intro Setup` — required, since the
+      sizes are baked into `MarkImage`/`WordmarkRevealRoot`/`RevealMask`/`WordmarkImage`'s
+      `RectTransform`s at authoring time, not read live from the constants at runtime
+- [ ] Enter Play Mode — mark noticeably smaller, wordmark noticeably larger and clearly readable,
+      still centred under the mark with a tighter gap; reveal direction/timing/glint/audio all
+      identical to before (nothing about the mechanism changed, only the sizes it operates on)
+- [ ] Confirm the wordmark is not stretched — its own aspect ratio (13.91) should look identical to
+      `Assets/_Game/Art/Branding/Generated/ArillaGamesWordmark.png` viewed directly, just scaled up

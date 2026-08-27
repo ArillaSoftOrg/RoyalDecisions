@@ -37,3 +37,9 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: d259dfcecaa714e4cbdcdef5010ef3a4, type: 3}
   - id: gameplay_music
     clip: {fileID: 8300000, guid: 145f7669164118945b44b10ed63d5623, type: 3}
+  - id: intro_logo_rise
+    clip: {fileID: 8300000, guid: f63bcbf903cb7f741a60ffd34114acd9, type: 3}
+  - id: intro_wordmark_sweep
+    clip: {fileID: 8300000, guid: 9a400e43df889c24daa3b62cfff341fb, type: 3}
+  - id: intro_resolve
+    clip: {fileID: 8300000, guid: 94760bb90c213eb4d85f1ca3fe0d395f, type: 3}

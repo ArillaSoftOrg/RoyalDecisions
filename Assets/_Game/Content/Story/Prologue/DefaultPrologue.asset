@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f66e4c9374bd335438eff9a8d8163904, type: 3}
+  m_Name: DefaultPrologue
+  m_EditorClassIdentifier: RoyalDecisions.Data::RoyalDecisions.Data.PrologueSequenceData
+  slides:
+  - illustration: {fileID: 21300000, guid: 88edcddcf2d09314a9ceaed18c6a55f3, type: 3}
+    subtitle: "D\xFCnya, birka\xE7 y\u0131l i\xE7inde sessizli\u011Fe g\xF6m\xFCld\xFC."
+    motion: 1
+    autoAdvanceSeconds: 0
+  - illustration: {fileID: 21300000, guid: 9f68279fdfe55e947967280f09eba2c6, type: 3}
+    subtitle: "Hayatta kalanlar, g\xFCvenli oldu\u011Funu d\xFC\u015F\xFCnd\xFCkleri
+      son s\u0131\u011F\u0131naklara \xE7ekildi."
+    motion: 1
+    autoAdvanceSeconds: 0
+  - illustration: {fileID: 21300000, guid: 852ab8c87ef196344a66dfa92f685b49, type: 3}
+    subtitle: "Fakat duvarlar a\xE7l\u0131\u011F\u0131, korkuyu ve insanlar\u0131n
+      birbirine olan g\xFCvensizli\u011Fini durduramad\u0131."
+    motion: 2
+    autoAdvanceSeconds: 0
+  - illustration: {fileID: 21300000, guid: 427f87a72771f8b4bb3c373300c4ed10, type: 3}
+    subtitle: "\u015Eimdi onlar\u0131n gelece\u011Fini belirleyecek kararlar senin
+      elinde."
+    motion: 1
+    autoAdvanceSeconds: 0
+  - illustration: {fileID: 21300000, guid: 7ddce6d2115baef40890fc1a318a57cc, type: 3}
+    subtitle: "Her se\xE7im bir hayat kurtarabilir... ya da her \u015Feyi sona erdirebilir."
+    motion: 2
+    autoAdvanceSeconds: 0

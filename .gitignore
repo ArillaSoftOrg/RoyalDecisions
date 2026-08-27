@@ -117,3 +117,7 @@ InitTestScene*.unity*
 /Assets/TextMesh Pro/Fonts/LiberationSans.ttf
 /Assets/TextMesh Pro/Sprites/EmojiOne.png
 /Assets/_Game/Art/Fonts/Resources/LiberationSans-Turkish.ttf
+
+# Development-only reference material (source videos/images used to match visual/audio targets
+# during implementation) -- never shipped, never imported into Assets.
+/References/
