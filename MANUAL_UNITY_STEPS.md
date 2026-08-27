@@ -3168,3 +3168,135 @@ own RectTransform by hand.
       gap, doesn't crowd the icons above it, and — since `CardArea` is now taller — check whether
       `ResponsiveCardSizer` grows the card noticeably (it read as a bonus while writing this, not
       something separately requested; flag it if it looks like too much).
+
+---
+
+## HUD stat bars rendered as near-invisible hairlines (2026-08-27)
+
+User shared a screenshot of the running game showing only four thin colour-tinted horizontal
+lines where the HUD stat bars should read as legible bars. Root cause: each stat item's
+`RectTransform` (`StatItem_People/Security/Authority/Wealth`, the object carrying both the
+background `Image` and the `Fill` child) was authored at `sizeDelta.y = 3` reference units —
+by design, per the code comment at the time ("a faint accent underline... not a primary
+visual"), but in practice too thin to read as a bar at all, especially with the icon above it
+not rendering in the shared screenshot's crop.
+
+`SceneSetupAutomation.cs` was first updated to `10` units, then re-checked against a follow-up
+screenshot (after the user ran `Apply Remaining Setup` and reported "still the same"): at this
+project's `CanvasScaler` settings (reference resolution matched on height), 1 reference unit is
+roughly 1 device pixel on a 1080×1920 phone, so a 10-unit bar is still only ~10px tall — barely
+different from 3px, and still reads as a hairline. `git log` on this file confirms the bar was
+originally authored at **24** units (`itemRect.sizeDelta.y, 24f`) and deliberately shrunk to a
+"faint accent underline" during the 2026-08-25 Reigns-inspired HUD redesign (see that section
+above, "24-unit fill bar... shrunk to a 6-unit accent underline" — it landed at 3, not 6, by the
+time it was committed). The creation code in `ConfigureHud` and the matching check in
+`ValidateBatch` (`"HUD stat bar height must be ... reference units"`) now both use **`24`**,
+restoring the original, clearly-legible bar height.
+
+The 24-unit height alone was reported as "still the same" (a second screenshot at Device
+Simulator scale showed no visible change from the 10-unit attempt), and the user asked for a
+"professional", on-theme replacement rather than another height tweak. Diagnosis: height was
+never the whole story — the bar's *width* was also only 36% of its slot (anchors `0.32`–`0.68`),
+so even at 24 units tall it was a short, unframed, flat-coloured stub rather than a gauge.
+
+`ConfigureHud` now builds a proper stat gauge instead of an accent line:
+
+- Width: **84% of the slot** (anchors `0.08`–`0.92`, was `0.32`–`0.68`), matching the visual
+  weight of the icon above it instead of a narrow stub in the middle of the slot.
+- Height: **20** units (between the original 24 and the failed 10; combined with the width fix
+  this reads as a compact gauge, not a hairline).
+- A **gold `Outline`** (`StatBarBorderColour`, `#B58A4A` at ~60% alpha, `effectDistance (1.5,
+  -1.5)`) added to the same object as the background `Image` — the same device already used for
+  the card's own temporary border (`TemporaryCardBorderColour`), just more opaque since a small
+  bar needs more contrast than a large card to read as intentionally framed. This is what makes
+  it look like a themed gauge instead of a stray colour rectangle: a background track, a coloured
+  fill, and a gold frame around both — no new art asset required.
+
+`ValidateBatch`'s check now expects `sizeDelta.y == 20` and additionally requires the gold
+`Outline` to be present with the matching colour.
+
+This is a generator/validator change only — **`Game.unity` on disk still has whatever the last
+`Apply Remaining Setup` run produced** (some earlier height, no outline, old narrow width) until
+the generator is re-run again. This session could not run the
+`-batchmode -executeMethod ApplyBatch` route used for earlier fixes in this file, because Unity
+currently has the project open and locked (`Temp/UnityLockfile` present).
+
+- [ ] In the open Editor: `Tools > Royal Decisions > Scene Setup > Audit` — confirm it reports
+      the four `StatItem_*` objects as needing both the width/height update and the new outline.
+- [ ] `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup` — rebuilds the HUD stat
+      gauges (wider bar, 20-unit height, gold frame).
+- [ ] `Tools > Royal Decisions > Scene Setup > Validate` — must report zero errors.
+- [ ] Re-run `Apply Remaining Setup` once more — must report no further changes (idempotent).
+- [ ] Enter Play Mode / Device Simulator and confirm all four stat gauges now read as a framed
+      bar (background track + coloured fill + visible gold border) spanning most of the slot
+      width beneath each icon, not a thin unframed stub. If the gold frame reads too subtle or
+      too strong, adjust `StatBarBorderColour`'s alpha (currently `0x99`) in
+      `SceneSetupAutomation.cs` and re-run Apply.
+
+### Why none of the above ever actually appeared: Apply was silently rolling itself back
+
+The user re-ran `Apply Remaining Setup` after each of the three attempts above and reported
+"still the same" every time. Reading `%LOCALAPPDATA%/Unity/Editor/Editor.log` (the running
+Editor's own console output, checked directly rather than guessing further) showed why: **every
+`Apply Remaining Setup` run was succeeding at writing the new scene state, then immediately
+failing its own post-apply validation and restoring the pre-apply backup — discarding everything
+it had just written, including all HUD stat bar changes above.** This had nothing to do with bar
+width, height, or colour; it would have swallowed *any* change made through this tool.
+
+Three pre-existing bugs in `SceneSetupAutomation.cs`, unrelated to the stat bar work, were
+causing this on every single run:
+
+1. **`GameSceneController.catalogue` mismatch (the real blocker).** `ApplyMenu`'s Game-scene
+   apply step always loaded the *placeholder* catalogue (`CataloguePath`) and wrote it into
+   `GameSceneController.catalogue`. But `ValidateProjectLoadedState` (run automatically at the
+   end of every Apply) always validates that same field against
+   `StorySceneWiring.StoryCataloguePath` — per its own comment, "the committed Game scene is
+   wired to the story catalogue." Apply wrote placeholder, then immediately checked for story:
+   guaranteed mismatch, every time, for anyone. Confirmed in the log — the standalone `Validate`
+   command (which does not touch the catalogue) reported 6 errors with no catalogue complaint;
+   only the `Apply` runs, which overwrite the field, additionally logged
+   `GameSceneController.catalogue is incorrect.` Fixed: the Game-scene apply step now loads
+   `StorySceneWiring.StoryCataloguePath` first, falling back to the placeholder catalogue only if
+   the story one has not been generated (preserving the tool's original placeholder-only
+   behaviour for a project with no story content yet).
+2. **Stale HUD layout check.** `ValidateBatch` required `HorizontalLayoutGroup.padding.left/right
+   == 12` and `spacing == 8`, but `ConfigureHud` (the generator half of the same file) has
+   authored `padding = (64, 64)` and `spacing = 0` for some time — a deliberate, commented change
+   ("pull the four equally-expanding slots... closer together"). The checker was never updated to
+   match, so Apply could never pass this check either. Fixed: the checker now expects `64`/`64`/`0`.
+3. **Stale `CardArea` margin check.** Same pattern: `ConfigureCard` sets
+   `anchoredPosition = (0, -70)`, `sizeDelta = (-40, -300)` (see "HUD-to-card gap shrunk instead"
+   above), but `ValidateBatch` still checked for the pre-that-change values, `(0, -150)` /
+   `(-40, -460)`. Fixed: the checker now expects the current values.
+
+All three had to be fixed together for `Apply Remaining Setup` to ever complete without
+rolling back — fixing only the stat bar's own check (already done in the section above) was
+necessary but not sufficient.
+
+- [x] Re-ran the full sequence with the Editor closed (it had exited between the previous message
+      and this one, so `-batchmode -executeMethod` could run without conflicting with an open
+      instance):
+      `Audit` → `0 errors, 0 warnings, 1 info` (`VALIDATION_OK`) →
+      `ApplyBatch` → `0 errors, 4 warnings, 5 info`, `APPLY_COMPLETE`, no `BACKUP_RESTORED` →
+      `ValidateBatch` → `0 errors, 0 warnings, 1 info` (`VALIDATION_OK`) →
+      `ApplyBatch` again → identical result (`APPLY_COMPLETE`, no further errors), confirming
+      idempotency. Logs kept under the session scratchpad
+      (`logs/1-audit.log` .. `4-apply-again.log`).
+- [x] Read `StatItem_People`'s serialized `RectTransform`/`Outline`/`HorizontalLayoutGroup`
+      directly out of `Game.unity` after these runs: anchors `0.08`–`0.92`, `sizeDelta (0, 20)`,
+      `Outline` present with `effectColor` matching `StatBarBorderColour` and
+      `effectDistance (1.5, -1.5)`; HUD's `HorizontalLayoutGroup` padding `64/64`, spacing `0`;
+      `GameSceneController.catalogue` guid matches `StoryContentCatalogue.asset`. All match the
+      generator code exactly — the fix is confirmed on disk, not just "reported successful".
+- [ ] **Still needs a human eyeball in the Editor**: this session has no way to enter Play Mode or
+      take a screenshot headlessly. Open the project, enter Play Mode / Device Simulator, and
+      confirm the four stat gauges read as a framed bar (background track + coloured fill +
+      visible gold border) under each icon — this is the one thing that has not actually been
+      *seen* rendered yet, only verified structurally.
+- [ ] The four pre-existing `ART_ASSET_MISSING` warnings and one repeating `ORPHAN_REMOVED`
+      notice (`GeneralTab/ResetProgressButton/ArmedText`, removed on both apply runs — it does not
+      stay removed, so something keeps recreating it) were left alone: unrelated to this fix, not
+      blocking, not something this session was asked to chase.
+- [ ] `Assets/_Game/scenes/Game.unity` and `MainMenu.unity` are now modified in the working tree
+      (`git status`) — nothing was committed. Review and commit when satisfied with the Play Mode
+      check above.

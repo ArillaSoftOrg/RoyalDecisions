@@ -144,6 +144,10 @@ namespace RoyalDecisions.Editor
         // A quarter-opacity version of BorderGoldColour: still signals "no frame art yet" without
         // reading as a solid debug/bounding-box rectangle around the card.
         private static readonly Color TemporaryCardBorderColour = new Color32(0xB5, 0x8A, 0x4A, 0x40);
+        // Same gold as the card's temporary border, but more opaque — the stat bar is small enough
+        // that the card's 0x40 alpha nearly disappears, so this needs more contrast to read as a
+        // deliberate frame rather than another rendering glitch.
+        private static readonly Color StatBarBorderColour = new Color32(0xB5, 0x8A, 0x4A, 0x99);
         private static readonly Color[] StatFillColours =
         {
             new Color32(0x8A, 0x41, 0x4B, 0xFF),
@@ -335,7 +339,23 @@ namespace RoyalDecisions.Editor
                     throw new InvalidOperationException("Game scene could not be opened.");
                 }
 
-                catalogue = AssetDatabase.LoadAssetAtPath<ContentCatalogue>(CataloguePath);
+                // Prefer the story catalogue here specifically: ValidateProjectLoadedState's
+                // post-apply check (below) validates the Game scene's GameSceneController.catalogue
+                // against StorySceneWiring.StoryCataloguePath unconditionally, because "the
+                // committed Game scene is wired to the story catalogue" (see that method's own
+                // comment). Writing the placeholder catalogue here — the pre-story-content default —
+                // guaranteed a mismatch on every run: apply, save, then immediately fail its own
+                // post-apply validation and roll back via RestoreBackup, silently discarding every
+                // change this pass made (including unrelated ones, e.g. HUD stat bar sizing) even
+                // though nothing was actually wrong with them. Falls back to the placeholder
+                // catalogue only if the story one has not been generated yet, preserving this tool's
+                // original placeholder-only behaviour for a project with no story content.
+                catalogue = AssetDatabase.LoadAssetAtPath<ContentCatalogue>(
+                    StorySceneWiring.StoryCataloguePath);
+                if (catalogue == null)
+                {
+                    catalogue = AssetDatabase.LoadAssetAtPath<ContentCatalogue>(CataloguePath);
+                }
                 intent = AssetDatabase.LoadAssetAtPath<SessionIntent>(SessionIntentPath);
                 interfaceText = AssetDatabase.LoadAssetAtPath<InterfaceTextDefinition>(
                     InterfaceTextPath);
@@ -953,14 +973,30 @@ namespace RoyalDecisions.Editor
                     itemTransform = legacyItem;
                 }
                 itemTransform ??= EnsureUiChild(slot, statNames[i], report);
-                // A faint accent underline beneath the icon/value stack, not a primary visual —
-                // thinner and shorter than a typical progress bar.
-                SetRect(itemTransform, new Vector2(0.32f, 0f), new Vector2(0.68f, 0f),
-                    new Vector2(0f, 3f), new Vector2(0f, 3f), new Vector2(0.5f, 0f));
+                // A stat gauge beneath the icon/value stack. Went through two failed sizings
+                // before this one: 3 units tall at 36% slot width (a 2026-08-25 pass shrunk an
+                // original, approved 24-unit bar down to a "faint accent underline" — see
+                // MANUAL_UNITY_STEPS.md) read as a near-invisible hairline; bumping height alone to
+                // 24 barely helped, since width was the bigger problem. Now 84% of the slot's width
+                // (was 36%) and a gold Outline frame (see below) so it reads as a themed gauge
+                // rather than a stray colour bar.
+                SetRect(itemTransform, new Vector2(0.08f, 0f), new Vector2(0.92f, 0f),
+                    new Vector2(0f, 20f), new Vector2(0f, 20f), new Vector2(0.5f, 0f));
 
                 Image background = EnsureSingleComponent<Image>(itemTransform.gameObject, report);
                 StatItemView item = EnsureSingleComponent<StatItemView>(
                     itemTransform.gameObject, report);
+                Outline barOutline = EnsureSingleComponent<Outline>(itemTransform.gameObject, report);
+                if (barOutline != null)
+                {
+                    Undo.RecordObject(barOutline, "Configure stat bar outline");
+                    // Frames the background+fill pair (both exactly itemTransform's own rect) in
+                    // gold, the same device used for the card's own temporary border, so the gauge
+                    // reads as an intentional, on-theme element instead of an unstyled rectangle.
+                    barOutline.effectColor = StatBarBorderColour;
+                    barOutline.effectDistance = new Vector2(1.5f, -1.5f);
+                    barOutline.useGraphicAlpha = false;
+                }
                 RectTransform fillTransform = FindDirectChild(itemTransform, "Fill", report);
                 fillTransform ??= EnsureUiChild(itemTransform, "Fill", report);
                 Stretch(fillTransform);
@@ -3387,8 +3423,8 @@ namespace RoyalDecisions.Editor
                 HorizontalLayoutGroup layout = RequireSingleComponent<HorizontalLayoutGroup>(
                     hudObject, scene.path, report);
                 if (rect == null || !Mathf.Approximately(rect.sizeDelta.y, 208f)
-                    || layout == null || !Mathf.Approximately(layout.spacing, 8f)
-                    || layout.padding.left != 12 || layout.padding.right != 12)
+                    || layout == null || !Mathf.Approximately(layout.spacing, 0f)
+                    || layout.padding.left != 64 || layout.padding.right != 64)
                 {
                     AddInvalid(report, scene.path, "/UICanvas/SafeArea/HUD",
                         "HUD height, padding, or spacing differs from the managed phone layout.");
@@ -3489,10 +3525,16 @@ namespace RoyalDecisions.Editor
                         "HUD semantic visual order must be People, Security, Authority, Wealth.");
                 }
                 RectTransform itemRect = itemObject.transform as RectTransform;
-                if (itemRect == null || !Mathf.Approximately(itemRect.sizeDelta.y, 3f))
+                if (itemRect == null || !Mathf.Approximately(itemRect.sizeDelta.y, 20f))
                 {
                     AddInvalid(report, scene.path, itemPath,
-                        "HUD stat bar height must be 3 reference units.");
+                        "HUD stat bar height must be 20 reference units.");
+                }
+                Outline itemOutline = itemObject.GetComponent<Outline>();
+                if (itemOutline == null || !ColoursMatch(itemOutline.effectColor, StatBarBorderColour))
+                {
+                    AddInvalid(report, scene.path, itemPath,
+                        "HUD stat bar must have a gold Outline frame.");
                 }
                 if (background != null && (background.sprite != uiSprite
                     || background.type != Image.Type.Simple
@@ -3595,8 +3637,8 @@ namespace RoyalDecisions.Editor
                 }
                 RequirePath(scene, "/UICanvas/SafeArea/CardArea/NextCard", report);
                 RectTransform areaRect = cardArea.transform as RectTransform;
-                if (areaRect == null || areaRect.anchoredPosition != new Vector2(0f, -150f)
-                    || areaRect.sizeDelta != new Vector2(-40f, -460f))
+                if (areaRect == null || areaRect.anchoredPosition != new Vector2(0f, -70f)
+                    || areaRect.sizeDelta != new Vector2(-40f, -300f))
                 {
                     AddInvalid(report, scene.path, "/UICanvas/SafeArea/CardArea",
                         "CardArea margins or HUD/SituationArea/footer reservations are incorrect.");
