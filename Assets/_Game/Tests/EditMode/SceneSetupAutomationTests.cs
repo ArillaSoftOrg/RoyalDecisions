@@ -161,7 +161,7 @@ namespace RoyalDecisions.Tests.EditMode
             Assert.That(situationText.font, Is.SameAs(font));
             Assert.That(situationText.enableAutoSizing, Is.True);
             Assert.That(situationText.fontSizeMin, Is.EqualTo(22f));
-            Assert.That(situationText.fontSizeMax, Is.EqualTo(40f));
+            Assert.That(situationText.fontSizeMax, Is.EqualTo(46f));
             Assert.That(situationText.textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
             Assert.That(situationText.overflowMode, Is.EqualTo(TextOverflowModes.Ellipsis));
 
@@ -177,10 +177,10 @@ namespace RoyalDecisions.Tests.EditMode
             TextMeshProUGUI leftChoice = Find(
                     "/UICanvas/SafeArea/CardArea/Card/PortraitSwipeRoot/PreviewLeft/Label")
                 .GetComponent<TextMeshProUGUI>();
-            Assert.That(speaker.fontSizeMin, Is.EqualTo(35f));
-            Assert.That(speaker.fontSizeMax, Is.EqualTo(46f));
-            Assert.That(leftChoice.fontSizeMin, Is.EqualTo(32f));
-            Assert.That(leftChoice.fontSizeMax, Is.EqualTo(44f));
+            Assert.That(speaker.fontSizeMin, Is.EqualTo(38f));
+            Assert.That(speaker.fontSizeMax, Is.EqualTo(50f));
+            Assert.That(leftChoice.fontSizeMin, Is.EqualTo(36f));
+            Assert.That(leftChoice.fontSizeMax, Is.EqualTo(50f));
             Assert.That(speaker.font, Is.SameAs(font));
             Assert.That(leftChoice.font, Is.SameAs(font));
 

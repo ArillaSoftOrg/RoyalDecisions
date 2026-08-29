@@ -21,6 +21,7 @@ namespace RoyalDecisions.Composition
         private readonly CardSwipeController swipeController;
         private readonly RunStatusView runStatusView;
         private readonly FooterView footerView;
+        private readonly CardFlipController cardFlip;
 
         public UnityGamePresenter(
             CardView cardView,
@@ -28,7 +29,8 @@ namespace RoyalDecisions.Composition
             GameOverView gameOverView,
             CardSwipeController swipeController,
             RunStatusView runStatusView = null,
-            FooterView footerView = null)
+            FooterView footerView = null,
+            CardFlipController cardFlip = null)
         {
             this.cardView = cardView;
             this.hudView = hudView;
@@ -36,11 +38,22 @@ namespace RoyalDecisions.Composition
             this.swipeController = swipeController;
             this.runStatusView = runStatusView;
             this.footerView = footerView;
+            this.cardFlip = cardFlip;
         }
 
         public void ShowCard(CardDefinition card, ResolvedCard resolved)
         {
             hudView?.ClearChoiceImpact();
+
+            // Armed only for a genuine card-to-card transition (see CardFlipController.Arm) —
+            // the first card of a new or restarted run always appears immediately, exactly as
+            // before, since there is no outgoing card to flip away from.
+            if (cardFlip != null && cardFlip.IsArmed)
+            {
+                cardFlip.BeginTransition(card, resolved);
+                return;
+            }
+
             if (cardView != null)
             {
                 cardView.Show(card, resolved);
@@ -54,6 +67,17 @@ namespace RoyalDecisions.Composition
         public void ClearCard()
         {
             hudView?.ClearChoiceImpact();
+
+            if (cardFlip != null && cardFlip.IsArmed)
+            {
+                // Deferred: the armed transition (ShowCard below) keeps the outgoing card's
+                // content on screen and fading through the flip instead of blanking it now: an
+                // immediate Clear() here would wipe CardBack/Speaker/SituationText a beat before
+                // the flip that is meant to carry them out. If a game-over intervenes instead of
+                // another card, ShowGameOver below picks up this deferred clear.
+                return;
+            }
+
             if (cardView != null)
             {
                 cardView.Clear();
@@ -63,6 +87,14 @@ namespace RoyalDecisions.Composition
         public void PrepareForInput()
         {
             hudView?.ClearChoiceImpact();
+
+            if (cardFlip != null && cardFlip.IsTransitioning)
+            {
+                // The transition itself calls CardSwipeController.ResetForNextCard when it
+                // finishes; arming input now would unlock dragging mid-flip.
+                return;
+            }
+
             if (swipeController != null)
             {
                 swipeController.ResetForNextCard();
@@ -116,6 +148,15 @@ namespace RoyalDecisions.Composition
         public void ShowGameOver(GameOverResult result)
         {
             hudView?.ClearChoiceImpact();
+
+            if (cardFlip != null && cardFlip.IsArmed)
+            {
+                // The run ended instead of continuing to another card: the transition ClearCard()
+                // deferred to never begins, so disarm it and finish that deferred clear here.
+                cardFlip.Disarm();
+                cardView?.Clear();
+            }
+
             if (gameOverView != null)
             {
                 gameOverView.Show(result);

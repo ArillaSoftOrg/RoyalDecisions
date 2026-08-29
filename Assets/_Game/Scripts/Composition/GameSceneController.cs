@@ -28,6 +28,9 @@ namespace RoyalDecisions.Composition
         [SerializeField] private HUDView hudView;
         [SerializeField] private GameOverView gameOverView;
         [SerializeField] private CardSwipeController swipeController;
+        [Tooltip("Optional. Plays the CardBack-to-next-portrait flip between a committed card's "
+            + "exit and the next card's settle. Absent, cards appear the old, immediate way.")]
+        [SerializeField] private CardFlipController cardFlipController;
         [SerializeField] private TapChoiceButtonsView tapChoiceButtonsView;
         [SerializeField] private RunStatusView runStatusView;
         [SerializeField] private FooterView footerView;
@@ -162,7 +165,8 @@ namespace RoyalDecisions.Composition
             }
 
             IGamePresenter presenter = new UnityGamePresenter(
-                cardView, hudView, gameOverView, swipeController, runStatusView, footerView);
+                cardView, hudView, gameOverView, swipeController, runStatusView, footerView,
+                cardFlipController);
 
             session = new GameSession(new GameSessionDependencies(
                 catalogue,
@@ -336,6 +340,10 @@ namespace RoyalDecisions.Composition
 
         private void HandleExitCompleted(ChoiceSide side)
         {
+            // Armed before the session is told the card is gone: NotifyCardExitCompleted may
+            // call straight through to ShowCard/ShowGameOver synchronously, and both need to see
+            // this already set.
+            cardFlipController?.Arm();
             session?.NotifyCardExitCompleted();
         }
 
@@ -404,7 +412,8 @@ namespace RoyalDecisions.Composition
             FooterView footer = null,
             TutorialCoordinator tutorial = null,
             TapChoiceButtonsView tapChoices = null,
-            AccessibilityPresentationController accessibilityController = null)
+            AccessibilityPresentationController accessibilityController = null,
+            CardFlipController flipController = null)
         {
             catalogue = contentCatalogue;
             cardView = card;
@@ -418,6 +427,7 @@ namespace RoyalDecisions.Composition
             tutorialCoordinator = tutorial;
             tapChoiceButtonsView = tapChoices;
             accessibility = accessibilityController;
+            cardFlipController = flipController;
         }
 #endif
     }

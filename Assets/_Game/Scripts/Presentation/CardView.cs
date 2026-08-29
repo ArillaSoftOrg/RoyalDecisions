@@ -58,6 +58,11 @@ namespace RoyalDecisions.Presentation
 
         public RectTransform CardRoot => cardRoot != null ? cardRoot : transform as RectTransform;
 
+        /// <summary>The fixed CardBack container (Card.png), for the card-flip transition. Its
+        /// RectTransform is CardBackArt's parent — see <see cref="cardBackImage"/>.</summary>
+        public RectTransform CardBackTransform =>
+            cardBackImage != null ? cardBackImage.rectTransform.parent as RectTransform : null;
+
         public GraphicFallbackMode PortraitMode { get; private set; } = GraphicFallbackMode.HideGraphic;
 
         /// <summary>Renders the card and makes it visible. A null card clears instead of throwing.</summary>
@@ -95,6 +100,36 @@ namespace RoyalDecisions.Presentation
             Render(null);
             ClearChoicePreviews();
             SetVisible(false);
+        }
+
+        /// <summary>
+        /// Makes the card visible without touching its content — for the card-flip transition,
+        /// which needs the previous card's CardBack/Speaker/SituationText to stay on screen (and
+        /// keep fading out) across the moment a completed decision would otherwise have hidden
+        /// them via <see cref="Clear"/>, right up until <see cref="Show(CardDefinition)"/> swaps in
+        /// the next card at the flip's midpoint.
+        /// </summary>
+        public void ForceVisible()
+        {
+            SetVisible(true);
+        }
+
+        /// <summary>
+        /// Fades the speaker name and situation text independently of their assigned content — for
+        /// the card-flip transition's old-question-out/new-question-in crossfade. Does not affect
+        /// the portrait, CardBack, or either choice preview.
+        /// </summary>
+        public void SetContentAlpha(float speakerAlpha, float bodyAlpha)
+        {
+            if (speakerText != null)
+            {
+                speakerText.alpha = Mathf.Clamp01(speakerAlpha);
+            }
+
+            if (bodyText != null)
+            {
+                bodyText.alpha = Mathf.Clamp01(bodyAlpha);
+            }
         }
 
         public void SetChoicePreview(ChoiceSide side, float strength)

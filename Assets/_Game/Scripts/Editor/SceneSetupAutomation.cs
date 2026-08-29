@@ -693,6 +693,7 @@ namespace RoyalDecisions.Editor
                 SetObjectProperty(controller, "hudView", hud, report);
                 SetObjectProperty(controller, "gameOverView", gameOver.View, report);
                 SetObjectProperty(controller, "swipeController", card.Swipe, report);
+                SetObjectProperty(controller, "cardFlipController", card.Flip, report);
                 SetObjectProperty(controller, "tapChoiceButtonsView", tapChoices.View, report);
                 SetObjectProperty(controller, "runStatusView", footer.RunStatus, report);
                 SetObjectProperty(controller, "footerView", footer.Footer, report);
@@ -1449,12 +1450,9 @@ namespace RoyalDecisions.Editor
                 new Vector2(0f, -GameContentTopInset), new Vector2(0f, 160f), new Vector2(0.5f, 1f));
             // Final sibling position is pinned by ApplyGameScene's canonical SafeArea ordering
             // block once every sibling exists, so this new object's position here is provisional.
-
-            // Hidden at the user's explicit request — the situation/body text now renders directly
-            // on the card (see ConfigureCard's BodyScrim/Body) instead of this parchment panel
-            // above it. Kept in the hierarchy rather than destroyed: cheap to bring back, and its
-            // theme wiring (SituationPanelImage/Fallback) still runs harmlessly while inactive.
-            SetActiveIfNeeded(root.gameObject, false);
+            // Forced active regardless of prior state — a scene carried over from before the
+            // situation text moved here (or from an older Apply run) may have this deactivated.
+            SetActiveIfNeeded(root.gameObject, true);
 
             RectTransform panelTransform = EnsureUiChild(root, "SituationPanel", report);
             Stretch(panelTransform);
@@ -1485,9 +1483,16 @@ namespace RoyalDecisions.Editor
             TextMeshProUGUI text = EnsureSingleComponent<TextMeshProUGUI>(
                 textTransform.gameObject, report);
             // Sized up ~10-12% (32/20-36 -> 36/22-40) now that the full-width panel and wider
-            // margins give more room than the old narrower column did.
-            ConfigureReadableText(text, font, 36f, 22f, 40f, true, true, 2f);
+            // margins give more room than the old narrower column did. Target/max raised again
+            // here (36/40 -> 40/46); fontSizeMin (22) is left untouched — it is the floor
+            // SituationTextLayoutPlayModeTests proves the longest authored four-line body still
+            // fits at, and raising it would risk that same body overflowing this unchanged box.
+            ConfigureReadableText(text, font, 40f, 22f, 46f, true, true, 2f);
             SetTextColour(text, SituationTextColour);
+            // Bottom-aligned (horizontally still centred), not top/middle: a short question then
+            // sits flush against the small fixed gap above the portrait instead of leaving slack
+            // directly above the card that reads as extra empty beige space before it.
+            text.alignment = TextAlignmentOptions.Bottom;
             SetSiblingIndex(textTransform, 1);
 
             return new SituationAreaParts(root, text, artwork, panelFallback);
@@ -1497,10 +1502,12 @@ namespace RoyalDecisions.Editor
         // the portrait area (CardBack + PortraitSwipeRoot) occupies the remainder above it.
         private const float NameBandHeightFraction = 0.13f;
 
-        // Restrained rounding for the portrait card (PortraitMask) and CardBack, which share
+        // Pronounced rounding for the portrait card (PortraitMask) and CardBack, which share
         // identical bounds and so must share this exact radius too — otherwise CardBack's sharp
-        // corners would peek out from behind the portrait's rounded ones at rest.
-        private const float PortraitCornerRadius = 11f;
+        // corners would peek out from behind the portrait's rounded ones at rest. Also shared by
+        // PortraitSwipeRoot's own clip mask (see ConfigureCard) so the choice-preview panels are
+        // clipped to the same rounded silhouette instead of poking past it at the top corners.
+        private const float PortraitCornerRadius = 28f;
 
         private static CardParts ConfigureCard(
             RectTransform safeArea,
@@ -1582,8 +1589,18 @@ namespace RoyalDecisions.Editor
             SetRect(portraitSwipeRoot, portraitAreaAnchorMin, portraitAreaAnchorMax,
                 Vector2.zero, Vector2.zero, Center);
             // Clips the portrait and both choice-preview panels to PortraitSwipeRoot's own
-            // bounds, so neither can render past the moving card's edge during a drag.
-            EnsureSingleComponent<RectMask2D>(portraitSwipeRoot.gameObject, report);
+            // ROUNDED silhouette (same PortraitCornerRadius as PortraitMask/CardBack below), not
+            // just its rectangular bounds — a plain RectMask2D let the choice-preview panels'
+            // square top corners poke past the portrait's rounded ones. Invisible (showMaskGraphic
+            // false); PortraitMask's own inner mask still handles the portrait image itself.
+            ConfigureRoundedFill(
+                portraitSwipeRoot.gameObject, Color.white, PortraitCornerRadius, false, report);
+            Mask swipeRootMask = EnsureSingleComponent<Mask>(portraitSwipeRoot.gameObject, report);
+            if (swipeRootMask != null)
+            {
+                Undo.RecordObject(swipeRootMask, "Configure portrait swipe root mask");
+                swipeRootMask.showMaskGraphic = false;
+            }
 
             RectTransform portraitMask = EnsureUiChild(portraitSwipeRoot, "PortraitMask", report);
             Stretch(portraitMask);
@@ -1656,13 +1673,21 @@ namespace RoyalDecisions.Editor
                 Vector2.zero, Vector2.zero, Center);
             TextMeshProUGUI speaker = EnsureSingleComponent<TextMeshProUGUI>(
                 speakerTransform.gameObject, report);
-            // Sized up ~10% (38/32-42 -> 42/35-46), same visual family as SituationText.
-            ConfigureReadableText(speaker, font, 42f, 35f, 46f, true, false, 3f);
+            // Sized up ~10% (38/32-42 -> 42/35-46), same visual family as SituationText. Nudged
+            // again here (42/46 -> 46/50) for a slightly stronger name band.
+            ConfigureReadableText(speaker, font, 46f, 38f, 50f, true, false, 3f);
             SetTextColour(speaker, SpeakerTextColour);
 
             CardView view = EnsureSingleComponent<CardView>(card.gameObject, report);
             CardSwipeController swipe = EnsureSingleComponent<CardSwipeController>(
                 card.gameObject, report);
+            CardFlipController flip = EnsureSingleComponent<CardFlipController>(
+                card.gameObject, report);
+            if (flip != null)
+            {
+                SetObjectProperty(flip, "cardView", view, report);
+                SetObjectProperty(flip, "swipeController", swipe, report);
+            }
 
             if (view != null)
             {
@@ -1689,9 +1714,11 @@ namespace RoyalDecisions.Editor
                 // Restrained Reigns-style tilt (was 12°) — presentation only; does not change the
                 // confirm threshold or resolution logic in SwipeMath.
                 SetFloatProperty(swipe, "maxRotationDegrees", 7f, report);
-                // Nonlinear drag tilt, a small vertical arc, and a subtle scale response — motion
-                // feel only, applied to the same displacement SwipeMath.Rotation already reads.
-                SetFloatProperty(swipe, "rotationEaseExponent", 0.85f, report);
+                // Nonlinear drag tilt (holds back to ~2.5-3.5 deg at half drag, ~7 deg at the
+                // threshold — see EasedDisplacement), a small vertical arc, and a subtle scale
+                // response — one signed displacement drives all three, mirrored left/right by
+                // construction (SwipeMath's own formulas are unsigned/sign-symmetric).
+                SetFloatProperty(swipe, "rotationEaseExponent", 1.15f, report);
                 SetFloatProperty(swipe, "maxDragLift", 18f, report);
                 SetFloatProperty(swipe, "maxDragScale", 1.02f, report);
                 // Spring-like snap-back (fast return, slight overshoot, settle) within the
@@ -1700,9 +1727,9 @@ namespace RoyalDecisions.Editor
                 SetAnimationCurveProperty(
                     swipe, "snapBackEase", CardSwipeController.BuildSnapBackSpringCurve(), report);
                 // Committed exit reads as a thrown card: continues rotating past the drag-time
-                // max, arcs up slightly, and scales up a touch — visual only, does not delay or
-                // otherwise change when/how the decision itself resolves.
-                SetFloatProperty(swipe, "exitRotationDegrees", 12f, report);
+                // max (~7 deg) to ~13 deg, arcs up slightly, and scales up a touch — visual only,
+                // does not delay or otherwise change when/how the decision itself resolves.
+                SetFloatProperty(swipe, "exitRotationDegrees", 13f, report);
                 SetFloatProperty(swipe, "exitArcHeight", 36f, report);
                 SetFloatProperty(swipe, "exitScale", 1.04f, report);
             }
@@ -1731,7 +1758,7 @@ namespace RoyalDecisions.Editor
             SetSiblingIndex(nameScrimTransform, 2);
             SetSiblingIndex(speakerTransform, 3);
 
-            return new CardParts(area, view, swipe);
+            return new CardParts(area, view, swipe, flip);
         }
 
         /// <summary>Destroys <paramref name="name"/> under <paramref name="parent"/> if present —
@@ -1995,10 +2022,15 @@ namespace RoyalDecisions.Editor
             TextMeshProUGUI label = EnsureSingleComponent<TextMeshProUGUI>(
                 labelTransform.gameObject, report);
             // Noticeably larger and bolder than before (30/26-34 -> 38/32-44) so it stays readable
-            // while the portrait is moving; warm cream, not stark white.
-            ConfigureReadableText(label, font, 38f, 32f, 44f, true, true, 4f);
+            // while the portrait is moving; warm cream, not stark white. Pushed further again here
+            // (38/44 -> 44/50) — the choice text is the single highest-readability-priority label
+            // on the card, read mid-drag and mid-rotation over any portrait.
+            ConfigureReadableText(label, font, 44f, 36f, 50f, true, true, 4f);
             Undo.RecordObject(label, "Configure choice label weight");
             label.fontStyle = FontStyles.Bold;
+            // Capped at two lines: a longer preview should shrink (autosize) rather than wrap into
+            // a third line that could crowd the band or clip against its edges.
+            label.maxVisibleLines = 2;
             SetTextColour(label, BodyTextColour);
             // Stronger dark shadow (was 0.75 alpha / 1.5px) so the label stays readable over both
             // bright and dark portraits while dragging.
@@ -3812,6 +3844,9 @@ namespace RoyalDecisions.Editor
             CardSwipeController swipe = cardObject != null
                 ? RequireSingleComponent<CardSwipeController>(cardObject, scene.path, report)
                 : null;
+            CardFlipController flip = cardObject != null
+                ? RequireSingleComponent<CardFlipController>(cardObject, scene.path, report)
+                : null;
             Image cardImage = cardObject != null ? cardObject.GetComponent<Image>() : null;
             if (cardObject != null && (cardImage == null || !cardImage.raycastTarget))
             {
@@ -3858,7 +3893,9 @@ namespace RoyalDecisions.Editor
                 scene, "/UICanvas/SafeArea/CardArea/Card/PortraitSwipeRoot", report);
             if (portraitSwipeRootObject != null)
             {
-                RequireSingleComponent<RectMask2D>(portraitSwipeRootObject, scene.path, report);
+                RequireSingleComponent<Mask>(portraitSwipeRootObject, scene.path, report);
+                RequireSingleComponent<ProceduralRoundedRectGraphic>(
+                    portraitSwipeRootObject, scene.path, report);
             }
             GameObject portraitMaskObject = RequirePath(
                 scene, "/UICanvas/SafeArea/CardArea/Card/PortraitSwipeRoot/PortraitMask", report);
@@ -4080,6 +4117,8 @@ namespace RoyalDecisions.Editor
             ValidateReference(controller, "gameOverView", gameOver, scene.path,
                 "/GameSceneController", report);
             ValidateReference(controller, "swipeController", swipe, scene.path,
+                "/GameSceneController", report);
+            ValidateReference(controller, "cardFlipController", flip, scene.path,
                 "/GameSceneController", report);
             ValidateReference(controller, "tapChoiceButtonsView", tapChoices, scene.path,
                 "/GameSceneController", report);
@@ -6343,15 +6382,18 @@ namespace RoyalDecisions.Editor
 
         private readonly struct CardParts
         {
-            public CardParts(RectTransform area, CardView view, CardSwipeController swipe)
+            public CardParts(
+                RectTransform area, CardView view, CardSwipeController swipe, CardFlipController flip)
             {
                 Area = area;
                 View = view;
                 Swipe = swipe;
+                Flip = flip;
             }
             public RectTransform Area { get; }
             public CardView View { get; }
             public CardSwipeController Swipe { get; }
+            public CardFlipController Flip { get; }
         }
 
         private readonly struct TapChoiceButtonsParts

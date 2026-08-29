@@ -53,12 +53,13 @@ namespace RoyalDecisions.Presentation
 
         [SerializeField] private bool rotateClockwiseOnRightDrag = true;
 
-        [Tooltip("Ease exponent applied to signed drag progress before it drives rotation — below "
-            + "1 ramps up quickly then flattens near the threshold, reading as a smooth nonlinear "
-            + "tilt rather than a mechanically linear one. SwipeMath.Rotation's own formula, and "
-            + "the confirm threshold, are untouched by this — it only pre-warps its input.")]
+        [Tooltip("Ease exponent applied to signed drag progress before it drives rotation — above "
+            + "1 holds back early in the drag (~2.5-3.5 deg around 50% progress) then ramps up to "
+            + "the full maxRotationDegrees near the threshold, reading as a tactile physical tilt "
+            + "rather than a mechanically linear one. SwipeMath.Rotation's own formula, and the "
+            + "confirm threshold, are untouched by this — it only pre-warps its input.")]
         [Range(0.3f, 1.5f)]
-        [SerializeField] private float rotationEaseExponent = 0.85f;
+        [SerializeField] private float rotationEaseExponent = 1.15f;
 
         [Tooltip("Small vertical rise as the card is dragged toward either side.")]
         [SerializeField] private float maxDragLift = 18f;
@@ -280,6 +281,17 @@ namespace RoyalDecisions.Presentation
             RestoreNeutral();
 
             State = CardSwipeState.Idle;
+        }
+
+        /// <summary>
+        /// Restores the card root's neutral position/rotation/scale without touching
+        /// <see cref="State"/> or re-arming input. For a presentation-only transition (the card
+        /// flip) that must reposition the card root mid-sequence while keeping the controller
+        /// locked until it finishes and calls <see cref="ResetForNextCard"/> itself.
+        /// </summary>
+        public void RestoreNeutralGeometry()
+        {
+            RestoreNeutral();
         }
 
         /// <summary>
