@@ -113,12 +113,13 @@ namespace RoyalDecisions.Editor
 
         private static readonly Color OverallBackgroundColour = new Color32(0x07, 0x11, 0x1B, 0xFF);
         private static readonly Color SurfaceColour = new Color32(0x12, 0x16, 0x20, 0xFF);
-        // Warm royal palette (MainMenu + Settings + About only), matching the game's own gold/navy
-        // branding rather than a generic neutral theme. Applied to the camera clear colour, which
-        // only these three screens ever actually show — the Game scene's own opaque Background
-        // (ConfigureBackground) always covers its camera, so repainting this tone has no visible
-        // effect there.
-        private static readonly Color MainMenuBackgroundColour = new Color32(0x12, 0x10, 0x0C, 0xFF);
+        // Zombie/post-apocalypse re-theme (MainMenu + Settings + About only): dark, ashen wasteland
+        // charcoal rather than a green tint, so the background itself doesn't read as monochrome
+        // "zombie green" — that note lives only in MenuToxicAccentColour below. Applied to the
+        // camera clear colour, which only these three screens ever actually show — the Game scene's
+        // own opaque Background (ConfigureBackground) always covers its camera, so repainting this
+        // tone has no visible effect there.
+        private static readonly Color MainMenuBackgroundColour = new Color32(0x18, 0x15, 0x10, 0xFF);
         private static readonly Color CardSurfaceColour = new Color32(0x21, 0x17, 0x1A, 0xFF);
         private static readonly Color BorderGoldColour = new Color32(0xB5, 0x8A, 0x4A, 0xFF);
         private static readonly Color StatBackgroundColour = new Color32(0x2A, 0x2F, 0x3A, 0xFF);
@@ -154,15 +155,33 @@ namespace RoyalDecisions.Editor
             new Color32(0x3E, 0x56, 0x7D, 0xFF),
             new Color32(0xB3, 0x8A, 0x3D, 0xFF)
         };
-        // Settings/About-only text tones — deliberately separate from SpeakerTextColour/
-        // SecondaryTextColour above, which the Game/Card scene still uses as-is (even though the
-        // values are close; kept decoupled per this file's existing pattern for Settings colours).
-        private static readonly Color MenuTitleTextColour = new Color32(0xF2, 0xE7, 0xCF, 0xFF);
-        private static readonly Color MenuMutedTextColour = new Color32(0xB9, 0xAA, 0x90, 0xFF);
+        // Settings/About-only text tones (zombie/post-apocalypse re-theme) — deliberately separate
+        // from SpeakerTextColour/SecondaryTextColour above, which the Game/Card scene still uses
+        // as-is. Ash/bone, not green-tinted, to match the wasteland background rather than repeat
+        // the toxic-green note used only for MenuToxicAccentColour below.
+        private static readonly Color MenuTitleTextColour = new Color32(0xC9, 0xC2, 0xA8, 0xFF);
+        private static readonly Color MenuMutedTextColour = new Color32(0x8B, 0x83, 0x77, 0xFF);
         // A shade darker than SettingsPanelTheme.InactiveTabColour (the row card's own background)
         // so the slider/toggle track reads as a sunken groove inside its card instead of blending
         // into the card fill behind it.
         private static readonly Color MenuTrackGrooveColour = new Color32(0x12, 0x0E, 0x0A, 0xFF);
+        // The one deliberately "zombie" (toxic/infected) note in the palette above, rather than
+        // SettingsPanelTheme.ActiveTabColour's rust — kept to slider fills only (see
+        // EnsureSliderControl) so it reads as a distinct highlight, not the base of the whole panel.
+        private static readonly Color MenuToxicAccentColour = new Color32(0x5A, 0x73, 0x2C, 0xFF);
+        // CRT overlay + hazard-stripe divider accents (Settings + About only). These match values
+        // already baked into the scene from an earlier, incomplete pass (the graphics themselves
+        // were missing their script asset until now) — authoring them here changes nothing visually
+        // for anyone who already had them, it only makes them idempotently managed going forward.
+        private static readonly Color CrtScanlineColour = new Color(0f, 0f, 0f, 0.07f);
+        private static readonly Color CrtVignetteColour = new Color(0f, 0f, 0f, 0.28f);
+        private const float CrtVignetteEdgeWidth = 0.3f;
+        private const float CrtVignetteEdgeAlpha = 1f;
+        private static readonly Color HazardStripePrimaryColour = new Color32(0xB8, 0x9A, 0x3A, 0xFF);
+        private static readonly Color HazardStripeSecondaryColour = new Color32(0x1C, 0x19, 0x14, 0xFF);
+        // How far a toggle/slider row's Title/Description/Label rects get nudged right (via
+        // offsetMin.x, never by re-deriving their anchor fractions) to clear the new IconBadge.
+        private const float RowIconBadgeTextPushX = 76f;
 
         [MenuItem("Tools/Royal Decisions/Scene Setup/Audit")]
         public static void AuditMenu()
@@ -713,6 +732,24 @@ namespace RoyalDecisions.Editor
                 gamePanelAnimators.Add(gameAboutPanelTransition);
             }
             SetObjectArrayProperty(accessibility, "panelAnimators", gamePanelAnimators.ToArray(), report);
+            // Same retrieval idiom as gameAboutPanelTransition above: fetched post-hoc from what
+            // ConfigureSettingsPanel/ConfigureAboutPanel already built, rather than threading a new
+            // return value through SettingsParts.
+            List<CrtFlickerAnimator> gameCrtFlickerAnimators = new List<CrtFlickerAnimator>();
+            CrtFlickerAnimator gameSettingsCrtFlicker = gameSettings.Root != null
+                ? gameSettings.Root.GetComponentInChildren<CrtFlickerAnimator>(true) : null;
+            if (gameSettingsCrtFlicker != null)
+            {
+                gameCrtFlickerAnimators.Add(gameSettingsCrtFlicker);
+            }
+            CrtFlickerAnimator gameAboutCrtFlicker = gameAboutPanel != null
+                ? gameAboutPanel.GetComponentInChildren<CrtFlickerAnimator>(true) : null;
+            if (gameAboutCrtFlicker != null)
+            {
+                gameCrtFlickerAnimators.Add(gameAboutCrtFlicker);
+            }
+            SetObjectArrayProperty(
+                accessibility, "crtFlickerAnimators", gameCrtFlickerAnimators.ToArray(), report);
             if (controller != null)
             {
                 SetObjectProperty(controller, "accessibility", accessibility, report);
@@ -894,6 +931,296 @@ namespace RoyalDecisions.Editor
             SetObjectProperty(view, "vignette", vignette, report);
             SetObjectProperty(view, "proceduralVignette", procedural, report);
             return view;
+        }
+
+        /// <summary>
+        /// Builds (or re-affirms) a full-bleed "CrtOverlay" child on a Settings/About panel root:
+        /// scanlines + edge vignette + a flicker animator driving both. Idempotent and safe to call
+        /// every Apply pass — forces itself to the last sibling slot so it always paints over
+        /// whatever content the panel already has, regardless of authoring-time ordering.
+        /// </summary>
+        private static CrtFlickerAnimator ConfigureCrtOverlay(RectTransform panelRoot, SceneSetupReport report)
+        {
+            RectTransform overlay = EnsureUiChild(panelRoot, "CrtOverlay", report);
+            Stretch(overlay);
+
+            RectTransform scanlinesTransform = EnsureUiChild(overlay, "Scanlines", report);
+            Stretch(scanlinesTransform);
+            // Graphic's own [RequireComponent(CanvasRenderer)] only fires through the live
+            // AddComponent/Editor-menu path, not when EnsureUiChild hands back a bare new
+            // GameObject — a brand-new row here would otherwise throw MissingComponentException
+            // the first time this graphic tries to render.
+            EnsureSingleComponent<CanvasRenderer>(scanlinesTransform.gameObject, report);
+            ProceduralScanlineGraphic scanlines =
+                EnsureSingleComponent<ProceduralScanlineGraphic>(scanlinesTransform.gameObject, report);
+            if (scanlines != null)
+            {
+                Undo.RecordObject(scanlines, "Configure CRT scanlines");
+                scanlines.raycastTarget = false;
+                scanlines.SetStyle(CrtScanlineColour, 4f, 1f);
+            }
+
+            RectTransform vignetteTransform = EnsureUiChild(overlay, "Vignette", report);
+            Stretch(vignetteTransform);
+            EnsureSingleComponent<CanvasRenderer>(vignetteTransform.gameObject, report);
+            ProceduralVignetteGraphic vignette =
+                EnsureSingleComponent<ProceduralVignetteGraphic>(vignetteTransform.gameObject, report);
+            if (vignette != null)
+            {
+                Undo.RecordObject(vignette, "Configure CRT vignette");
+                vignette.raycastTarget = false;
+                vignette.SetStyle(CrtVignetteColour, CrtVignetteEdgeWidth, CrtVignetteEdgeAlpha);
+            }
+
+            RemoveUnexpectedChildren(overlay, report, "Scanlines", "Vignette");
+
+            CrtFlickerAnimator flicker =
+                EnsureSingleComponent<CrtFlickerAnimator>(overlay.gameObject, report);
+            if (flicker != null)
+            {
+                flicker.SetAuthoringReferences(new Graphic[] { scanlines, vignette });
+            }
+
+            SetSiblingIndex(overlay, panelRoot.childCount - 1);
+            return flicker;
+        }
+
+        /// <summary>
+        /// Builds (or re-affirms) a thin hairline divider with a rotated hazard-tape stripe accent
+        /// running through it — the recipe Settings' own BottomDivider already used before this
+        /// pass, minus the missing script that used to leave it blank. Reusable so a second divider
+        /// (e.g. above the tab bar) can share the exact same look.
+        /// </summary>
+        private static RectTransform ConfigureHazardDivider(
+            RectTransform content, string name, SceneSetupReport report)
+        {
+            RectTransform divider = EnsureUiChild(content, name, report);
+            SetRect(divider, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
+                new Vector2(0f, 2f), new Vector2(0.5f, 1f));
+            ConfigureLayoutElement(divider.gameObject, 2f, report);
+            EnsureSingleComponent<RectMask2D>(divider.gameObject, report);
+            Image dividerImage = EnsureSingleComponent<Image>(divider.gameObject, report);
+            ConfigureSimpleImage(
+                dividerImage, LoadBuiltInUiSprite(report), new Color(1f, 1f, 1f, 0.18f), false);
+
+            RectTransform stripe = EnsureUiChild(divider, "Stripes", report);
+            SetRect(stripe, Center, Center, Vector2.zero, new Vector2(2000f, 2000f), Center);
+            Undo.RecordObject(stripe, "Configure hazard stripe rotation");
+            stripe.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            // See ConfigureCrtOverlay's matching comment: a brand-new row needs this added
+            // explicitly, since Graphic's [RequireComponent(CanvasRenderer)] doesn't fire here.
+            EnsureSingleComponent<CanvasRenderer>(stripe.gameObject, report);
+            ProceduralHazardStripeGraphic stripeGraphic =
+                EnsureSingleComponent<ProceduralHazardStripeGraphic>(stripe.gameObject, report);
+            if (stripeGraphic != null)
+            {
+                Undo.RecordObject(stripeGraphic, "Configure hazard stripe divider");
+                stripeGraphic.raycastTarget = false;
+                stripeGraphic.SetStyle(HazardStripePrimaryColour, HazardStripeSecondaryColour, 20f);
+            }
+            RemoveUnexpectedChildren(divider, report, "Stripes");
+            return divider;
+        }
+
+        /// <summary>
+        /// Populates an already-positioned, already-sized RectTransform with a two-layer diamond
+        /// badge — a dark filled diamond behind a thin gold diamond ring — and a centred, unrotated
+        /// icon built by <paramref name="iconBuilder"/> (never rotated itself, unlike the badge
+        /// frame beneath it). Positioning/sizing the badge itself is the caller's responsibility;
+        /// this only builds and styles the three children.
+        /// </summary>
+        private static void ConfigureIconBadge(
+            RectTransform badge, float size, SceneSetupReport report,
+            Action<GameObject, SceneSetupReport> iconBuilder)
+        {
+            RectTransform outer = EnsureUiChild(badge, "Outer", report);
+            Stretch(outer);
+            EnsureSingleComponent<CanvasRenderer>(outer.gameObject, report);
+            ProceduralDiamondFrameGraphic outerDiamond =
+                EnsureSingleComponent<ProceduralDiamondFrameGraphic>(outer.gameObject, report);
+            if (outerDiamond != null)
+            {
+                Undo.RecordObject(outerDiamond, "Configure icon badge outer diamond");
+                outerDiamond.raycastTarget = false;
+                outerDiamond.SetStyle(SettingsPanelTheme.InactiveTabColour, 0f);
+            }
+
+            RectTransform inner = EnsureUiChild(badge, "Inner", report);
+            SetRect(inner, Center, Center, Vector2.zero, new Vector2(size * 0.86f, size * 0.86f), Center);
+            EnsureSingleComponent<CanvasRenderer>(inner.gameObject, report);
+            ProceduralDiamondFrameGraphic innerDiamond =
+                EnsureSingleComponent<ProceduralDiamondFrameGraphic>(inner.gameObject, report);
+            if (innerDiamond != null)
+            {
+                Undo.RecordObject(innerDiamond, "Configure icon badge inner diamond");
+                innerDiamond.raycastTarget = false;
+                innerDiamond.SetStyle(SettingsPanelTheme.BorderGoldColour, 0.12f);
+            }
+
+            RectTransform icon = EnsureUiChild(badge, "Icon", report);
+            SetRect(icon, Center, Center, Vector2.zero, new Vector2(size * 0.5f, size * 0.5f), Center);
+            EnsureSingleComponent<CanvasRenderer>(icon.gameObject, report);
+            iconBuilder?.Invoke(icon.gameObject, report);
+
+            RemoveUnexpectedChildren(badge, report, "Outer", "Inner", "Icon");
+        }
+
+        /// <summary>A small centred two-layer diamond ornament (no icon slot) for title/footer
+        /// dividers — same look as <see cref="ConfigureIconBadge"/>'s frame, built standalone.</summary>
+        private static RectTransform ConfigureDiamondDivider(
+            RectTransform parent, string name, float size, SceneSetupReport report)
+        {
+            // A full-width slot (like ConfigureHazardDivider's own root) so a parent
+            // VerticalLayoutGroup with childControlWidth/childForceExpandWidth (as Settings'
+            // Content has) cannot stretch the diamond itself — only the slot is subject to that
+            // layout group; the diamond nested inside picks its own independent, centred size.
+            RectTransform slot = EnsureUiChild(parent, name, report);
+            SetRect(slot, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
+                new Vector2(0f, size), new Vector2(0.5f, 1f));
+            ConfigureLayoutElement(slot.gameObject, size, report);
+
+            RectTransform divider = EnsureUiChild(slot, "Diamond", report);
+            SetRect(divider, Center, Center, Vector2.zero, new Vector2(size, size), Center);
+
+            RectTransform outer = EnsureUiChild(divider, "Outer", report);
+            Stretch(outer);
+            EnsureSingleComponent<CanvasRenderer>(outer.gameObject, report);
+            ProceduralDiamondFrameGraphic outerDiamond =
+                EnsureSingleComponent<ProceduralDiamondFrameGraphic>(outer.gameObject, report);
+            if (outerDiamond != null)
+            {
+                Undo.RecordObject(outerDiamond, "Configure divider outer diamond");
+                outerDiamond.raycastTarget = false;
+                outerDiamond.SetStyle(SettingsPanelTheme.InactiveTabColour, 0f);
+            }
+
+            RectTransform inner = EnsureUiChild(divider, "Inner", report);
+            SetRect(inner, Center, Center, Vector2.zero, new Vector2(size * 0.7f, size * 0.7f), Center);
+            EnsureSingleComponent<CanvasRenderer>(inner.gameObject, report);
+            ProceduralDiamondFrameGraphic innerDiamond =
+                EnsureSingleComponent<ProceduralDiamondFrameGraphic>(inner.gameObject, report);
+            if (innerDiamond != null)
+            {
+                Undo.RecordObject(innerDiamond, "Configure divider inner diamond");
+                innerDiamond.raycastTarget = false;
+                innerDiamond.SetStyle(SettingsPanelTheme.BorderGoldColour, 0.18f);
+            }
+
+            RemoveUnexpectedChildren(divider, report, "Outer", "Inner");
+            RemoveUnexpectedChildren(slot, report, "Diamond");
+            return slot;
+        }
+
+        /// <summary>
+        /// Adds 4 small gold L-shaped corner-bracket accents to a card, one per corner. Mirrors the
+        /// corner-placement pattern <c>ConfigureCard</c> uses for its own (currently unassigned)
+        /// sprite corner slots, but draws procedurally instead of waiting on art.
+        /// </summary>
+        private static void AddCornerBrackets(RectTransform card, float size, SceneSetupReport report)
+        {
+            ConfigureCornerBracket(
+                card, "BracketTopLeft", size, new Vector2(0f, 1f), new Vector2(1f, 1f), report);
+            ConfigureCornerBracket(
+                card, "BracketTopRight", size, new Vector2(1f, 1f), new Vector2(-1f, 1f), report);
+            ConfigureCornerBracket(
+                card, "BracketBottomLeft", size, new Vector2(0f, 0f), new Vector2(1f, -1f), report);
+            ConfigureCornerBracket(
+                card, "BracketBottomRight", size, new Vector2(1f, 0f), new Vector2(-1f, -1f), report);
+        }
+
+        private static void ConfigureCornerBracket(
+            RectTransform card, string name, float size, Vector2 anchor, Vector2 scaleSign,
+            SceneSetupReport report)
+        {
+            RectTransform bracket = EnsureUiChild(card, name, report);
+            // Pivot is always the mesh's own drawn corner (top-left); anchor picks which corner of
+            // the card this instance sits at, and scaleSign mirrors the shape to match — the
+            // standard Unity UI trick for one mesh serving all 4 corners.
+            SetRect(bracket, anchor, anchor, Vector2.zero, new Vector2(size, size), new Vector2(0f, 1f));
+            Undo.RecordObject(bracket, "Configure corner bracket orientation");
+            bracket.localScale = new Vector3(scaleSign.x, scaleSign.y, 1f);
+            EnsureSingleComponent<CanvasRenderer>(bracket.gameObject, report);
+            ProceduralCornerBracketGraphic graphic =
+                EnsureSingleComponent<ProceduralCornerBracketGraphic>(bracket.gameObject, report);
+            if (graphic != null)
+            {
+                Undo.RecordObject(graphic, "Configure corner bracket");
+                graphic.raycastTarget = false;
+                graphic.SetStyle(SettingsPanelTheme.BorderGoldColour, 0.4f, 0.12f);
+            }
+        }
+
+        /// <summary>The <see cref="ConfigureIconBadge"/> iconBuilder callback for any of the six
+        /// shared badge icon shapes.</summary>
+        private static void AttachSettingsIcon(
+            GameObject target, SceneSetupReport report,
+            ProceduralSettingsIconGraphic.SettingsIconShape shape, bool muted)
+        {
+            ProceduralSettingsIconGraphic graphic =
+                EnsureSingleComponent<ProceduralSettingsIconGraphic>(target, report);
+            if (graphic != null)
+            {
+                Undo.RecordObject(graphic, "Configure settings icon");
+                graphic.SetStyle(shape, MenuTitleTextColour, muted);
+            }
+        }
+
+        /// <summary>The <see cref="ConfigureIconBadge"/> iconBuilder callback for the existing,
+        /// reused <see cref="ProceduralGearIconGraphic"/> (Genel-tab/gear-flavoured rows).</summary>
+        private static void AttachGearIcon(GameObject target, SceneSetupReport report)
+        {
+            ProceduralGearIconGraphic graphic =
+                EnsureSingleComponent<ProceduralGearIconGraphic>(target, report);
+            if (graphic != null)
+            {
+                Undo.RecordObject(graphic, "Configure gear icon");
+                graphic.raycastTarget = false;
+                graphic.color = MenuTitleTextColour;
+            }
+        }
+
+        /// <summary>
+        /// Shrinks a tab button's existing stretched "Text (TMP)" label down to the lower half and
+        /// adds an icon above it, matching the reference's icon-over-label tab pills. Not routed
+        /// through <see cref="ConfigureIconBadge"/> — a tab icon sits directly on the button's own
+        /// coloured fill, no separate diamond badge frame.
+        /// </summary>
+        private static void ConfigureTabButtonIcon(
+            Button button, SceneSetupReport report, Action<GameObject, SceneSetupReport> iconBuilder)
+        {
+            if (button == null)
+            {
+                return;
+            }
+            RectTransform root = button.transform as RectTransform;
+            RectTransform textTransform = EnsureUiChild(root, "Text (TMP)", report);
+            SetRect(textTransform, new Vector2(0f, 0f), new Vector2(1f, 0.46f),
+                Vector2.zero, Vector2.zero, Center);
+
+            RectTransform iconTransform = EnsureUiChild(root, "Icon", report);
+            SetRect(iconTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -8f), new Vector2(34f, 34f), new Vector2(0.5f, 1f));
+            EnsureSingleComponent<CanvasRenderer>(iconTransform.gameObject, report);
+            iconBuilder?.Invoke(iconTransform.gameObject, report);
+
+            RemoveUnexpectedChildren(root, report, "Text (TMP)", "Icon");
+        }
+
+        /// <summary>Tints a tab button's icon (built by <see cref="ConfigureTabButtonIcon"/>) to
+        /// match the same active/inactive contrast pairing already used for its label.</summary>
+        private static void SetTabIconColour(Button button, Color colour, SceneSetupReport report)
+        {
+            if (button == null)
+            {
+                return;
+            }
+            Transform iconTransform = button.transform.Find("Icon");
+            Graphic icon = iconTransform != null ? iconTransform.GetComponent<Graphic>() : null;
+            if (icon != null)
+            {
+                Undo.RecordObject(icon, "Configure tab icon colour");
+                icon.color = colour;
+            }
         }
 
         private static HUDView ConfigureHud(
@@ -2464,6 +2791,24 @@ namespace RoyalDecisions.Editor
                 mainMenuPanelAnimators.Add(aboutPanelTransition);
             }
             SetObjectArrayProperty(accessibility, "panelAnimators", mainMenuPanelAnimators.ToArray(), report);
+            // Same retrieval idiom as aboutPanelTransition above: fetched post-hoc from what
+            // ConfigureSettingsPanel/ConfigureAboutPanel already built, rather than threading a new
+            // return value through SettingsParts.
+            List<CrtFlickerAnimator> mainMenuCrtFlickerAnimators = new List<CrtFlickerAnimator>();
+            CrtFlickerAnimator mainMenuSettingsCrtFlicker = settings.Root != null
+                ? settings.Root.GetComponentInChildren<CrtFlickerAnimator>(true) : null;
+            if (mainMenuSettingsCrtFlicker != null)
+            {
+                mainMenuCrtFlickerAnimators.Add(mainMenuSettingsCrtFlicker);
+            }
+            CrtFlickerAnimator mainMenuAboutCrtFlicker = aboutPanel != null
+                ? aboutPanel.GetComponentInChildren<CrtFlickerAnimator>(true) : null;
+            if (mainMenuAboutCrtFlicker != null)
+            {
+                mainMenuCrtFlickerAnimators.Add(mainMenuAboutCrtFlicker);
+            }
+            SetObjectArrayProperty(
+                accessibility, "crtFlickerAnimators", mainMenuCrtFlickerAnimators.ToArray(), report);
             if (settings.Controller != null)
             {
                 SetObjectProperty(settings.Controller, "accessibility", accessibility, report);
@@ -2503,11 +2848,15 @@ namespace RoyalDecisions.Editor
             Stretch(safeContent);
             EnsureSingleComponent<SafeAreaFitter>(safeContent.gameObject, report);
             MigrateChildIfNeeded(safeContent, root, "Content", report);
+            // CRT scanline/vignette overlay, forced to the last sibling slot internally so it
+            // always paints over SafeArea's content below.
+            CrtFlickerAnimator settingsCrtFlicker = ConfigureCrtOverlay(root, report);
+
             // Sweeps a leftover "HeaderBackdrop" from an earlier pass — it existed only to bleed
             // Header's own card colour behind the notch, and Header no longer has a card colour
             // (every row is transparent now), so root's own flat MainMenuBackgroundColour already
             // covers that area uniformly on its own.
-            RemoveUnexpectedChildren(root, report, "SafeArea");
+            RemoveUnexpectedChildren(root, report, "SafeArea", "CrtOverlay");
 
             // Full-bleed to the safe area's own edges (was inset 8%/6%, leaving the root's flat
             // colour visible as a margin) — at the user's request, the panel now fills the screen
@@ -2520,7 +2869,7 @@ namespace RoyalDecisions.Editor
             {
                 Undo.RecordObject(contentLayout, "Configure settings content layout");
                 contentLayout.padding = new RectOffset(0, 0, 0, 0);
-                contentLayout.spacing = 10f;
+                contentLayout.spacing = 20f;
                 contentLayout.childAlignment = TextAnchor.UpperCenter;
                 contentLayout.childControlWidth = true;
                 contentLayout.childForceExpandWidth = true;
@@ -2545,11 +2894,23 @@ namespace RoyalDecisions.Editor
                 titleTransform.gameObject, report);
             ConfigureReadableText(title, font, 36f, 30f, 40f, true, false, 2f);
             title.text = "Ayarlar";
+            // Push the shared "readable text" sizing harder for this one display heading — no
+            // serif/fantasy display font can be sourced (see MANUAL_UNITY_STEPS.md), so extra
+            // size + tracking + small caps are the closest the existing font can approximate.
+            Undo.RecordObject(title, "Configure settings title display treatment");
+            title.fontSizeMin = 36f;
+            title.fontSizeMax = 48f;
+            title.characterSpacing = 6f;
+            title.fontStyle |= FontStyles.SmallCaps;
             // Sweeps leftovers from earlier authoring passes (e.g. a since-removed decorative
             // tagline, or the since-removed diamond icon) — Header previously had no allowlist, so
             // anything an older pass added and a later pass stopped creating was never cleaned up
             // automatically.
             RemoveUnexpectedChildren(header, report, "Title");
+
+            // A small centred diamond ornament under the title, matching the footer's — reads as
+            // one consistent "decorative rule" motif rather than a divider unique to the header.
+            RectTransform titleDivider = ConfigureDiamondDivider(content, "TitleDivider", 28f, report);
 
             // Tab bar ------------------------------------------------------------------
             RectTransform tabBar = EnsureUiChild(content, "TabBar", report);
@@ -2562,7 +2923,7 @@ namespace RoyalDecisions.Editor
             {
                 Undo.RecordObject(tabBarLayout, "Configure settings tab bar layout");
                 tabBarLayout.padding = new RectOffset(0, 0, 0, 0);
-                tabBarLayout.spacing = 12f;
+                tabBarLayout.spacing = 16f;
                 tabBarLayout.childAlignment = TextAnchor.MiddleCenter;
                 tabBarLayout.childControlWidth = true;
                 tabBarLayout.childForceExpandWidth = true;
@@ -2609,6 +2970,22 @@ namespace RoyalDecisions.Editor
             ConfigureMinimumTouchTarget(graphicsTabButton, report);
             ConfigureMinimumTouchTarget(controlsTabButton, report);
             ConfigureMinimumTouchTarget(generalTabButton, report);
+            ConfigureTabButtonIcon(audioTabButton, report,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Speaker, false));
+            ConfigureTabButtonIcon(graphicsTabButton, report,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Monitor, false));
+            ConfigureTabButtonIcon(controlsTabButton, report,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Gamepad, false));
+            ConfigureTabButtonIcon(generalTabButton, report, AttachGearIcon);
+            // Same active/inactive contrast pairing as the labels right below each icon.
+            SetTabIconColour(audioTabButton, SettingsPanelTheme.ActiveTabTextColour, report);
+            SetTabIconColour(graphicsTabButton, SettingsPanelTheme.InactiveTabTextColour, report);
+            SetTabIconColour(controlsTabButton, SettingsPanelTheme.InactiveTabTextColour, report);
+            SetTabIconColour(generalTabButton, SettingsPanelTheme.InactiveTabTextColour, report);
+
+            // A second hazard-tape accent right below the tab bar, matching BottomDivider — the
+            // panel reads as framed top and bottom rather than only at the footer.
+            RectTransform topDivider = ConfigureHazardDivider(content, "TopDivider", report);
 
             // Scrollable content: only the active tab's controls are visible at a time, so the
             // scroll content's height always matches whichever tab is currently shown.
@@ -2686,14 +3063,16 @@ namespace RoyalDecisions.Editor
             SetActiveIfNeeded(generalPanel != null ? generalPanel.gameObject : null, false);
 
             // Thin divider so the fixed Apply/Cancel bar reads as a distinct footer rather than
-            // blurring into whatever tab content happens to sit right above it.
-            RectTransform bottomDivider = EnsureUiChild(content, "BottomDivider", report);
-            SetRect(bottomDivider, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
-                new Vector2(0f, 2f), new Vector2(0.5f, 1f));
-            ConfigureLayoutElement(bottomDivider.gameObject, 2f, report);
-            Image dividerImage = EnsureSingleComponent<Image>(bottomDivider.gameObject, report);
-            ConfigureSimpleImage(
-                dividerImage, LoadBuiltInUiSprite(report), new Color(1f, 1f, 1f, 0.18f), false);
+            // blurring into whatever tab content happens to sit right above it. The hazard-tape
+            // stripe running through it was already here from an earlier pass (missing its script
+            // asset until now) — ConfigureHazardDivider now manages it idempotently.
+            RectTransform bottomDivider = ConfigureHazardDivider(content, "BottomDivider", report);
+
+            // A small centred diamond ornament right above the footer buttons, matching the one
+            // under the title — sits alongside the hazard-tape BottomDivider rather than
+            // replacing it (this pass adds ornament/shape only, the CRT/hazard-stripe work from
+            // the previous pass stays untouched).
+            RectTransform footerDivider = ConfigureDiamondDivider(content, "FooterDivider", 28f, report);
 
             // Bottom actions: pinned outside the ScrollRect so Apply/Cancel never scroll away.
             // Varsayılanlara Dön used to live here as a third button with the same visual weight
@@ -2710,7 +3089,7 @@ namespace RoyalDecisions.Editor
             {
                 Undo.RecordObject(bottomActionsLayout, "Configure settings bottom action layout");
                 bottomActionsLayout.padding = new RectOffset(0, 0, 0, 0);
-                bottomActionsLayout.spacing = 16f;
+                bottomActionsLayout.spacing = 24f;
                 bottomActionsLayout.childAlignment = TextAnchor.MiddleCenter;
                 bottomActionsLayout.childControlWidth = true;
                 bottomActionsLayout.childForceExpandWidth = true;
@@ -2720,11 +3099,23 @@ namespace RoyalDecisions.Editor
             MigrateChildIfNeeded(bottomActions, content, "ApplyButton", report);
             MigrateChildIfNeeded(bottomActions, content, "CancelButton", report);
 
-            // İptal (secondary/neutral) on the left, Uygula (primary) on the right.
+            // İptal (secondary/neutral, dark/outlined) on the left, Uygula (primary, filled) on
+            // the right — both chamfered/cut-corner instead of plain rounded, matching the
+            // reference's footer buttons.
             Button cancel = EnsureMenuButton(bottomActions, "CancelButton", "İptal", 0f, report,
-                colourOverride: SettingsPanelTheme.ActiveTabColour);
+                colourOverride: SettingsPanelTheme.InactiveTabColour,
+                cornerStyle: ProceduralRoundedRectGraphic.CornerStyle.Chamfer);
             Button apply = EnsureMenuButton(bottomActions, "ApplyButton", "Uygula", 0f, report,
-                colourOverride: SettingsPanelTheme.ActiveTabColour);
+                colourOverride: SettingsPanelTheme.ActiveTabColour,
+                cornerStyle: ProceduralRoundedRectGraphic.CornerStyle.Chamfer);
+            Outline cancelOutline = EnsureSingleComponent<Outline>(cancel.gameObject, report);
+            if (cancelOutline != null)
+            {
+                Undo.RecordObject(cancelOutline, "Configure cancel button border");
+                cancelOutline.effectColor = SettingsPanelTheme.BorderGoldColour;
+                cancelOutline.effectDistance = new Vector2(1.5f, -1.5f);
+                cancelOutline.useGraphicAlpha = false;
+            }
             ConfigureButtonFont(cancel, font, 36f, 30f, 40f);
             ConfigureButtonFont(apply, font, 36f, 30f, 40f);
             // Apply is the primary action; a heavier weight distinguishes it from İptal without
@@ -2745,11 +3136,15 @@ namespace RoyalDecisions.Editor
             // it now lives inside the Genel tab as a normal action row instead.
             RemoveUnexpectedChildren(bottomActions, report, "CancelButton", "ApplyButton");
 
-            SetSiblingIndex(bottomDivider, 3);
-            SetSiblingIndex(bottomActions, 4);
+            SetSiblingIndex(titleDivider, 1);
+            SetSiblingIndex(topDivider, 3);
+            SetSiblingIndex(bottomDivider, 5);
+            SetSiblingIndex(footerDivider, 6);
+            SetSiblingIndex(bottomActions, 7);
 
             RemoveUnexpectedChildren(content, report,
-                "Header", "TabBar", "ContentViewport", "BottomDivider", "BottomActions");
+                "Header", "TitleDivider", "TabBar", "TopDivider", "ContentViewport", "BottomDivider",
+                "FooterDivider", "BottomActions");
 
             SettingsPanelView view = EnsureSingleComponent<SettingsPanelView>(root.gameObject, report);
             SetObjectProperty(view, "panelRoot", root.gameObject, report);
@@ -2774,6 +3169,7 @@ namespace RoyalDecisions.Editor
                 contentViewport.gameObject, report, animateScale: false);
             SetObjectProperty(view, "panelAnimator", settingsPanelTransition, report);
             SetObjectProperty(view, "tabCrossfadeAnimator", tabCrossfadeTransition, report);
+            SetObjectProperty(view, "crtFlicker", settingsCrtFlicker, report);
 
             GameObject controllerObject = EnsureRoot(
                 root.gameObject.scene, "SettingsController", report);
@@ -2803,6 +3199,9 @@ namespace RoyalDecisions.Editor
         {
             RectTransform root = EnsureUiChild(canvasTransform, "AboutPanel", report);
             Stretch(root);
+            // CRT scanline/vignette overlay — was already hand-added here from an earlier pass
+            // (missing its script asset until now); this now manages it idempotently, same values.
+            ConfigureCrtOverlay(root, report);
             Image surface = EnsureSingleComponent<Image>(root.gameObject, report);
             // Matches SettingsPanel's background since About is now reached only from within
             // Settings and should read as the same flow, not a visually distinct screen. Flat
@@ -2868,9 +3267,10 @@ namespace RoyalDecisions.Editor
             RectTransform scrollContent, TMP_FontAsset font, SceneSetupReport report)
         {
             RectTransform tab = EnsureUiChild(scrollContent, "AudioTab", report);
-            ConfigureTabLayout(tab, report, spacing: 24f);
+            ConfigureTabLayout(tab, report);
             EnsureTabSectionHeader(tab, "Ses ve Müzik",
-                "Müzik ve efekt seviyelerini ayarlayın.", font, report);
+                "Müzik ve efekt seviyelerini ayarlayın.", font, report,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Speaker, false));
 
             // The three volume sliders share one grouped card, matching the reference layout,
             // instead of sitting directly in the tab as separate rows. MigrateChildIfNeeded moves
@@ -2882,23 +3282,32 @@ namespace RoyalDecisions.Editor
             MigrateChildIfNeeded(sliderGroup, tab, "SfxVolume", report);
 
             Slider master = EnsureSliderControl(sliderGroup, "MasterVolume", "Ana Ses", font, report,
-                out TMP_Text masterLabel, defaultValue: GameSettings.MaxVolume);
+                out TMP_Text masterLabel,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Speaker, false),
+                defaultValue: GameSettings.MaxVolume);
             SetSiblingIndex(master.transform, 0);
             RectTransform divider1 = EnsureGroupDivider(sliderGroup, "Divider1", report);
             SetSiblingIndex(divider1, 1);
             Slider music = EnsureSliderControl(sliderGroup, "MusicVolume", "Müzik", font, report,
-                out TMP_Text musicLabel, defaultValue: GameSettings.DefaultVolume);
+                out TMP_Text musicLabel,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.MusicNote, false),
+                defaultValue: GameSettings.DefaultVolume);
             SetSiblingIndex(music.transform, 2);
             RectTransform divider2 = EnsureGroupDivider(sliderGroup, "Divider2", report);
             SetSiblingIndex(divider2, 3);
             Slider sfx = EnsureSliderControl(sliderGroup, "SfxVolume", "Ses Efektleri", font, report,
-                out TMP_Text sfxLabel, defaultValue: GameSettings.DefaultVolume);
+                out TMP_Text sfxLabel,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Sparkle, false),
+                defaultValue: GameSettings.DefaultVolume);
             SetSiblingIndex(sfx.transform, 4);
             RemoveUnexpectedChildren(sliderGroup, report,
-                "MasterVolume", "Divider1", "MusicVolume", "Divider2", "SfxVolume");
+                "MasterVolume", "Divider1", "MusicVolume", "Divider2", "SfxVolume",
+                "BracketTopLeft", "BracketTopRight", "BracketBottomLeft", "BracketBottomRight");
 
             Toggle mute = EnsureToggleControl(tab, "MasterMute", "Sessiz Mod",
-                "Tüm oyun seslerini kapatır.", font, report);
+                "Tüm oyun seslerini kapatır.", font, report,
+                (go, r) => AttachSettingsIcon(
+                    go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Speaker, true));
 
             AudioSettingsPanelView audioPanel =
                 EnsureSingleComponent<AudioSettingsPanelView>(tab.gameObject, report);
@@ -2928,7 +3337,8 @@ namespace RoyalDecisions.Editor
             RectTransform tab = EnsureUiChild(scrollContent, "GraphicsTab", report);
             ConfigureTabLayout(tab, report);
             EnsureTabSectionHeader(tab, "Grafik",
-                "Kare hızı ve pil tasarrufu tercihlerini yönetin.", font, report);
+                "Kare hızı ve pil tasarrufu tercihlerini yönetin.", font, report,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Monitor, false));
 
             // A single slider snapping across three whole-number steps (30 FPS / 60 FPS /
             // Otomatik) — the same slider control and visual language as the volume sliders on
@@ -2940,6 +3350,7 @@ namespace RoyalDecisions.Editor
             Slider frameRateSlider = EnsureSliderControl(
                 frameRateGroup, "FrameRate", "Kare Hızı", font, report,
                 out TMP_Text frameRateLabel,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Monitor, false),
                 minValue: 0f, maxValue: 2f, defaultValue: 1f,
                 wholeNumbers: true, initialValueText: "60 FPS",
                 // "Otomatik" is far longer than the "100%" the default anchors were sized for —
@@ -2947,11 +3358,14 @@ namespace RoyalDecisions.Editor
                 // auto-sized within the same range as the row's own name label) from being
                 // squeezed down disproportionately small.
                 trackEndAnchor: 0.66f, valueLabelStartAnchor: 0.68f);
-            RemoveUnexpectedChildren(frameRateGroup, report, "FrameRate");
+            RemoveUnexpectedChildren(frameRateGroup, report, "FrameRate",
+                "BracketTopLeft", "BracketTopRight", "BracketBottomLeft", "BracketBottomRight");
 
             Toggle batterySaver = EnsureToggleControl(
                 tab, "BatterySaver", "Pil Tasarrufu",
-                "Kare hızını düşürerek pil ömrünü uzatır.", font, report);
+                "Kare hızını düşürerek pil ömrünü uzatır.", font, report,
+                (go, r) => AttachSettingsIcon(
+                    go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Monitor, false));
 
             GraphicsSettingsPanelView graphicsPanel =
                 EnsureSingleComponent<GraphicsSettingsPanelView>(tab.gameObject, report);
@@ -2976,30 +3390,38 @@ namespace RoyalDecisions.Editor
             RectTransform tab = EnsureUiChild(scrollContent, "ControlsTab", report);
             ConfigureTabLayout(tab, report);
             EnsureTabSectionHeader(tab, "Kontroller",
-                "Dokunma butonlarını, kaydırma hassasiyetini ve titreşimi ayarlayın.", font, report);
+                "Dokunma butonlarını, kaydırma hassasiyetini ve titreşimi ayarlayın.", font, report,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Gamepad, false));
 
             RectTransform sensitivityGroup = EnsureSettingsGroupPanel(tab, "SensitivityGroup", report);
             MigrateChildIfNeeded(sensitivityGroup, tab, "SwipeSensitivity", report);
             Slider sensitivity = EnsureSliderControl(
                 sensitivityGroup, "SwipeSensitivity", "Kaydırma Hassasiyeti", font, report,
-                out TMP_Text sensitivityLabel, defaultValue: GameSettings.DefaultSwipeSensitivity,
+                out TMP_Text sensitivityLabel,
+                (go, r) => AttachSettingsIcon(go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Gamepad, false),
+                defaultValue: GameSettings.DefaultSwipeSensitivity,
                 // "Kaydırma Hassasiyeti" is far longer than every other row's name ("Ana Ses",
                 // "Kare Hızı", ...), so it needs more of the row's width to render at the same
                 // font-size range as those labels instead of shrinking to the ellipsis floor.
                 labelEndAnchor: 0.56f, trackStartAnchor: 0.58f,
                 trackEndAnchor: 0.80f, valueLabelStartAnchor: 0.82f);
-            RemoveUnexpectedChildren(sensitivityGroup, report, "SwipeSensitivity");
+            RemoveUnexpectedChildren(sensitivityGroup, report, "SwipeSensitivity",
+                "BracketTopLeft", "BracketTopRight", "BracketBottomLeft", "BracketBottomRight");
+            Action<GameObject, SceneSetupReport> gamepadIcon = (go, r) => AttachSettingsIcon(
+                go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Gamepad, false);
             Toggle tapButtons = EnsureToggleControl(
                 tab, "TapButtonsEnabled", "Dokunma ile Karar Butonları",
-                "Kararları kaydırma yerine dokunmatik butonlarla verin.", font, report);
+                "Kararları kaydırma yerine dokunmatik butonlarla verin.", font, report, gamepadIcon);
             Toggle invert = EnsureToggleControl(
                 tab, "InvertSwipeRotation", "Kaydırma Yönünü Ters Çevir",
-                "Kartın eğim yönünü tersine çevirir.", font, report);
+                "Kartın eğim yönünü tersine çevirir.", font, report, gamepadIcon);
             Toggle disableSwipe = EnsureToggleControl(
                 tab, "DisableSwipe", "Kaydırmayı Devre Dışı Bırak",
-                "Kararları yalnızca dokunma butonlarıyla verin.", font, report);
+                "Kararları yalnızca dokunma butonlarıyla verin.", font, report, gamepadIcon);
             Toggle haptics = EnsureToggleControl(tab, "Haptics", "Titreşim",
-                "Kart seçimlerinde titreşim.", font, report);
+                "Kart seçimlerinde titreşim.", font, report,
+                (go, r) => AttachSettingsIcon(
+                    go, r, ProceduralSettingsIconGraphic.SettingsIconShape.Vibration, false));
 
             ControlsSettingsPanelView controlsPanel =
                 EnsureSingleComponent<ControlsSettingsPanelView>(tab.gameObject, report);
@@ -3032,10 +3454,10 @@ namespace RoyalDecisions.Editor
             RectTransform tab = EnsureUiChild(scrollContent, "GeneralTab", report);
             ConfigureTabLayout(tab, report);
             EnsureTabSectionHeader(tab, "Genel",
-                "Erişilebilirlik seçenekleri ve ilerleme yönetimi.", font, report);
+                "Erişilebilirlik seçenekleri ve ilerleme yönetimi.", font, report, AttachGearIcon);
 
             Toggle reduced = EnsureToggleControl(tab, "ReducedMotion", "Azaltılmış Hareket",
-                "Animasyonları ve geçişleri sadeleştirir.", font, report);
+                "Animasyonları ve geçişleri sadeleştirir.", font, report, AttachGearIcon);
 
             // A three-step slider, same pattern as the Graphics tab's frame-rate picker:
             // 0 = Small, 1 = Normal (default), 2 = Large. Replaces the old three-way
@@ -3044,13 +3466,14 @@ namespace RoyalDecisions.Editor
             MigrateChildIfNeeded(textSizeGroup, tab, "TextSize", report);
             Slider textSizeSlider = EnsureSliderControl(
                 textSizeGroup, "TextSize", "Metin Boyutu", font, report,
-                out TMP_Text textSizeValueLabel,
+                out TMP_Text textSizeValueLabel, AttachGearIcon,
                 minValue: 0f, maxValue: 2f, defaultValue: 1f,
                 wholeNumbers: true, initialValueText: "Normal");
-            RemoveUnexpectedChildren(textSizeGroup, report, "TextSize");
+            RemoveUnexpectedChildren(textSizeGroup, report, "TextSize",
+                "BracketTopLeft", "BracketTopRight", "BracketBottomLeft", "BracketBottomRight");
 
             Toggle contrast = EnsureToggleControl(tab, "HighContrast", "Yüksek Kontrast",
-                "Metin ve arayüz kontrastını artırır.", font, report);
+                "Metin ve arayüz kontrastını artırır.", font, report, AttachGearIcon);
 
             // Read-only: no in-app localization system exists yet, so this shows the current
             // (only) supported language rather than a non-functional picker.
@@ -3187,6 +3610,7 @@ namespace RoyalDecisions.Editor
             TMP_FontAsset font,
             SceneSetupReport report,
             out TMP_Text valueLabel,
+            Action<GameObject, SceneSetupReport> iconBuilder,
             float minValue = 0f,
             float maxValue = 1f,
             float defaultValue = GameSettings.DefaultVolume,
@@ -3222,10 +3646,10 @@ namespace RoyalDecisions.Editor
                 Vector2.zero, Vector2.zero, Center);
             RectTransform fillTransform = EnsureUiChild(fillArea, "Fill", report);
             Stretch(fillTransform);
-            // Same single accent colour as the active tab — a single-accent theme has no reason to
-            // introduce a second highlight tone for the slider fill.
+            // Deliberately the toxic-green accent, not the rust button colour — gives the panel a
+            // second wasteland tone instead of one colour repeated on every element.
             ConfigureRoundedFill(
-                fillTransform.gameObject, SettingsPanelTheme.ActiveTabColour, 40f, false, report);
+                fillTransform.gameObject, MenuToxicAccentColour, 40f, false, report);
             // Inset 48 units (the handle's own width) from the track's ends: Slider moves the
             // handle's *centre* across this area's full width, so without the inset the handle
             // would overhang half its own width past the track at 0%/100% — visibly overlapping
@@ -3235,26 +3659,43 @@ namespace RoyalDecisions.Editor
                 Vector2.zero, new Vector2(-48f, 0f), Center);
             RectTransform handleTransform = EnsureUiChild(handleArea, "Handle", report);
             SetRect(handleTransform, Center, Center, Vector2.zero, new Vector2(48f, 48f), Center);
+            // Chamfer degenerates a square into a regular octagon — a "gem" handle instead of a
+            // plain circle, for free from the same corner-radius math every other fill already uses.
             ProceduralRoundedRectGraphic handle = ConfigureRoundedFill(
                 handleTransform.gameObject, SettingsPanelTheme.InactiveTabTextColour, 40f, true,
-                report);
-            // A thin gold ring so the handle reads as a distinct, grabbable control against
-            // whichever colour (groove or accent fill) happens to sit behind it at a given value,
-            // instead of just a flat tan dot with no edge definition.
+                report, ProceduralRoundedRectGraphic.CornerStyle.Chamfer);
+            // A thicker gold ring than before (was 1.5) so the octagon handle reads as a "gem in a
+            // rim" rather than a flat tan dot — kept as this single Outline effect (not a second
+            // sibling GameObject) specifically because Unity's Slider component reassigns
+            // handleRect's own anchors every value change to track the drag position; a separate
+            // ring GameObject would not be assigned as handleRect and would visibly detach from the
+            // handle the moment it moved. An Outline is a shader-level effect on Handle itself, so
+            // it always tracks perfectly.
             Outline handleOutline = EnsureSingleComponent<Outline>(handleTransform.gameObject, report);
             if (handleOutline != null)
             {
                 Undo.RecordObject(handleOutline, "Configure slider handle outline");
                 handleOutline.effectColor = SettingsPanelTheme.BorderGoldColour;
-                handleOutline.effectDistance = new Vector2(1.5f, -1.5f);
+                handleOutline.effectDistance = new Vector2(3f, -3f);
                 handleOutline.useGraphicAlpha = false;
             }
+            RemoveUnexpectedChildren(handleArea, report, "Handle");
+
             SetSiblingIndex(track, 0);
             SetSiblingIndex(fillArea, 1);
             SetSiblingIndex(handleArea, 2);
+
+            RectTransform iconBadge = EnsureUiChild(root, "IconBadge", report);
+            SetRect(iconBadge, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(34f, 0f), new Vector2(48f, 48f), Center);
+            ConfigureIconBadge(iconBadge, 48f, report, iconBuilder);
+
             RectTransform labelTransform = EnsureUiChild(root, "Label", report);
             SetRect(labelTransform, new Vector2(0.05f, 0f), new Vector2(labelEndAnchor, 1f),
                 Vector2.zero, Vector2.zero, Center);
+            Undo.RecordObject(labelTransform, "Configure slider label icon offset");
+            labelTransform.offsetMin =
+                new Vector2(labelTransform.offsetMin.x + RowIconBadgeTextPushX, labelTransform.offsetMin.y);
             TextMeshProUGUI label = EnsureSingleComponent<TextMeshProUGUI>(
                 labelTransform.gameObject, report);
             ConfigureReadableText(label, font, 32f, 26f, 34f, true, false, 2f);
@@ -3283,7 +3724,8 @@ namespace RoyalDecisions.Editor
             valueLabel = valueText;
             // Sweeps the now-removed diamond icon (and any other stale leftovers) — this row never
             // had an allowlist before, so an old pass's orphan would otherwise persist forever.
-            RemoveUnexpectedChildren(root, report, "Track", "FillArea", "HandleArea", "Label", "ValueLabel");
+            RemoveUnexpectedChildren(root, report,
+                "Track", "FillArea", "HandleArea", "Label", "ValueLabel", "IconBadge");
 
             if (slider != null)
             {
@@ -3311,7 +3753,8 @@ namespace RoyalDecisions.Editor
             string labelText,
             string description,
             TMP_FontAsset font,
-            SceneSetupReport report)
+            SceneSetupReport report,
+            Action<GameObject, SceneSetupReport> iconBuilder)
         {
             RectTransform root = EnsureUiChild(parent, name, report);
             SetRect(root, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
@@ -3331,7 +3774,13 @@ namespace RoyalDecisions.Editor
                 cardOutline.effectDistance = new Vector2(1.5f, -1.5f);
                 cardOutline.useGraphicAlpha = false;
             }
+            AddCornerBrackets(root, 32f, report);
             Toggle toggle = EnsureSingleComponent<Toggle>(root.gameObject, report);
+
+            RectTransform iconBadge = EnsureUiChild(root, "IconBadge", report);
+            SetRect(iconBadge, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(40f, 0f), new Vector2(56f, 56f), Center);
+            ConfigureIconBadge(iconBadge, 56f, report, iconBuilder);
 
             // A real sliding pill switch (track + knob), moved to the row's right edge (was the
             // left) to match title+description reading left-to-right with the switch as the
@@ -3347,14 +3796,20 @@ namespace RoyalDecisions.Editor
             ConfigureRoundedFill(
                 knob.gameObject, SettingsPanelTheme.InactiveTabTextColour, 40f, false, report);
 
-            RemoveUnexpectedChildren(root, report, "Track", "Title", "Description");
+            RemoveUnexpectedChildren(root, report, "Track", "Title", "Description", "IconBadge",
+                "BracketTopLeft", "BracketTopRight", "BracketBottomLeft", "BracketBottomRight");
 
             // Title (bold, upper half) + a muted description line below it (matching the section
             // header's title/description pairing) — proportional splits, not fixed pixel offsets,
-            // so neither can run off-screen on a narrower-than-reference-width safe area.
+            // so neither can run off-screen on a narrower-than-reference-width safe area. Each is
+            // then nudged right by a fixed pixel amount (not a re-derived anchor fraction) to clear
+            // IconBadge.
             RectTransform titleTransform = EnsureUiChild(root, "Title", report);
             SetRect(titleTransform, new Vector2(0.05f, 0.52f), new Vector2(0.76f, 1f),
                 Vector2.zero, Vector2.zero, Center);
+            Undo.RecordObject(titleTransform, "Configure toggle title icon offset");
+            titleTransform.offsetMin =
+                new Vector2(titleTransform.offsetMin.x + RowIconBadgeTextPushX, titleTransform.offsetMin.y);
             TextMeshProUGUI title = EnsureSingleComponent<TextMeshProUGUI>(
                 titleTransform.gameObject, report);
             ConfigureReadableText(title, font, 28f, 22f, 30f, true, false, 2f);
@@ -3365,6 +3820,9 @@ namespace RoyalDecisions.Editor
             RectTransform descriptionTransform = EnsureUiChild(root, "Description", report);
             SetRect(descriptionTransform, new Vector2(0.05f, 0f), new Vector2(0.76f, 0.46f),
                 Vector2.zero, Vector2.zero, Center);
+            Undo.RecordObject(descriptionTransform, "Configure toggle description icon offset");
+            descriptionTransform.offsetMin = new Vector2(
+                descriptionTransform.offsetMin.x + RowIconBadgeTextPushX, descriptionTransform.offsetMin.y);
             TextMeshProUGUI descriptionText = EnsureSingleComponent<TextMeshProUGUI>(
                 descriptionTransform.gameObject, report);
             ConfigureReadableText(descriptionText, font, 20f, 16f, 22f, true, true, 2f);
@@ -4591,7 +5049,8 @@ namespace RoyalDecisions.Editor
             float width = 600f,
             float height = 120f,
             Color? colourOverride = null,
-            float cornerRadius = StandardButtonCornerRadius)
+            float cornerRadius = StandardButtonCornerRadius,
+            ProceduralRoundedRectGraphic.CornerStyle cornerStyle = ProceduralRoundedRectGraphic.CornerStyle.Round)
         {
             RectTransform transform = EnsureUiChild(parent, name, report);
             LayoutGroup parentLayout = parent != null ? parent.GetComponent<LayoutGroup>() : null;
@@ -4619,7 +5078,7 @@ namespace RoyalDecisions.Editor
             }
 
             ProceduralRoundedRectGraphic graphic = ConfigureRoundedButtonGraphic(
-                transform.gameObject, colourOverride ?? ButtonColour, cornerRadius, report);
+                transform.gameObject, colourOverride ?? ButtonColour, cornerRadius, report, cornerStyle);
             Button button = EnsureSingleComponent<Button>(transform.gameObject, report);
             if (button != null && graphic != null)
             {
@@ -4637,14 +5096,16 @@ namespace RoyalDecisions.Editor
         /// (slider track/fill, toggle switch) can opt out via <see cref="ConfigureRoundedFill"/>.
         /// </summary>
         private static ProceduralRoundedRectGraphic ConfigureRoundedButtonGraphic(
-            GameObject target, Color colour, float cornerRadius, SceneSetupReport report)
+            GameObject target, Color colour, float cornerRadius, SceneSetupReport report,
+            ProceduralRoundedRectGraphic.CornerStyle cornerStyle = ProceduralRoundedRectGraphic.CornerStyle.Round)
         {
-            return ConfigureRoundedFill(target, colour, cornerRadius, true, report);
+            return ConfigureRoundedFill(target, colour, cornerRadius, true, report, cornerStyle);
         }
 
         private static ProceduralRoundedRectGraphic ConfigureRoundedFill(
             GameObject target, Color colour, float cornerRadius, bool raycastTarget,
-            SceneSetupReport report)
+            SceneSetupReport report,
+            ProceduralRoundedRectGraphic.CornerStyle cornerStyle = ProceduralRoundedRectGraphic.CornerStyle.Round)
         {
             if (target == null)
             {
@@ -4664,6 +5125,7 @@ namespace RoyalDecisions.Editor
                 graphic.color = colour;
                 graphic.raycastTarget = raycastTarget;
                 graphic.SetCornerRadius(cornerRadius);
+                graphic.SetCornerStyle(cornerStyle);
             }
             return graphic;
         }
@@ -4735,7 +5197,7 @@ namespace RoyalDecisions.Editor
 
         /// <summary>Configures a settings tab body to auto-size vertically from its own children.</summary>
         private static void ConfigureTabLayout(
-            RectTransform tab, SceneSetupReport report, float spacing = 20f)
+            RectTransform tab, SceneSetupReport report, float spacing = 28f)
         {
             SetRect(tab, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero,
                 new Vector2(0.5f, 1f));
@@ -4768,7 +5230,7 @@ namespace RoyalDecisions.Editor
         /// a whole tab, nested one level deeper.
         /// </summary>
         private static RectTransform EnsureSettingsGroupPanel(
-            RectTransform parent, string name, SceneSetupReport report, float rowSpacing = 0f)
+            RectTransform parent, string name, SceneSetupReport report, float rowSpacing = 32f)
         {
             RectTransform group = EnsureUiChild(parent, name, report);
             ConfigureRoundedFill(group.gameObject, SettingsPanelTheme.InactiveTabColour, 28f, false,
@@ -4788,7 +5250,7 @@ namespace RoyalDecisions.Editor
             if (layout != null)
             {
                 Undo.RecordObject(layout, "Configure settings group layout");
-                layout.padding = new RectOffset(28, 28, 6, 6);
+                layout.padding = new RectOffset(28, 28, 20, 20);
                 layout.spacing = rowSpacing;
                 layout.childAlignment = TextAnchor.UpperCenter;
                 layout.childControlWidth = true;
@@ -4803,6 +5265,7 @@ namespace RoyalDecisions.Editor
                 fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
                 fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             }
+            AddCornerBrackets(group, 40f, report);
             return group;
         }
 
@@ -4811,6 +5274,13 @@ namespace RoyalDecisions.Editor
             RectTransform parent, string name, SceneSetupReport report)
         {
             RectTransform divider = EnsureUiChild(parent, name, report);
+            // Explicit full-width/fixed-height rect, not left to whatever an existing object's
+            // RectTransform already happened to carry — the group's own VerticalLayoutGroup has
+            // childControlHeight off, so without this a divider with no baked-in size (or a stale
+            // large one from an earlier authoring pass) renders as an oversized block instead of a
+            // hairline.
+            SetRect(divider, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
+                new Vector2(0f, 2f), new Vector2(0.5f, 1f));
             ConfigureLayoutElement(divider.gameObject, 2f, report);
             Image line = EnsureSingleComponent<Image>(divider.gameObject, report);
             ConfigureSimpleImage(line, null, new Color(1f, 1f, 1f, 0.08f), false);
@@ -4827,7 +5297,8 @@ namespace RoyalDecisions.Editor
             string title,
             string description,
             TMP_FontAsset font,
-            SceneSetupReport report)
+            SceneSetupReport report,
+            Action<GameObject, SceneSetupReport> iconBuilder)
         {
             RectTransform titleTransform = EnsureUiChild(tab, "SectionTitle", report);
             SetRect(titleTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
@@ -4840,16 +5311,25 @@ namespace RoyalDecisions.Editor
             RemoveStaleComponents<TextMeshProUGUI>(titleTransform.gameObject);
             RemoveStaleComponents<Image>(titleTransform.gameObject);
             RemoveStaleComponents<Outline>(titleTransform.gameObject);
+
+            RectTransform iconBadge = EnsureUiChild(titleTransform, "IconBadge", report);
+            SetRect(iconBadge, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                new Vector2(40f, 0f), new Vector2(56f, 56f), Center);
+            ConfigureIconBadge(iconBadge, 56f, report, iconBuilder);
+
             RectTransform titleTextTransform = EnsureUiChild(titleTransform, "Text", report);
             SetRect(titleTextTransform, new Vector2(0.05f, 0f), new Vector2(0.95f, 1f),
                 Vector2.zero, Vector2.zero, Center);
+            Undo.RecordObject(titleTextTransform, "Configure section title icon offset");
+            titleTextTransform.offsetMin = new Vector2(
+                titleTextTransform.offsetMin.x + RowIconBadgeTextPushX, titleTextTransform.offsetMin.y);
             TextMeshProUGUI titleText = EnsureSingleComponent<TextMeshProUGUI>(
                 titleTextTransform.gameObject, report);
             ConfigureReadableText(titleText, font, 32f, 26f, 36f, true, false, 2f);
             titleText.alignment = TextAlignmentOptions.MidlineLeft;
             titleText.text = title;
             SetTextColour(titleText, MenuTitleTextColour);
-            RemoveUnexpectedChildren(titleTransform, report, "Text");
+            RemoveUnexpectedChildren(titleTransform, report, "Text", "IconBadge");
 
             RectTransform descriptionTransform = EnsureUiChild(tab, "SectionDescription", report);
             SetRect(descriptionTransform, new Vector2(0.05f, 1f), new Vector2(1f, 1f), Vector2.zero,

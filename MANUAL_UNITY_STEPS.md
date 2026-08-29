@@ -3888,6 +3888,117 @@ sequence, including the reveal itself.
 
 ---
 
+## Settings menu: zombie/post-apocalypse palette restored + CRT/retro overlay (2026-08-28)
+
+Two things changed together:
+
+1. **Palette restored.** An earlier pass (`ac3835b`, 2026-08-25) re-themed MainMenu/Settings/About
+   to a rust/ash/bone/dried-blood palette; a same-day-as-this-note pass (`3958111`) reverted that
+   back to gold. That revert has been undone again in `SettingsPanelTheme.cs` and
+   `SceneSetupAutomation.cs` — the HUD/`ToggleSwitchVisual` fixes from `3958111` were **not**
+   reverted, only the colour constants. Slider fills go back to `MenuToxicAccentColour` (toxic
+   green) instead of the rust accent, as the one deliberately "infected" note in the palette.
+2. **CRT/retro overlay added, and two pre-existing dangling scripts fixed.** `Game.unity` and
+   `MainMenu.unity` already contained `Scanlines` (inside a `CrtOverlay` in About) and `Stripes`
+   (inside Settings' `BottomDivider`) objects referencing `ProceduralScanlineGraphic`/
+   `ProceduralHazardStripeGraphic` — classes that did not actually exist anywhere in the project
+   (a "Missing Script" in both scenes, silently rendering nothing, from an earlier incomplete
+   session). Both classes now exist for real, with hand-authored `.meta` guids matching what the
+   scenes already dangled on, so the existing objects self-heal with no scene-file edit needed.
+   `SceneSetupAutomation.ConfigureCrtOverlay`/`ConfigureHazardDivider` now author and manage this
+   overlay (plus a new second hazard-stripe accent, `TopDivider`, under the tab bar) idempotently
+   in both Settings and About, and drive a new `CrtFlickerAnimator` (bursts on tab switch, calmed
+   by Reduced Motion, wired into `AccessibilityPresentationController`).
+3. **Audio left alone.** Two audio ideas (an ambient loop on Settings open, and a retro-glitch
+   stinger replacing the tab-switch click) were tried during this pass and then fully reverted at
+   the user's request — Settings' audio behaviour (menu music untouched, `ui_click` on every tab
+   press exactly as before) is byte-for-byte the same as before this pass. Only the visuals
+   (palette + CRT overlay) and the two dangling-script fixes below are real changes.
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup` — required for all of the
+      above: restores the scene colours to the new constants, relinks/authors the CRT overlay and
+      both hazard-stripe dividers, and wires the flicker animators into `AccessibilityPresentationController`
+- [ ] Console check: confirm zero "Missing Script"/"Missing Behaviour" warnings in either scene —
+      previously present on `Scanlines` and `Stripes`
+- [ ] Visual check: open Settings — rust/ash/bone palette, toxic-green slider fills, scanlines +
+      vignette + a periodic flicker burst, hazard-tape accents above the tab bar and above the
+      Apply/Cancel footer. Should read as clearly present ("belirgin/teatral") without washing out
+      label/value legibility. Switch tabs and confirm the flicker visibly bursts on each real
+      switch (not on reselecting the tab already open), and that the tab click sound still plays
+      exactly as it always did
+- [ ] Genel sekmesinde Azaltılmış Hareket'i aç — flicker interval noticeably lengthens and the
+      burst noticeably shortens/softens rather than disappearing; kapat — restores immediately
+- [ ] `Window > General > Test Runner > EditMode` — new `CrtFlickerMathTests`/
+      `CrtFlickerAnimatorTests`, plus the extended `AccessibilityPresentationControllerTests`, all
+      green
+
+---
+
+## Settings menu: ornamental visual pass — diamond badges, corner brackets, gem sliders, chamfered buttons (2026-08-28)
+
+The user asked to make the Settings menu prettier and shared a screenshot of their own project's
+earlier build (recognisable by its "Development Build" watermark) as the reference — a much more
+ornate look than the current flat-colour panel: a bigger tracked/small-caps title, a small diamond
+ornament under it, icons above each tab label, gold L-shaped corner brackets on every card, a
+diamond icon badge on every row, an octagon "gem" slider handle, and chamfered (cut-corner)
+İptal/Uygula buttons. Only shape/icon/frame structure was added — the palette, the CRT overlay, and
+the hazard-tape dividers from the previous two passes are untouched.
+
+**No serif/display font could be sourced** (only `LiberationSans-Turkish SDF` exists in the
+project, and the assistant cannot fabricate or fetch a font file) — the title instead gets a bigger
+size, wider tracking (`characterSpacing`), and `FontStyles.SmallCaps` as the closest approximation
+the existing font can give. A real display font remains a manual follow-up: supply a `.ttf`/`.otf`,
+import it as a TMP font asset, validate its Turkish glyph coverage with `TurkishGlyphValidator`, and
+assign it to `GameUITheme.titleFont`/wire it into the Settings title — not attempted here.
+
+**New classes** (`Assets/_Game/Scripts/Presentation/`): `ProceduralDiamondFrameGraphic.cs` (badge/
+divider ornament), `ProceduralCornerBracketGraphic.cs` (card corner accents), `ProceduralSettingsIconGraphic.cs`
+(six badge icon shapes: Speaker/Monitor/Gamepad/MusicNote/Sparkle/Vibration — `ProceduralGearIconGraphic`
+stays its own class, reused as-is for every Genel-tab/gear-flavoured spot). `ProceduralRoundedRectGraphic.cs`
+gained a `CornerStyle` (`Round`/`Chamfer`) — chamfering a square degenerates into a regular octagon,
+used for both the slider handle and the footer buttons.
+
+**Every row across all 4 tabs got a badge in one pass** (not tab-by-tab) because the icon/bracket
+code lives in the shared `EnsureSliderControl`/`EnsureToggleControl`/`EnsureTabSectionHeader`
+helpers every tab already funnels through — there was no clean way to wire only Ses without also
+touching the others. The icons for Grafik/Kontroller's individual rows (beyond their tab-bar/header
+icon) are a placeholder choice (repeating that tab's own icon) since the reference screenshot never
+shows those tabs' bodies — flagged as the most likely thing to want changing after a look.
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup` — required for all of the
+      above, in both `Game.unity` and `MainMenu.unity`
+- [ ] Console check: zero errors/"Missing Script" warnings after Apply
+- [ ] **First screenshot to send back**: the Ses (Audio) tab as it appears at rest (no navigation
+      needed — it's the tab Show() opens on) plus the shared chrome — title, divider, tab bar,
+      footer buttons. Covers the diamond badge, corner brackets, chamfered buttons, gem slider
+      handle, and 3 of the 6 new icons (Speaker/MusicNote/Sparkle) plus the reused Gear on Genel's
+      tab-bar icon.
+- [ ] **Second, lighter check**: tap through to Grafik/Kontroller/Genel and confirm the remaining
+      icons (Monitor/Gamepad/Vibration) read clearly at their actual on-screen size, and that no
+      row's label/value text got clipped or crowded by its new icon badge.
+- [ ] Drag a slider and confirm the octagon handle's gold outline moves smoothly with it (this was
+      deliberately kept as a single `Outline` effect on the handle itself, not a second ring
+      GameObject, specifically because Unity's `Slider` reassigns the handle's own anchors every
+      value change — a separate ring object would not track and would visibly detach)
+
+**Follow-up in the same pass**: after seeing the icon/bracket/badge additions above, the user asked
+for more breathing room throughout — every spacing/padding value inside the Settings panel was
+increased: gaps between rows inside a group card (0→24, was never actually wired to the earlier
+manual `VolumeGroup` scene fix from this panel's first spacing request — that fix would have been
+silently reverted the next `Apply Remaining Setup`; now it's a real default), a group card's own
+top/bottom padding (6→20), the gap between each section/card within a tab (20→28, unified — Ses no
+longer has its own slightly-different 24 override), the gap between Header/dividers/tab bar/content/
+footer (10→20), the tab bar's own button gap (12→16), and the İptal/Uygula gap (16→24). Purely
+numeric — no new components, safe to re-run `Apply Remaining Setup` again.
+
+- [ ] Re-run `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup`
+- [ ] Confirm the Ses tab's 3 sliders now have visible daylight between them (not touching/crowded)
+- [ ] Confirm no row/card now looks so spaced out that it reads as broken/disconnected rather than
+      "professional" — if the gaps read as too large once seen, tell me and I'll dial specific
+      values back down in a second pass
+
+---
+
 ## Intro → Loading crossfade handoff (2026-08-29)
 
 Previously the intro fully finished (faded to black, held briefly) and only then did `Loading`

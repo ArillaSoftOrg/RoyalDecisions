@@ -24,6 +24,10 @@ namespace RoyalDecisions.Presentation
             + "an instant swap when absent.")]
         [SerializeField] private PanelFadeAnimator tabCrossfadeAnimator;
 
+        [Tooltip("Optional. Bursts the CRT overlay's flicker in sync with a real tab switch (not a "
+            + "no-op reselect of the already-active tab).")]
+        [SerializeField] private CrtFlickerAnimator crtFlicker;
+
         [Header("Tabs")]
         [SerializeField] private AudioSettingsPanelView audioPanel;
         [SerializeField] private GraphicsSettingsPanelView graphicsPanel;
@@ -263,6 +267,7 @@ namespace RoyalDecisions.Presentation
                 return;
             }
             activeTabId = target;
+            crtFlicker?.TriggerBurst();
 
             if (tabCrossfadeAnimator != null)
             {
@@ -331,7 +336,8 @@ namespace RoyalDecisions.Presentation
             Button cancel,
             Button reset,
             PanelFadeAnimator panelTransition = null,
-            PanelFadeAnimator tabTransition = null)
+            PanelFadeAnimator tabTransition = null,
+            CrtFlickerAnimator flicker = null)
         {
             panelRoot = root;
             audioPanel = audio;
@@ -347,6 +353,7 @@ namespace RoyalDecisions.Presentation
             resetButton = reset;
             panelAnimator = panelTransition;
             tabCrossfadeAnimator = tabTransition;
+            crtFlicker = flicker;
         }
 #endif
     }

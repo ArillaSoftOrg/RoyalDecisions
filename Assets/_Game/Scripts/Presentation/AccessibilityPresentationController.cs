@@ -18,6 +18,12 @@ namespace RoyalDecisions.Presentation
             + "already shortens the card swipe and stat-bar animations above.")]
         [SerializeField] private PanelFadeAnimator[] panelAnimators = System.Array.Empty<PanelFadeAnimator>();
 
+        [Tooltip("The CRT overlay flicker on Settings/About — Reduced Motion calms it down (longer "
+            + "gaps, shorter/softer bursts) via CrtFlickerAnimator.SetReducedMotion, same shape as "
+            + "the panel fades above.")]
+        [SerializeField] private CrtFlickerAnimator[] crtFlickerAnimators =
+            System.Array.Empty<CrtFlickerAnimator>();
+
         private readonly Dictionary<TMP_Text, Vector2> baseSizes =
             new Dictionary<TMP_Text, Vector2>();
 
@@ -64,6 +70,10 @@ namespace RoyalDecisions.Presentation
             {
                 panelAnimators[i]?.SetReducedMotion(settings.ReducedMotion);
             }
+            for (int i = 0; i < crtFlickerAnimators.Length; i++)
+            {
+                crtFlickerAnimators[i]?.SetReducedMotion(settings.ReducedMotion);
+            }
         }
 
         private static float TextScaleFor(TextSizeMode mode)
@@ -82,13 +92,15 @@ namespace RoyalDecisions.Presentation
             TMP_Text[] secondary,
             CardSwipeController swipe,
             StatItemView[] stats,
-            PanelFadeAnimator[] panels = null)
+            PanelFadeAnimator[] panels = null,
+            CrtFlickerAnimator[] crtFlicker = null)
         {
             scalableText = text ?? System.Array.Empty<TMP_Text>();
             secondaryText = secondary ?? System.Array.Empty<TMP_Text>();
             swipeController = swipe;
             statItems = stats ?? System.Array.Empty<StatItemView>();
             panelAnimators = panels ?? System.Array.Empty<PanelFadeAnimator>();
+            crtFlickerAnimators = crtFlicker ?? System.Array.Empty<CrtFlickerAnimator>();
         }
 #endif
     }

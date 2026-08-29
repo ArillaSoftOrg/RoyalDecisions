@@ -10,6 +10,16 @@ namespace RoyalDecisions.Presentation
     /// </summary>
     public sealed class ProceduralRoundedRectGraphic : MaskableGraphic
     {
+        /// <summary>Round arcs every corner (the original behaviour), or flat-cut each corner at
+        /// 45° instead — the same arc math, just keeping only each arc's first and last point.
+        /// On a square whose radius is half its side, Chamfer degenerates into a regular octagon
+        /// "gem" shape for free; on a wider rect it reads as a chamfered/cut-corner button.</summary>
+        public enum CornerStyle
+        {
+            Round,
+            Chamfer
+        }
+
         private const int MinimumCornerSegments = 1;
         private const int MaximumCornerSegments = 16;
 
@@ -19,7 +29,11 @@ namespace RoyalDecisions.Presentation
         [Range(MinimumCornerSegments, MaximumCornerSegments)]
         [SerializeField] private int cornerSegments = 8;
 
+        [SerializeField] private CornerStyle cornerStyle = CornerStyle.Round;
+
         public float CornerRadius => cornerRadius;
+
+        public CornerStyle Style => cornerStyle;
 
         public void SetCornerRadius(float radius)
         {
@@ -30,6 +44,12 @@ namespace RoyalDecisions.Presentation
         public void SetCornerSegments(int segments)
         {
             cornerSegments = Mathf.Clamp(segments, MinimumCornerSegments, MaximumCornerSegments);
+            SetVerticesDirty();
+        }
+
+        public void SetCornerStyle(CornerStyle style)
+        {
+            cornerStyle = style;
             SetVerticesDirty();
         }
 
@@ -62,12 +82,20 @@ namespace RoyalDecisions.Presentation
             centreVertex.position = rect.center;
             vertexHelper.AddVert(centreVertex);
 
+            bool chamfer = cornerStyle == CornerStyle.Chamfer;
+
             int firstOutlineIndex = 1;
             int outlineCount = 0;
             for (int corner = 0; corner < 4; corner++)
             {
                 for (int step = 0; step <= segments; step++)
                 {
+                    // Chamfer keeps only each arc's endpoints, skipping the interior round steps.
+                    if (chamfer && step != 0 && step != segments)
+                    {
+                        continue;
+                    }
+
                     float degrees = arcStartDegrees[corner] + (90f * step / segments);
                     float radians = degrees * Mathf.Deg2Rad;
                     Vector2 offset = radius > 0f
