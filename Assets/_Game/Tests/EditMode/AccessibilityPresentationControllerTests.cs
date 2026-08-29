@@ -145,55 +145,13 @@ namespace RoyalDecisions.Tests.EditMode
         }
 
         [Test]
-        public void Apply_ReducedMotionOn_ShortensEveryWiredCrtFlickerAnimator()
-        {
-            CrtFlickerAnimator flicker = PresentationTestObjects.CreateComponent<CrtFlickerAnimator>(
-                "Flicker");
-            float authoredBurstDuration = PrivateFloat(flicker, "burstDuration");
-            AccessibilityPresentationController controller =
-                PresentationTestObjects.CreateComponent<AccessibilityPresentationController>(
-                    "Accessibility");
-            controller.SetAuthoringReferences(
-                null, null, null, null, null, new[] { flicker });
-            GameSettings settings = GameSettings.CreateDefault();
-            settings.SetReducedMotion(true);
-
-            controller.Apply(settings);
-
-            Assert.That(PrivateFloat(flicker, "burstDuration"), Is.LessThan(authoredBurstDuration));
-        }
-
-        [Test]
-        public void Apply_ReducedMotionOff_RestoresEveryWiredCrtFlickerAnimatorToItsAuthoredDuration()
-        {
-            CrtFlickerAnimator flicker = PresentationTestObjects.CreateComponent<CrtFlickerAnimator>(
-                "Flicker");
-            float authoredBurstDuration = PrivateFloat(flicker, "burstDuration");
-            AccessibilityPresentationController controller =
-                PresentationTestObjects.CreateComponent<AccessibilityPresentationController>(
-                    "Accessibility");
-            controller.SetAuthoringReferences(
-                null, null, null, null, null, new[] { flicker });
-            GameSettings settings = GameSettings.CreateDefault();
-            settings.SetReducedMotion(true);
-            controller.Apply(settings);
-
-            settings.SetReducedMotion(false);
-            controller.Apply(settings);
-
-            Assert.That(PrivateFloat(flicker, "burstDuration"),
-                Is.EqualTo(authoredBurstDuration).Within(0.0001f));
-        }
-
-        [Test]
         public void Apply_WithNullEntriesInWiredArrays_DoesNotThrow()
         {
             AccessibilityPresentationController controller =
                 PresentationTestObjects.CreateComponent<AccessibilityPresentationController>(
                     "Accessibility");
             controller.SetAuthoringReferences(
-                new TMP_Text[] { null }, new TMP_Text[] { null }, null, null,
-                new PanelFadeAnimator[] { null }, new CrtFlickerAnimator[] { null });
+                new TMP_Text[] { null }, new TMP_Text[] { null }, null, null, new PanelFadeAnimator[] { null });
 
             Assert.That(() => controller.Apply(GameSettings.CreateDefault()), Throws.Nothing);
         }
