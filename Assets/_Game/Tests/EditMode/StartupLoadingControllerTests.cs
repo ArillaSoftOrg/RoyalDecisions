@@ -30,7 +30,7 @@ namespace RoyalDecisions.Tests.EditMode
 
         private static StartupLoadingController Build(
             out RectTransform bloodMask,
-            out BloodFillGraphic bloodFill,
+            out Graphic bloodFill,
             out Graphic bloodLeadingEdge,
             out RectTransform tubeInterior,
             out TextMeshProUGUI percentage,
@@ -63,7 +63,7 @@ namespace RoyalDecisions.Tests.EditMode
                     .GetComponent<RectTransform>();
                 bloodMask.anchoredPosition = new Vector2(BloodMaskLeftInset, 0f);
 
-                bloodFill = PresentationTestObjects.CreateComponent<BloodFillGraphic>("BloodFill");
+                bloodFill = PresentationTestObjects.CreateImage("BloodFill");
                 bloodLeadingEdge = PresentationTestObjects.CreateImage("LeadingEdge");
 
                 controller.SetBloodTubeAuthoringReferences(bloodMask, bloodFill, bloodLeadingEdge, tubeInterior);
@@ -222,7 +222,7 @@ namespace RoyalDecisions.Tests.EditMode
             // width changes. This holds at an arbitrary mid-range value specifically to catch a bug
             // where fill width was accidentally driven by displayedProgress too.
             StartupLoadingController controller =
-                Build(out _, out BloodFillGraphic bloodFill, out _, out _, out _);
+                Build(out _, out Graphic bloodFill, out _, out _, out _);
 
             controller.ReportProgress(0.3f);
 

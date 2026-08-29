@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using RoyalDecisions.Composition;
 using RoyalDecisions.Data;
+using RoyalDecisions.Domain;
 using RoyalDecisions.Presentation;
 using UnityEngine;
 
@@ -105,6 +106,30 @@ namespace RoyalDecisions.Tests.EditMode
         }
 
         [Test]
+        public void BeginPrologueSequence_FiveSlides_FinalSlideTapLoadsGameExactlyOnce()
+        {
+            // Regression coverage for the "extra black screen after the final slide requires a
+            // second tap" bug: with the project's real five-slide count, a single tap on the final
+            // slide (the 5th OnTapAdvance call overall) must be what loads Game — not a 6th tap.
+            PrologueSequenceController prologue = BuildPrologueController(5);
+            FakeSceneLoader loader = new FakeSceneLoader();
+            PrologueSceneController controller = BuildSceneController(prologue);
+            controller.Configure(loader, prologue, new FakeSettingsStore());
+
+            controller.BeginPrologueSequence();
+            for (int i = 0; i < 4; i++)
+            {
+                prologue.OnTapAdvance(); // -> slides 2, 3, 4, 5
+                Assert.That(loader.Count, Is.Zero, "Game must not load before the final slide completes.");
+            }
+
+            prologue.OnTapAdvance(); // the single tap on the final slide
+
+            Assert.That(loader.Count, Is.EqualTo(1));
+            Assert.That(loader.LastScene, Is.EqualTo("Game"));
+        }
+
+        [Test]
         public void BeginPrologueSequence_Skip_LoadsGameOnce()
         {
             PrologueSequenceController prologue = BuildPrologueController(5);
@@ -133,6 +158,35 @@ namespace RoyalDecisions.Tests.EditMode
             prologue.Skip(); // repeated completion request, harmless
 
             Assert.That(loader.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void BeginPrologueSequence_AppliesLoadedAudioSettingsToTheSequencesAudioService()
+        {
+            PrologueSequenceController prologue = BuildPrologueController(1);
+            FakeAudioService audio = new FakeAudioService();
+            prologue.SetAudioService(audio);
+
+            FakeSceneLoader loader = new FakeSceneLoader();
+            PrologueSceneController controller = BuildSceneController(prologue);
+
+            FakeSettingsStore settingsStore = new FakeSettingsStore();
+            GameSettings settings = GameSettings.CreateDefault();
+            settings.SetMasterVolume(0.7f);
+            settings.SetMusicVolume(0.3f);
+            settings.SetSfxVolume(0.9f);
+            settings.SetMasterMuted(true);
+            settingsStore.Save(settings);
+
+            controller.Configure(loader, prologue, settingsStore);
+
+            controller.BeginPrologueSequence();
+
+            Assert.That(audio.MasterVolume, Is.EqualTo(0.7f));
+            Assert.That(audio.MusicVolume, Is.EqualTo(0.3f));
+            Assert.That(audio.Volume, Is.EqualTo(0.9f));
+            Assert.That(audio.IsMuted, Is.True,
+                "Mute must reach the prologue's own AudioService, the same as every other scene's.");
         }
 
         [Test]

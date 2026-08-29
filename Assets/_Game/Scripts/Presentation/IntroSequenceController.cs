@@ -26,6 +26,13 @@ namespace RoyalDecisions.Presentation
     /// while <see cref="wordmarkImage"/> underneath it never moves or resizes — so what is rendered
     /// at every instant is always geometrically exact, never an approximation of a cover/feather
     /// blend over a shared, combined image.
+    ///
+    /// <see cref="FadeOutStarted"/> is the one thing this exposes beyond "done": a single signal,
+    /// fired exactly once, the instant the intro begins handing off to whatever plays next. This
+    /// component has no idea what that is — no Loading, no scenes, nothing — it only knows its own
+    /// final fade has started. A caller (<c>BootstrapController</c>) can use that moment to start
+    /// revealing something else underneath while this one finishes fading, without either side
+    /// needing to know about the other's internals.
     /// </remarks>
     public sealed class IntroSequenceController : MonoBehaviour, IPointerClickHandler
     {
@@ -111,12 +118,29 @@ namespace RoyalDecisions.Presentation
         [Header("Skip")]
         [SerializeField] private bool allowSkip = true;
 
+        [Tooltip("Skip/tap is ignored for this long (unscaled) after the intro starts, so an "
+            + "accidental launch tap cannot immediately dismiss the studio ident. Skip works "
+            + "normally afterward.")]
+        [SerializeField] private float skipLockSeconds = 0.60f;
+
+        /// <summary>
+        /// Fires exactly once, the instant the intro begins handing off to whatever plays next —
+        /// either when its own final fade-out visually begins (natural completion, or a skip once
+        /// past the lock window), or, as a last-resort guarantee, immediately before completion if
+        /// neither of those ever ran (e.g. missing references meant nothing could animate at all).
+        /// This component never learns what happens after it fires; it only signals "my final fade
+        /// has started" — the caller alone decides what revealing whatever comes next means.
+        /// </summary>
+        public event Action FadeOutStarted;
+
         private Action onComplete;
         private Coroutine runningSequence;
         private Coroutine wordmarkRevealSequence;
         private bool hasStarted;
         private bool hasCompleted;
+        private bool hasSignaledFadeOut;
         private bool reducedMotionEnabled;
+        private float sequenceStartUnscaledTime;
 
         private bool accessibilityDefaultsCaptured;
         private float defaultPreBlackHoldSeconds;
@@ -232,6 +256,7 @@ namespace RoyalDecisions.Presentation
                 return;
             }
 
+            sequenceStartUnscaledTime = Time.unscaledTime;
             ApplyLogoState(0f, fadeInStartScale, 1f - glowAmplitude);
             runningSequence = StartCoroutine(SequenceRoutine());
         }
@@ -239,6 +264,10 @@ namespace RoyalDecisions.Presentation
         /// <summary>Wired to a tap anywhere on the intro. Safe to call more than once, and safe
         /// to call before <see cref="Play"/> — a later <see cref="Play"/> call still resolves its
         /// own callback immediately in that case instead of starting a suppressed animation.
+        /// Ignored for the first <see cref="skipLockSeconds"/> after a running sequence actually
+        /// started, so an accidental launch tap cannot immediately dismiss the studio ident — once
+        /// past that window, a tap hands off exactly like natural completion does: the same smooth
+        /// fade, never an instant cut to black.
         /// </summary>
         public void Skip()
         {
@@ -247,11 +276,59 @@ namespace RoyalDecisions.Presentation
                 return;
             }
 
+            bool sequenceRunning = runningSequence != null;
+            if (sequenceRunning && (Time.unscaledTime - sequenceStartUnscaledTime) < skipLockSeconds)
+            {
+                // Too soon: silently ignored, not queued or delayed — the next tap past the window
+                // is a normal skip.
+                return;
+            }
+
             hasStarted = true;
+
+            if (Application.isPlaying && isActiveAndEnabled)
+            {
+                StopRunningSequence();
+                StopIntroAudio();
+                runningSequence = StartCoroutine(SkipHandoffRoutine());
+                return;
+            }
+
+            // Cannot run a coroutine (outside Play Mode, or this component disabled): resolve
+            // immediately and synchronously, exactly as before this feature existed. Complete()
+            // itself still guarantees FadeOutStarted fires before onComplete either way.
             StopRunningSequence();
             ApplyLogoState(0f, restScale, 1f);
             ResetWordmarkReveal();
             StopIntroAudio();
+            Complete();
+        }
+
+        /// <summary>
+        /// Skip's own handoff once past the lock window: the same alpha/scale/brightness fade
+        /// natural completion uses (<see cref="fadeOutDurationSeconds"/>/<see cref="fadeOutEase"/>,
+        /// so it is genuinely "the same handoff," not a distinct faster cut), started from whatever
+        /// state the logo is currently in — mid fade-in, mid hold, or even mid natural fade-out if
+        /// tapped again — so there is never a pop. <see cref="FadeOutStarted"/> fires at the very
+        /// start, exactly like the natural path, so the caller reveals whatever comes next in
+        /// lockstep either way.
+        /// </summary>
+        private IEnumerator SkipHandoffRoutine()
+        {
+            SignalFadeOutStarted();
+
+            float fromAlpha = logoCanvasGroup != null ? logoCanvasGroup.alpha : 0f;
+            float fromScale = logoRectTransform != null ? logoRectTransform.localScale.x : restScale;
+            float fromBrightness = markImage != null ? markImage.color.r : 1f;
+
+            yield return TweenLogo(
+                fromAlpha, 0f,
+                fromScale, fadeOutEndScale,
+                fromBrightness, 1f,
+                fadeOutDurationSeconds, fadeOutEase);
+
+            ResetWordmarkReveal();
+            runningSequence = null;
             Complete();
         }
 
@@ -304,6 +381,8 @@ namespace RoyalDecisions.Presentation
             yield return WaitUnscaled(Mathf.Max(0f, wordmarkTail));
 
             yield return HoldWithPulse(holdDurationSeconds);
+
+            SignalFadeOutStarted();
 
             yield return TweenLogo(
                 1f, 0f,
@@ -563,11 +642,30 @@ namespace RoyalDecisions.Presentation
             hasCompleted = true;
             StopRunningSequence();
 
+            // Guarantees FadeOutStarted has fired before onComplete no matter which path reached
+            // here — a no-op if the natural fade-out or the skip handoff already signalled it.
+            SignalFadeOutStarted();
+
             // Cleared before invoking: a callback that somehow re-enters Play/Skip must not chain
             // into itself through a stale reference.
             Action callback = onComplete;
             onComplete = null;
             callback?.Invoke();
+        }
+
+        /// <summary>No-op after the first call — every caller of this can treat
+        /// <see cref="FadeOutStarted"/> as reliably firing exactly once, whichever path (natural
+        /// fade-out, skip handoff, or the guarantee inside <see cref="Complete"/>) reaches it
+        /// first.</summary>
+        private void SignalFadeOutStarted()
+        {
+            if (hasSignaledFadeOut)
+            {
+                return;
+            }
+
+            hasSignaledFadeOut = true;
+            FadeOutStarted?.Invoke();
         }
 
         private void StopRunningSequence()
@@ -625,6 +723,14 @@ namespace RoyalDecisions.Presentation
         public void SetAudioAuthoringReferences(AudioService service)
         {
             audioService = service;
+        }
+
+        /// <summary>Editor/test-only override for <see cref="skipLockSeconds"/>, so PlayMode tests
+        /// can verify lock/unlock behaviour in a fraction of a second instead of waiting out the
+        /// full default.</summary>
+        public void SetSkipLockSecondsForTesting(float seconds)
+        {
+            skipLockSeconds = seconds;
         }
 #endif
     }

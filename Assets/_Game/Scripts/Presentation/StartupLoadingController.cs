@@ -46,7 +46,7 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private RectTransform bloodMask;
         [Tooltip("Optional. Stays at the tube's full inner width at all times; only bloodMask's "
             + "width changes. Also the 100% completion pulse's target.")]
-        [SerializeField] private BloodFillGraphic bloodFill;
+        [SerializeField] private Graphic bloodFill;
         [Tooltip("Optional. Tracks the current fill boundary and adds a small restrained wobble, "
             + "skipped under reduced motion and settled once displayed progress reaches 100%. Its "
             + "colour alpha also fades in over the first sliver of progress so it never shows as a "
@@ -90,6 +90,12 @@ namespace RoyalDecisions.Presentation
         // Below this displayed progress the leading-edge cap fades in rather than snapping to full
         // opacity, so it never reads as a stray dot sitting at the very start of an empty tube.
         private const float LeadingEdgeFadeInThreshold = 0.035f;
+        // How far the 100% completion pulse lerps bloodFill's colour toward white at its peak.
+        // Image.color is a Color32 under the hood, which clamps to [0,255] on assignment — pushing
+        // it above 1.0 to fake "over-bright" would just silently clamp back to opaque, so brightening
+        // is done by lerping toward white instead, same reasoning as the retired BloodFillGraphic's
+        // own SetBrightness.
+        private const float CompletionPulseBrightenFraction = 0.4f;
 
         private float targetProgress;
         private float displayedProgress;
@@ -107,6 +113,7 @@ namespace RoyalDecisions.Presentation
         private float defaultFadeOutSeconds;
         private float statusBaseAlpha = 1f;
         private float leadingEdgeBaseAlpha = 1f;
+        private Color bloodFillBaseColor = Color.white;
 
         /// <summary>Current smoothed 0..1 progress actually shown on screen. Exposed for tests/diagnostics.</summary>
         public float DisplayedProgress => displayedProgress;
@@ -132,6 +139,7 @@ namespace RoyalDecisions.Presentation
 
             statusBaseAlpha = statusText != null ? statusText.color.a : 1f;
             leadingEdgeBaseAlpha = bloodLeadingEdge != null ? bloodLeadingEdge.color.a : 1f;
+            bloodFillBaseColor = bloodFill != null ? bloodFill.color : Color.white;
 
             ApplyPercentageVisibility();
             ApplyBackgroundFallback();
@@ -342,7 +350,11 @@ namespace RoyalDecisions.Presentation
             if (reducedMotionEnabled || bloodFill == null || duration <= 0f)
             {
                 yield return WaitUnscaled(duration);
-                bloodFill?.SetBrightness(0f);
+                if (bloodFill != null)
+                {
+                    bloodFill.color = bloodFillBaseColor;
+                }
+
                 yield break;
             }
 
@@ -352,11 +364,11 @@ namespace RoyalDecisions.Presentation
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
                 float envelope = Mathf.Sin(t * Mathf.PI);
-                bloodFill.SetBrightness(envelope);
+                bloodFill.color = Color.Lerp(bloodFillBaseColor, Color.white, envelope * CompletionPulseBrightenFraction);
                 yield return null;
             }
 
-            bloodFill.SetBrightness(0f);
+            bloodFill.color = bloodFillBaseColor;
         }
 
         private IEnumerator FadeOutRoutine()
@@ -642,7 +654,7 @@ namespace RoyalDecisions.Presentation
         /// simply not updating, never a blocked startup.</summary>
         public void SetBloodTubeAuthoringReferences(
             RectTransform mask,
-            BloodFillGraphic fill,
+            Graphic fill,
             Graphic leadingEdge,
             RectTransform interior)
         {
@@ -650,6 +662,7 @@ namespace RoyalDecisions.Presentation
             bloodFill = fill;
             bloodLeadingEdge = leadingEdge;
             tubeInterior = interior;
+            bloodFillBaseColor = bloodFill != null ? bloodFill.color : Color.white;
         }
 
         [ContextMenu("Debug/Begin Loading")]

@@ -18,6 +18,10 @@ namespace RoyalDecisions.Presentation
 
         void StopMusic();
 
+        /// <summary>Cuts any one-shot cue currently playing through the SFX source. Leaves music
+        /// untouched; use <see cref="StopMusic"/> for that.</summary>
+        void StopSfx();
+
         void SetVolume(float volume);
 
         void SetMuted(bool muted);

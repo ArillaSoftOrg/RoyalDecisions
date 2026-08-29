@@ -56,8 +56,17 @@ namespace RoyalDecisions.Editor
 
         // Screen Space Overlay canvases with equal sort order fall back to an unreliable draw order;
         // an explicit, higher sort order guarantees LoadingCanvas always paints over IntroCanvas
-        // (default 0) while it is visible, without ever touching IntroCanvas itself.
-        private const int LoadingCanvasSortingOrder = 10;
+        // while it is visible, without ever touching IntroCanvas itself. Must stay above
+        // IntroSceneSetup.IntroCanvasSortingOrder (20): IntroCanvas's own BlackBackground is a plain,
+        // permanently opaque Image that IntroSequenceController never fades (only the logo group
+        // fades, back to that same black, not away from it) — so LoadingCanvas can only ever become
+        // visible by outranking IntroCanvas's sort order, never by anything on IntroCanvas's own side
+        // becoming transparent. Previously 10, which is lower than IntroCanvas's 20 — that silently
+        // painted IntroCanvas's opaque background over the entire loading screen (blood tube
+        // included) for as long as both canvases existed in the scene, which is the whole loading
+        // sequence. See ValidateAfterApply/ReportCurrentState below, which now actually check this
+        // relationship instead of only checking sortingOrder > 0.
+        private const int LoadingCanvasSortingOrder = 30;
 
         // Percentage sits below the tube; status sits above it. Both are margin-based (stretch
         // anchors, fixed inset), never a fixed absolute width anchored at a point, so neither
@@ -76,20 +85,50 @@ namespace RoyalDecisions.Editor
         // right at 1080x1920 can overflow or under-fill at other aspect ratios; a fraction always
         // scales correctly. 0.74 sits in the middle of the requested 70-78% range.
         private const float TubeWidthFraction = 0.74f;
-        private const float TubeHeight = 80f;
         private const float TubeBottomOffset = 240f;
-        private const float TubeFrameBorderThickness = 6f;
-        // Gap between TubeInterior's own edges and the liquid/leading-edge content inside it — a
-        // visible glass rim around the blood, and the shared coordinate-space origin bloodMask,
-        // bloodFill and bloodLeadingEdge all measure their left inset from (see
-        // StartupLoadingController.ComputeTubeInnerWidth).
-        private const float TubeContentPadding = 5f;
-        private const float TubeShadowOffsetY = 5f;
-        private const float TubeShadowExtraSize = 4f;
-        private const float GlassHighlightTopInset = 10f;
-        private const float GlassHighlightHeight = 10f;
-        private const float GlassHighlightPeakAlpha = 0.16f;
-        private const float BloodMidStopHeight = 0.62f;
+
+        // Generated once from Assets/_Game/Art/Loading/BloodTube/BloodTubeGeneratedSheet.png via a
+        // local, deterministic Python/Pillow pass (never shipped or referenced directly by any
+        // Unity asset) — see the tool's report for the exact source-sheet regions used. All three
+        // (four) runtime sprites below live only under Art/Loading/BloodTube/.
+        private const string BloodTubeArtRoot = "Assets/_Game/Art/Loading/BloodTube";
+        private const string BloodTubeFramePath = BloodTubeArtRoot + "/BloodTubeFrame.png";
+        private const string BloodFillPath = BloodTubeArtRoot + "/BloodFill.png";
+        private const string BloodLeadingEdgePath = BloodTubeArtRoot + "/BloodLeadingEdge.png";
+        private const string GlassHighlightPath = BloodTubeArtRoot + "/GlassHighlight.png";
+
+        // BloodTubeFrame.png is 1407x191 — its own aspect ratio, so BloodTube's height is always
+        // derived from its (percentage-of-parent) width rather than a fixed reference-unit height,
+        // the same "fraction, not fixed pixels" reasoning as TubeWidthFraction above.
+        private const float FrameNaturalWidth = 1407f;
+        private const float FrameNaturalHeight = 191f;
+        private const float FrameAspectRatio = FrameNaturalWidth / FrameNaturalHeight;
+
+        // The transparent liquid window baked into BloodTubeFrame.png sits at local pixel rect
+        // x:210-1180, y:46-152 of its 1407x191 canvas (found by sampling the source sheet's fog
+        // vignette, then hard-clearing that exact rectangle to alpha 0 — see the tool's report).
+        // Expressed as fractions of the frame's own size so BloodWindow (below) always lines up
+        // with the see-through part of the artwork at any screen size. Y is flipped from PIL's
+        // top-down pixel rows to Unity's bottom-up anchor space.
+        private const float WindowXMinFraction = 210f / FrameNaturalWidth;
+        private const float WindowXMaxFraction = 1180f / FrameNaturalWidth;
+        private const float WindowYMinFraction = 1f - (152f / FrameNaturalHeight);
+        private const float WindowYMaxFraction = 1f - (46f / FrameNaturalHeight);
+
+        // BloodFill.png (1020x106) and BloodLeadingEdge.png (147x106) natural aspect ratios, used
+        // to size each sprite responsively via AspectRatioFitter instead of a hard-coded pixel size.
+        private const float BloodLeadingEdgeAspectRatio = 147f / 106f;
+
+        // GlassHighlight.png (517x98) natural aspect ratio, and where it sits within the window:
+        // centred, spanning most of the window's width, in the window's upper portion.
+        private const float GlassHighlightAspectRatio = 517f / 98f;
+        private const float GlassHighlightWidthFractionOfWindow = 0.82f;
+        private const float GlassHighlightVerticalFractionWithinWindow = 0.78f;
+
+        // Small left/right inset for BloodMask within BloodWindow — mirrors the old
+        // TubeContentPadding convention StartupLoadingController.ComputeTubeInnerWidth already
+        // assumes (mask inset from its parent's left edge, mirrored on the right).
+        private const float BloodMaskInset = 4f;
 
         // Bottom-weighted readability scrim stops (index 0 = bottom, last = top — see
         // ProceduralVerticalGradientGraphic). Alpha only, RGB lives in OverlayColour.
@@ -101,16 +140,6 @@ namespace RoyalDecisions.Editor
         private static readonly Color StatusTextColour = new Color32(0xF2, 0xE7, 0xCF, 0xFF);
         private static readonly Color PercentageTextColour = new Color32(0xD9, 0xC2, 0x8B, 0xFF);
         private static readonly Color TextShadowColour = new Color(0f, 0f, 0f, 0.45f);
-
-        // Dark burgundy / deep red throughout — deliberately never a flat pure #FF0000.
-        private static readonly Color TubeShadowColour = new Color(0f, 0f, 0f, 0.4f);
-        private static readonly Color32 TubeFrameColour = new Color32(0x3A, 0x30, 0x2A, 0xFF);
-        private static readonly Color32 TubeInteriorColour = new Color32(0x14, 0x12, 0x16, 0xE0);
-        private static readonly Color32 BloodBottomColour = new Color32(0x3D, 0x06, 0x09, 0xFF);
-        private static readonly Color32 BloodMidColour = new Color32(0x9A, 0x18, 0x1C, 0xFF);
-        private static readonly Color32 BloodTopColour = new Color32(0x5C, 0x0A, 0x0E, 0xFF);
-        private static readonly Color32 LeadingEdgeColour = new Color32(0xB5, 0x22, 0x24, 0xFF);
-        private static readonly Color32 GlassHighlightColour = new Color32(0xCF, 0xDD, 0xE6, 0xFF);
 
         [MenuItem("Tools/Royal Decisions/Scene Setup/Loading/Apply Loading Setup")]
         public static void Apply()
@@ -224,7 +253,7 @@ namespace RoyalDecisions.Editor
             MigrateLegacyLoadingContent(root.transform, safeContent.transform);
 
             (TMP_Text statusText, TMP_Text percentageText, CanvasGroup contentGroup,
-                RectTransform bloodMask, BloodFillGraphic bloodFill, Graphic bloodLeadingEdge,
+                RectTransform bloodMask, Graphic bloodFill, Graphic bloodLeadingEdge,
                 RectTransform tubeInterior) = EnsureLoadingContent(safeContent.transform);
 
             StartupLoadingController controller = EnsureComponent<StartupLoadingController>(root);
@@ -452,7 +481,7 @@ namespace RoyalDecisions.Editor
         }
 
         private static (TMP_Text status, TMP_Text percentage, CanvasGroup contentGroup,
-            RectTransform bloodMask, BloodFillGraphic bloodFill, Graphic bloodLeadingEdge,
+            RectTransform bloodMask, Graphic bloodFill, Graphic bloodLeadingEdge,
             RectTransform tubeInterior) EnsureLoadingContent(Transform parent)
         {
             GameObject contentObject = EnsureChild(parent, "LoadingContent");
@@ -489,7 +518,7 @@ namespace RoyalDecisions.Editor
             // behind as a duplicate, orphaned visual.
             RemoveLegacyProgressBar(contentObject.transform);
 
-            (RectTransform bloodMask, BloodFillGraphic bloodFill, Graphic bloodLeadingEdge,
+            (RectTransform bloodMask, Graphic bloodFill, Graphic bloodLeadingEdge,
                 RectTransform tubeInterior) = EnsureBloodTube(contentObject.transform);
 
             TMP_Text percentageText = EnsureText(
@@ -512,14 +541,19 @@ namespace RoyalDecisions.Editor
         }
 
         /// <summary>
-        /// Builds the blood-tube loading indicator: a shadow, a metallic/dark frame acting as a
-        /// backing border, a dark glass interior, the blood liquid revealed by an actual
-        /// <see cref="RectMask2D"/> (never a horizontal scale of the artwork), a small rounded
-        /// leading-edge cap, and a restrained glass highlight on top. BloodMask, BloodFill and
-        /// BloodLeadingEdge are all parented under TubeInterior so they share one coordinate space —
-        /// <see cref="StartupLoadingController.ComputeTubeInnerWidth"/> depends on that.
+        /// Builds the asset-based blood-tube loading indicator: a plain <see cref="Image"/> showing
+        /// <c>BloodFill.png</c>, revealed by an actual <see cref="RectMask2D"/> (never a horizontal
+        /// scale of the artwork itself); <c>BloodTubeFrame.png</c> on top, whose baked-in transparent
+        /// window is exactly where <c>BloodWindow</c> is anchored, so its opaque metal caps and glass
+        /// borders contain the fill's rectangular clip edges; and a restrained
+        /// <c>GlassHighlight.png</c> sheen rendered last, on top of everything. Every piece before the
+        /// old procedural tube existed here is destroyed first (see
+        /// <see cref="MigrateLegacyBloodTube"/>) so a repeat run never leaves both versions visible.
+        /// BloodMask, BloodFill and BloodLeadingEdge are all parented under BloodWindow so they share
+        /// one coordinate space — <see cref="StartupLoadingController.ComputeTubeInnerWidth"/> depends
+        /// on that, exactly as it did for the old TubeInterior.
         /// </summary>
-        private static (RectTransform mask, BloodFillGraphic fill, Graphic leadingEdge, RectTransform interior)
+        private static (RectTransform mask, Graphic fill, Graphic leadingEdge, RectTransform interior)
             EnsureBloodTube(Transform parent)
         {
             GameObject tubeObject = EnsureChild(parent, "BloodTube");
@@ -529,97 +563,88 @@ namespace RoyalDecisions.Editor
             tubeRect.anchorMax = new Vector2(0.5f + (TubeWidthFraction * 0.5f), 0f);
             tubeRect.pivot = new Vector2(0.5f, 0f);
             tubeRect.anchoredPosition = new Vector2(0f, TubeBottomOffset);
-            tubeRect.sizeDelta = new Vector2(0f, TubeHeight);
+            tubeRect.sizeDelta = Vector2.zero;
 
-            EnsureTubeShadow(tubeObject.transform);
-            EnsureTubeFrame(tubeObject.transform);
-            RectTransform interiorRect = EnsureTubeInterior(tubeObject.transform);
+            AspectRatioFitter tubeFitter = EnsureComponent<AspectRatioFitter>(tubeObject);
+            Undo.RecordObject(tubeFitter, "Configure BloodTube");
+            tubeFitter.aspectMode = AspectRatioFitter.AspectMode.WidthControlsHeight;
+            tubeFitter.aspectRatio = FrameAspectRatio;
+            tubeFitter.enabled = true;
 
-            (RectTransform bloodMask, BloodFillGraphic bloodFill) = EnsureBloodMaskAndFill(interiorRect);
-            Graphic leadingEdge = EnsureBloodLeadingEdge(interiorRect);
-            EnsureGlassHighlight(interiorRect);
+            MigrateLegacyBloodTube(tubeObject.transform);
 
-            return (bloodMask, bloodFill, leadingEdge, interiorRect);
-        }
+            RectTransform windowRect = EnsureBloodWindow(tubeObject.transform);
+            (RectTransform bloodMask, Graphic bloodFill) = EnsureBloodMaskAndFill(windowRect);
+            Graphic leadingEdge = EnsureBloodLeadingEdge(windowRect);
 
-        private static void EnsureTubeShadow(Transform parent)
-        {
-            GameObject shadowObject = EnsureChild(parent, "TubeShadow");
-            shadowObject.transform.SetAsFirstSibling();
-            RectTransform shadowRect = shadowObject.GetComponent<RectTransform>();
-            Undo.RecordObject(shadowRect, "Configure TubeShadow");
-            shadowRect.anchorMin = Vector2.zero;
-            shadowRect.anchorMax = Vector2.one;
-            shadowRect.pivot = new Vector2(0.5f, 0.5f);
-            shadowRect.anchoredPosition = new Vector2(0f, -TubeShadowOffsetY);
-            shadowRect.sizeDelta = new Vector2(TubeShadowExtraSize * 2f, TubeShadowExtraSize * 2f);
+            EnsureBloodTubeFrame(tubeObject.transform);
+            EnsureGlassHighlight(tubeObject.transform);
 
-            ProceduralRoundedRectGraphic shadowGraphic = EnsureComponent<ProceduralRoundedRectGraphic>(shadowObject);
-            Undo.RecordObject(shadowGraphic, "Configure TubeShadow");
-            shadowGraphic.color = TubeShadowColour;
-            shadowGraphic.raycastTarget = false;
-            shadowGraphic.SetCornerRadius((TubeHeight + (TubeShadowExtraSize * 2f)) * 0.5f);
+            return (bloodMask, bloodFill, leadingEdge, windowRect);
         }
 
         /// <summary>
-        /// A backing border rather than a top-level ring overlay: sized exactly to BloodTube's outer
-        /// rect and placed behind the (smaller, inset) TubeInterior, so a thin band of this colour is
-        /// all that shows around the edge — the classic texture-free "bordered rounded rect" trick,
-        /// reusing <see cref="ProceduralRoundedRectGraphic"/> rather than a dedicated outline-mesh
-        /// component purely for this one border.
+        /// Destroys the pre-asset-based tube's procedural nodes if a scene still has them, so
+        /// re-running Apply never leaves the old shadow/frame/interior graphics rendering underneath
+        /// or alongside the new sprite-based ones. Destroying "TubeInterior" cascades to remove its
+        /// old nested children (the old BloodMask/BloodFill/BloodLeadingEdge/GlassHighlight) too,
+        /// since Unity destroys descendants automatically — none of those old names collide with the
+        /// new hierarchy's "BloodWindow"-rooted nodes built after this runs. A no-op once a scene has
+        /// already migrated, which is what keeps repeat runs idempotent.
         /// </summary>
-        private static void EnsureTubeFrame(Transform parent)
+        private static void MigrateLegacyBloodTube(Transform tubeParent)
         {
-            GameObject frameObject = EnsureChild(parent, "TubeFrame");
-            RectTransform frameRect = frameObject.GetComponent<RectTransform>();
-            Undo.RecordObject(frameRect, "Configure TubeFrame");
-            Stretch(frameRect);
-
-            ProceduralRoundedRectGraphic frameGraphic = EnsureComponent<ProceduralRoundedRectGraphic>(frameObject);
-            Undo.RecordObject(frameGraphic, "Configure TubeFrame");
-            frameGraphic.color = TubeFrameColour;
-            frameGraphic.raycastTarget = false;
-            frameGraphic.SetCornerRadius(TubeHeight * 0.5f);
+            DestroyChildIfPresent(tubeParent, "TubeShadow");
+            DestroyChildIfPresent(tubeParent, "TubeFrame");
+            DestroyChildIfPresent(tubeParent, "TubeInterior");
         }
 
-        private static RectTransform EnsureTubeInterior(Transform parent)
+        private static void DestroyChildIfPresent(Transform parent, string name)
         {
-            GameObject interiorObject = EnsureChild(parent, "TubeInterior");
-            RectTransform interiorRect = interiorObject.GetComponent<RectTransform>();
-            Undo.RecordObject(interiorRect, "Configure TubeInterior");
-            interiorRect.anchorMin = Vector2.zero;
-            interiorRect.anchorMax = Vector2.one;
-            interiorRect.pivot = new Vector2(0.5f, 0.5f);
-            interiorRect.anchoredPosition = Vector2.zero;
-            interiorRect.sizeDelta = new Vector2(
-                -2f * TubeFrameBorderThickness, -2f * TubeFrameBorderThickness);
+            Transform existing = parent.Find(name);
+            if (existing != null)
+            {
+                Undo.DestroyObjectImmediate(existing.gameObject);
+            }
+        }
 
-            ProceduralRoundedRectGraphic interiorGraphic = EnsureComponent<ProceduralRoundedRectGraphic>(interiorObject);
-            Undo.RecordObject(interiorGraphic, "Configure TubeInterior");
-            interiorGraphic.color = TubeInteriorColour;
-            interiorGraphic.raycastTarget = false;
-            interiorGraphic.SetCornerRadius((TubeHeight - (2f * TubeFrameBorderThickness)) * 0.5f);
-
-            return interiorRect;
+        /// <summary>
+        /// Invisible layout-only rect matching exactly the transparent liquid window baked into
+        /// BloodTubeFrame.png (see <see cref="WindowXMinFraction"/> etc.) — this is the asset-based
+        /// replacement for the old procedural "TubeInterior" backing plate: same role (the shared
+        /// coordinate space and inner-width source for <c>StartupLoadingController</c>), but no
+        /// Graphic of its own since the visible glass interior now comes from the artwork itself.
+        /// </summary>
+        private static RectTransform EnsureBloodWindow(Transform parent)
+        {
+            GameObject windowObject = EnsureChild(parent, "BloodWindow");
+            windowObject.transform.SetAsFirstSibling();
+            RectTransform windowRect = windowObject.GetComponent<RectTransform>();
+            Undo.RecordObject(windowRect, "Configure BloodWindow");
+            windowRect.anchorMin = new Vector2(WindowXMinFraction, WindowYMinFraction);
+            windowRect.anchorMax = new Vector2(WindowXMaxFraction, WindowYMaxFraction);
+            windowRect.pivot = new Vector2(0.5f, 0.5f);
+            windowRect.anchoredPosition = Vector2.zero;
+            windowRect.sizeDelta = Vector2.zero;
+            return windowRect;
         }
 
         /// <summary>
         /// BloodMask's width is the actual progress reveal (an honest RectMask2D clip); BloodFill
-        /// underneath it is authored at zero width to match the "0% empty tube" look before
-        /// <see cref="StartupLoadingController"/> ever runs (its first Awake() immediately corrects
-        /// BloodFill to the tube's full inner width regardless of progress — only BloodMask's width
-        /// depends on displayed progress).
+        /// underneath it is always authored — and kept, every re-run — at the window's full width
+        /// (see <see cref="StartupLoadingController.ApplyBloodTube"/>: only BloodMask's width depends
+        /// on displayed progress, BloodFill's never does).
         /// </summary>
-        private static (RectTransform mask, BloodFillGraphic fill) EnsureBloodMaskAndFill(RectTransform interiorRect)
+        private static (RectTransform mask, Graphic fill) EnsureBloodMaskAndFill(RectTransform windowRect)
         {
-            GameObject maskObject = EnsureChild(interiorRect, "BloodMask");
+            GameObject maskObject = EnsureChild(windowRect, "BloodMask");
             RectTransform maskRect = maskObject.GetComponent<RectTransform>();
             Undo.RecordObject(maskRect, "Configure BloodMask");
             maskRect.anchorMin = new Vector2(0f, 0f);
             maskRect.anchorMax = new Vector2(0f, 1f);
             maskRect.pivot = new Vector2(0f, 0.5f);
-            maskRect.anchoredPosition = new Vector2(TubeContentPadding, 0f);
-            maskRect.sizeDelta = new Vector2(0f, -2f * TubeContentPadding);
+            maskRect.anchoredPosition = new Vector2(BloodMaskInset, 0f);
+            maskRect.sizeDelta = new Vector2(0f, -2f * BloodMaskInset);
 
             EnsureComponent<RectMask2D>(maskObject);
 
@@ -632,62 +657,170 @@ namespace RoyalDecisions.Editor
             fillRect.anchoredPosition = Vector2.zero;
             fillRect.sizeDelta = Vector2.zero;
 
-            BloodFillGraphic fillGraphic = EnsureComponent<BloodFillGraphic>(fillObject);
-            Undo.RecordObject(fillGraphic, "Configure BloodFill");
-            fillGraphic.raycastTarget = false;
-            fillGraphic.SetColors(BloodBottomColour, BloodMidColour, BloodTopColour, BloodMidStopHeight);
+            Image fillImage = EnsureComponent<Image>(fillObject);
+            Undo.RecordObject(fillImage, "Configure BloodFill");
+            fillImage.raycastTarget = false;
+            fillImage.type = Image.Type.Simple;
+            fillImage.preserveAspect = false;
+            fillImage.color = Color.white;
+            Sprite fillSprite = EnsureSprite(BloodFillPath);
+            if (fillSprite != null)
+            {
+                fillImage.sprite = fillSprite;
+            }
 
-            return (maskRect, fillGraphic);
+            return (maskRect, fillImage);
         }
 
         /// <summary>
-        /// A small near-circular rounded rect sitting at the current fill boundary — reads as an
-        /// organic liquid cap rather than a scan-line divider. Positioned with the same left inset as
-        /// <see cref="EnsureBloodMaskAndFill"/>'s BloodMask (both are children of the same
-        /// TubeInterior, so <c>StartupLoadingController</c> can measure both in one shared coordinate
-        /// space) — its x is overwritten every progress update, this is only its resting position.
+        /// The blood strip's own smooth rounded meniscus (not the source sheet's separate, jagged
+        /// "splash" element, which read as blood spilling outside the glass) sitting at the current
+        /// fill boundary. Vertically stretched to match BloodFill's own height and sized by
+        /// <see cref="AspectRatioFitter.AspectMode.HeightControlsWidth"/> so its width is always
+        /// correct at any screen size without a hard-coded reference-unit value. Its x is overwritten
+        /// every progress update by <c>StartupLoadingController</c> — this is only its resting
+        /// position — using the same left inset as <see cref="EnsureBloodMaskAndFill"/>'s BloodMask,
+        /// since both are children of the same BloodWindow.
         /// </summary>
-        private static Graphic EnsureBloodLeadingEdge(RectTransform interiorRect)
+        private static Graphic EnsureBloodLeadingEdge(RectTransform windowRect)
         {
-            GameObject edgeObject = EnsureChild(interiorRect, "BloodLeadingEdge");
+            GameObject edgeObject = EnsureChild(windowRect, "BloodLeadingEdge");
             RectTransform edgeRect = edgeObject.GetComponent<RectTransform>();
             Undo.RecordObject(edgeRect, "Configure BloodLeadingEdge");
-            float edgeSize = TubeHeight - (2f * TubeFrameBorderThickness) - (2f * TubeContentPadding);
-            edgeRect.anchorMin = new Vector2(0f, 0.5f);
-            edgeRect.anchorMax = new Vector2(0f, 0.5f);
+            edgeRect.anchorMin = new Vector2(0f, 0f);
+            edgeRect.anchorMax = new Vector2(0f, 1f);
             edgeRect.pivot = new Vector2(0.5f, 0.5f);
-            edgeRect.anchoredPosition = new Vector2(TubeContentPadding, 0f);
-            edgeRect.sizeDelta = new Vector2(edgeSize, edgeSize);
+            edgeRect.anchoredPosition = new Vector2(BloodMaskInset, 0f);
+            edgeRect.sizeDelta = new Vector2(0f, -2f * BloodMaskInset);
 
-            ProceduralRoundedRectGraphic edgeGraphic = EnsureComponent<ProceduralRoundedRectGraphic>(edgeObject);
-            Undo.RecordObject(edgeGraphic, "Configure BloodLeadingEdge");
-            edgeGraphic.color = LeadingEdgeColour;
-            edgeGraphic.raycastTarget = false;
-            edgeGraphic.SetCornerRadius(edgeSize * 0.5f);
+            Image edgeImage = EnsureComponent<Image>(edgeObject);
+            Undo.RecordObject(edgeImage, "Configure BloodLeadingEdge");
+            edgeImage.raycastTarget = false;
+            edgeImage.type = Image.Type.Simple;
+            edgeImage.preserveAspect = false;
+            edgeImage.color = Color.white;
+            Sprite edgeSprite = EnsureSprite(BloodLeadingEdgePath);
+            if (edgeSprite != null)
+            {
+                edgeImage.sprite = edgeSprite;
+            }
 
-            return edgeGraphic;
+            AspectRatioFitter edgeFitter = EnsureComponent<AspectRatioFitter>(edgeObject);
+            Undo.RecordObject(edgeFitter, "Configure BloodLeadingEdge");
+            edgeFitter.aspectMode = AspectRatioFitter.AspectMode.HeightControlsWidth;
+            edgeFitter.aspectRatio = BloodLeadingEdgeAspectRatio;
+            edgeFitter.enabled = true;
+
+            return edgeImage;
         }
 
-        /// <summary>A thin, restrained, cool-toned sheen near the top of the glass — spans the full
-        /// interior width (unlike the liquid, it is part of the tube itself) and sits above the blood
-        /// in sibling order so it stays visible even where the tube is filled.</summary>
-        private static void EnsureGlassHighlight(RectTransform interiorRect)
+        /// <summary>
+        /// The metal end caps and glass casing, with the transparent liquid window baked directly
+        /// into the artwork. Stretched to fill BloodTube exactly and placed after BloodWindow in
+        /// sibling order, so its opaque caps/borders sit in front of (and visually contain) the
+        /// fill's rectangular clip edges, while its window stays transparent over BloodWindow.
+        /// </summary>
+        private static void EnsureBloodTubeFrame(Transform parent)
         {
-            GameObject highlightObject = EnsureChild(interiorRect, "GlassHighlight");
+            GameObject frameObject = EnsureChild(parent, "BloodTubeFrame");
+            RectTransform frameRect = frameObject.GetComponent<RectTransform>();
+            Undo.RecordObject(frameRect, "Configure BloodTubeFrame");
+            Stretch(frameRect);
+
+            Image frameImage = EnsureComponent<Image>(frameObject);
+            Undo.RecordObject(frameImage, "Configure BloodTubeFrame");
+            frameImage.raycastTarget = false;
+            frameImage.type = Image.Type.Simple;
+            frameImage.preserveAspect = false;
+            frameImage.color = Color.white;
+            Sprite frameSprite = EnsureSprite(BloodTubeFramePath);
+            if (frameSprite != null)
+            {
+                frameImage.sprite = frameSprite;
+            }
+        }
+
+        /// <summary>
+        /// A restrained glass sheen, centred within the window and sized via
+        /// <see cref="AspectRatioFitter.AspectMode.WidthControlsHeight"/> off a horizontal-stretch
+        /// anchor fraction of the window — the same width-fraction/aspect-fitter combination BloodTube
+        /// itself uses, so no piece of this hierarchy depends on a hard-coded reference-unit size.
+        /// Last sibling under BloodTube, so it renders above BloodTubeFrame and stays visible
+        /// regardless of fill level.
+        /// </summary>
+        private static void EnsureGlassHighlight(Transform parent)
+        {
+            GameObject highlightObject = EnsureChild(parent, "GlassHighlight");
+            highlightObject.transform.SetAsLastSibling();
             RectTransform highlightRect = highlightObject.GetComponent<RectTransform>();
             Undo.RecordObject(highlightRect, "Configure GlassHighlight");
-            highlightRect.anchorMin = new Vector2(0f, 1f);
-            highlightRect.anchorMax = new Vector2(1f, 1f);
-            highlightRect.pivot = new Vector2(0.5f, 1f);
-            highlightRect.anchoredPosition = new Vector2(0f, -GlassHighlightTopInset);
-            highlightRect.sizeDelta = new Vector2(0f, GlassHighlightHeight);
 
-            ProceduralHorizontalGradientGraphic highlightGraphic =
-                EnsureComponent<ProceduralHorizontalGradientGraphic>(highlightObject);
-            Undo.RecordObject(highlightGraphic, "Configure GlassHighlight");
-            highlightGraphic.color = GlassHighlightColour;
-            highlightGraphic.raycastTarget = false;
-            highlightGraphic.SetStops(0f, GlassHighlightPeakAlpha, 0f);
+            float windowCenterX = (WindowXMinFraction + WindowXMaxFraction) * 0.5f;
+            float windowWidthFraction = WindowXMaxFraction - WindowXMinFraction;
+            float halfHighlightWidthFraction = windowWidthFraction * GlassHighlightWidthFractionOfWindow * 0.5f;
+            float highlightY = Mathf.Lerp(
+                WindowYMinFraction, WindowYMaxFraction, GlassHighlightVerticalFractionWithinWindow);
+
+            highlightRect.anchorMin = new Vector2(windowCenterX - halfHighlightWidthFraction, highlightY);
+            highlightRect.anchorMax = new Vector2(windowCenterX + halfHighlightWidthFraction, highlightY);
+            highlightRect.pivot = new Vector2(0.5f, 0.5f);
+            highlightRect.anchoredPosition = Vector2.zero;
+            highlightRect.sizeDelta = Vector2.zero;
+
+            Image highlightImage = EnsureComponent<Image>(highlightObject);
+            Undo.RecordObject(highlightImage, "Configure GlassHighlight");
+            highlightImage.raycastTarget = false;
+            highlightImage.type = Image.Type.Simple;
+            highlightImage.preserveAspect = false;
+            highlightImage.color = Color.white;
+            Sprite highlightSprite = EnsureSprite(GlassHighlightPath);
+            if (highlightSprite != null)
+            {
+                highlightImage.sprite = highlightSprite;
+            }
+
+            AspectRatioFitter highlightFitter = EnsureComponent<AspectRatioFitter>(highlightObject);
+            Undo.RecordObject(highlightFitter, "Configure GlassHighlight");
+            highlightFitter.aspectMode = AspectRatioFitter.AspectMode.WidthControlsHeight;
+            highlightFitter.aspectRatio = GlassHighlightAspectRatio;
+            highlightFitter.enabled = true;
+        }
+
+        /// <summary>
+        /// Forces a generated BloodTube PNG to Sprite Mode "Single" and reimports it, generalising
+        /// <see cref="EnsureBackgroundSprite"/>'s pattern for the three (four) runtime sprites under
+        /// <see cref="BloodTubeArtRoot"/>. Returns null (rather than throwing) if the PNG has not been
+        /// imported by Unity yet — every caller already leaves that Image without a sprite in that
+        /// case rather than blocking the rest of Apply.
+        /// </summary>
+        private static Sprite EnsureSprite(string path)
+        {
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning(
+                    "[StartupLoadingSetup] No importer found at '" + path + "' yet. Re-run Apply "
+                    + "Loading Setup once Unity has imported this PNG.");
+                return null;
+            }
+
+            if (importer.textureType != TextureImporterType.Sprite
+                || importer.spriteImportMode != SpriteImportMode.Single)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                EditorUtility.SetDirty(importer);
+                importer.SaveAndReimport();
+                Debug.Log("[StartupLoadingSetup] '" + path + "' set to Sprite Mode 'Single' and reimported.");
+            }
+
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+            {
+                Debug.LogWarning("[StartupLoadingSetup] No sprite found at '" + path + "'.");
+            }
+
+            return sprite;
         }
 
         private static TMP_Text EnsureText(
@@ -770,12 +903,17 @@ namespace RoyalDecisions.Editor
         {
             bool ok = true;
 
-            if (FindRoot(scene, IntroCanvasName) == null)
+            GameObject introCanvasObject = FindRoot(scene, IntroCanvasName);
+            if (introCanvasObject == null)
             {
                 Debug.LogError(
                     "[StartupLoadingSetup] Validation: '" + IntroCanvasName + "' is missing after "
                     + "Apply — this tool must never remove it.");
                 ok = false;
+            }
+            else
+            {
+                ok &= ValidateLoadingRendersAboveIntro(scene, introCanvasObject);
             }
 
             GameObject controllerObject = FindRoot(scene, BootstrapControllerName);
@@ -806,6 +944,40 @@ namespace RoyalDecisions.Editor
             Debug.Log(ok
                 ? "[StartupLoadingSetup] Validation passed: loading hierarchy and wiring are correct."
                 : "[StartupLoadingSetup] Validation FAILED — see errors above.");
+        }
+
+        /// <summary>
+        /// IntroCanvas carries a permanently opaque BlackBackground that IntroSequenceController
+        /// never fades — the only way LoadingCanvas (and everything under it, including the blood
+        /// tube) can ever actually be seen is by outranking IntroCanvas's own sort order. A sort
+        /// order that merely happens to be positive is not sufficient, since IntroCanvas itself may
+        /// be authored at any positive value too (see IntroSceneSetup.IntroCanvasSortingOrder).
+        /// </summary>
+        private static bool ValidateLoadingRendersAboveIntro(Scene scene, GameObject introCanvasObject)
+        {
+            Canvas introCanvas = introCanvasObject.GetComponent<Canvas>();
+            GameObject loadingCanvasObject = FindRoot(scene, CanvasName);
+            Canvas loadingCanvas = loadingCanvasObject != null ? loadingCanvasObject.GetComponent<Canvas>() : null;
+
+            if (introCanvas == null || loadingCanvas == null)
+            {
+                Debug.LogError(
+                    "[StartupLoadingSetup] Validation: could not compare sort order — IntroCanvas or "
+                    + "LoadingCanvas has no Canvas component.");
+                return false;
+            }
+
+            if (loadingCanvas.sortingOrder <= introCanvas.sortingOrder)
+            {
+                Debug.LogError(
+                    "[StartupLoadingSetup] Validation: LoadingCanvas.sortingOrder ("
+                    + loadingCanvas.sortingOrder + ") is not greater than IntroCanvas.sortingOrder ("
+                    + introCanvas.sortingOrder + "). IntroCanvas's opaque BlackBackground will paint "
+                    + "over the entire loading screen, including the blood tube, until this is fixed.");
+                return false;
+            }
+
+            return true;
         }
 
         private static bool ValidateReference(SerializedObject serializedObject, string propertyName, string label)
@@ -850,8 +1022,8 @@ namespace RoyalDecisions.Editor
                 ? "- Background sprite: '" + sprite.name + "', " + sprite.rect.width + "x" + sprite.rect.height
                 : "- Background sprite: NONE (loading screen will show its black fallback)");
 
-            report.AppendLine("- IntroCanvas still present: "
-                + (FindRoot(scene, IntroCanvasName) != null ? "OK" : "MISSING"));
+            GameObject introCanvasRoot = FindRoot(scene, IntroCanvasName);
+            report.AppendLine("- IntroCanvas still present: " + (introCanvasRoot != null ? "OK" : "MISSING"));
 
             GameObject canvasRoot = FindRoot(scene, CanvasName);
             Transform canvasTransform = canvasRoot != null ? canvasRoot.transform : null;
@@ -860,8 +1032,15 @@ namespace RoyalDecisions.Editor
             if (canvasRoot != null)
             {
                 Canvas canvas = canvasRoot.GetComponent<Canvas>();
+                Canvas introCanvas = introCanvasRoot != null ? introCanvasRoot.GetComponent<Canvas>() : null;
+                bool rendersAboveIntro = canvas != null && introCanvas != null
+                    && canvas.sortingOrder > introCanvas.sortingOrder;
                 report.AppendLine("- LoadingCanvas sortingOrder: " + (canvas != null ? canvas.sortingOrder.ToString() : "N/A")
-                    + (canvas != null && canvas.sortingOrder > 0 ? " (OK, renders above IntroCanvas)" : " (CHECK)"));
+                    + " vs IntroCanvas sortingOrder: " + (introCanvas != null ? introCanvas.sortingOrder.ToString() : "N/A")
+                    + (rendersAboveIntro
+                        ? " (OK, LoadingCanvas renders above IntroCanvas)"
+                        : " (BROKEN — IntroCanvas's opaque BlackBackground will hide the entire loading "
+                            + "screen, including the blood tube; re-run Apply Loading Setup)"));
             }
 
             if (root == null)
@@ -944,27 +1123,52 @@ namespace RoyalDecisions.Editor
                 ok = false;
             }
 
-            Transform tubeFrameTransform = bloodTubeTransform != null ? bloodTubeTransform.Find("TubeFrame") : null;
-            ok &= CheckGraphicComponent<ProceduralRoundedRectGraphic>(report, tubeFrameTransform, "TubeFrame");
-
-            Transform tubeShadowTransform = bloodTubeTransform != null ? bloodTubeTransform.Find("TubeShadow") : null;
-            ok &= CheckGraphicComponent<ProceduralRoundedRectGraphic>(report, tubeShadowTransform, "TubeShadow");
-
-            Transform tubeInteriorTransform = bloodTubeTransform != null ? bloodTubeTransform.Find("TubeInterior") : null;
-            ok &= CheckGraphicComponent<ProceduralRoundedRectGraphic>(report, tubeInteriorTransform, "TubeInterior");
-            if (tubeInteriorTransform != null)
+            // The old procedural tube must never linger alongside the new asset-based one.
+            bool legacyTubeNodeFound = false;
+            foreach (string legacyName in new[] { "TubeShadow", "TubeFrame", "TubeInterior" })
             {
-                report.AppendLine("- TubeInterior width: " + tubeInteriorTransform.GetComponent<RectTransform>().rect.width);
+                if (bloodTubeTransform != null && bloodTubeTransform.Find(legacyName) != null)
+                {
+                    report.AppendLine("- Legacy " + legacyName + ": STILL PRESENT — re-run Apply Loading Setup to remove it");
+                    Debug.LogError("[StartupLoadingSetup] Validation: legacy " + legacyName + " is still present.");
+                    legacyTubeNodeFound = true;
+                }
             }
 
-            Transform bloodMaskTransform = tubeInteriorTransform != null ? tubeInteriorTransform.Find("BloodMask") : null;
+            if (!legacyTubeNodeFound)
+            {
+                report.AppendLine("- Legacy procedural tube nodes (TubeShadow/TubeFrame/TubeInterior): absent (OK)");
+            }
+            else
+            {
+                ok = false;
+            }
+
+            Transform tubeFrameTransform = bloodTubeTransform != null ? bloodTubeTransform.Find("BloodTubeFrame") : null;
+            ok &= CheckImageSpriteComponent(report, tubeFrameTransform, "BloodTubeFrame", BloodTubeFramePath);
+
+            Transform windowTransform = bloodTubeTransform != null ? bloodTubeTransform.Find("BloodWindow") : null;
+            if (windowTransform != null)
+            {
+                report.AppendLine("- BloodWindow width: " + windowTransform.GetComponent<RectTransform>().rect.width);
+            }
+            else
+            {
+                report.AppendLine("- BloodWindow: MISSING");
+                Debug.LogError("[StartupLoadingSetup] Validation: BloodWindow is missing.");
+                ok = false;
+            }
+
+            Transform bloodMaskTransform = windowTransform != null ? windowTransform.Find("BloodMask") : null;
             RectMask2D bloodMaskComponent = bloodMaskTransform != null ? bloodMaskTransform.GetComponent<RectMask2D>() : null;
             // RectMask2D is not a Graphic and needs no CanvasRenderer of its own — only its children
             // (BloodFill) are actually drawn.
             if (bloodMaskComponent != null)
             {
                 report.AppendLine("- BloodMask: OK (RectMask2D), leftInset="
-                    + bloodMaskTransform.GetComponent<RectTransform>().anchoredPosition.x);
+                    + bloodMaskTransform.GetComponent<RectTransform>().anchoredPosition.x
+                    + ", left-anchored=" + (bloodMaskTransform.GetComponent<RectTransform>().anchorMin.x == 0f
+                        && bloodMaskTransform.GetComponent<RectTransform>().anchorMax.x == 0f));
             }
             else
             {
@@ -974,17 +1178,28 @@ namespace RoyalDecisions.Editor
             }
 
             Transform bloodFillTransform = bloodMaskTransform != null ? bloodMaskTransform.Find("BloodFill") : null;
-            ok &= CheckGraphicComponent<BloodFillGraphic>(report, bloodFillTransform, "BloodFill");
+            ok &= CheckImageSpriteComponent(report, bloodFillTransform, "BloodFill", BloodFillPath);
+            if (tubeFrameTransform != null && bloodFillTransform != null
+                && tubeFrameTransform.GetComponent<Image>() == bloodFillTransform.GetComponent<Image>())
+            {
+                report.AppendLine("- BloodTubeFrame/BloodFill independence: ERROR — sharing one Image component");
+                Debug.LogError("[StartupLoadingSetup] Validation: BloodTubeFrame and BloodFill must be independent Images.");
+                ok = false;
+            }
+            else
+            {
+                report.AppendLine("- BloodTubeFrame/BloodFill independence: OK (separate Image components)");
+            }
 
-            Transform leadingEdgeTransform = tubeInteriorTransform != null
-                ? tubeInteriorTransform.Find("BloodLeadingEdge")
+            Transform leadingEdgeTransform = windowTransform != null
+                ? windowTransform.Find("BloodLeadingEdge")
                 : null;
-            ok &= CheckGraphicComponent<Graphic>(report, leadingEdgeTransform, "BloodLeadingEdge");
+            ok &= CheckImageSpriteComponent(report, leadingEdgeTransform, "BloodLeadingEdge", BloodLeadingEdgePath);
 
-            Transform glassHighlightTransform = tubeInteriorTransform != null
-                ? tubeInteriorTransform.Find("GlassHighlight")
+            Transform glassHighlightTransform = bloodTubeTransform != null
+                ? bloodTubeTransform.Find("GlassHighlight")
                 : null;
-            ok &= CheckGraphicComponent<ProceduralHorizontalGradientGraphic>(report, glassHighlightTransform, "GlassHighlight");
+            ok &= CheckImageSpriteComponent(report, glassHighlightTransform, "GlassHighlight", GlassHighlightPath);
 
             Transform percentageTransform = contentTransform != null ? contentTransform.Find("PercentageText") : null;
             TMP_Text percentageTmp = percentageTransform != null ? percentageTransform.GetComponent<TMP_Text>() : null;
@@ -1097,6 +1312,41 @@ namespace RoyalDecisions.Editor
             return true;
         }
 
+        /// <summary>
+        /// The asset-based tube's equivalent of <see cref="CheckGraphicComponent{T}"/>: confirms a
+        /// plain <see cref="Image"/> (with its required CanvasRenderer) exists and has the expected
+        /// generated sprite assigned — not just any sprite, so a leftover placeholder or a sprite
+        /// dragged onto the wrong slot is still caught as an error.
+        /// </summary>
+        private static bool CheckImageSpriteComponent(StringBuilder report, Transform transform, string label, string expectedSpritePath)
+        {
+            if (!CheckGraphicComponent<Image>(report, transform, label))
+            {
+                return false;
+            }
+
+            Image image = transform.GetComponent<Image>();
+            Sprite expectedSprite = AssetDatabase.LoadAssetAtPath<Sprite>(expectedSpritePath);
+            if (image.sprite == null)
+            {
+                report.AppendLine("- " + label + " sprite: MISSING (re-run Apply Loading Setup once "
+                    + expectedSpritePath + " has been imported)");
+                Debug.LogError("[StartupLoadingSetup] Validation: " + label + " has no sprite assigned.");
+                return false;
+            }
+
+            if (expectedSprite != null && image.sprite != expectedSprite)
+            {
+                report.AppendLine("- " + label + " sprite: '" + image.sprite.name
+                    + "' (expected '" + expectedSprite.name + "')");
+                Debug.LogError("[StartupLoadingSetup] Validation: " + label + " sprite does not match " + expectedSpritePath + ".");
+                return false;
+            }
+
+            report.AppendLine("- " + label + " sprite: OK ('" + image.sprite.name + "')");
+            return true;
+        }
+
         private static string DescribeReference(SerializedObject serializedObject, string propertyName)
         {
             SerializedProperty property = serializedObject.FindProperty(propertyName);
@@ -1158,10 +1408,10 @@ namespace RoyalDecisions.Editor
         /// object — the exact "Gear icon didn't render" / "ApplyButton" <c>CanvasRenderer</c> bug
         /// already diagnosed and fixed the same way for MainMenu buttons (see
         /// <c>MANUAL_UNITY_STEPS.md</c>). Checking explicitly here, in the one helper every component
-        /// in this file goes through, closes that whole class of bug for every procedural graphic the
-        /// blood tube builds (BloodFill, TubeShadow/Frame/Interior, BloodLeadingEdge, GlassHighlight)
-        /// and repairs an existing malformed object left over from before this fix existed, not just
-        /// ones freshly created this run.
+        /// in this file goes through, closes that whole class of bug for every Graphic-derived
+        /// component this file creates — the blood tube's <see cref="Image"/> layers included — and
+        /// repairs an existing malformed object left over from before this fix existed, not just ones
+        /// freshly created this run.
         /// </remarks>
         internal static T EnsureComponent<T>(GameObject target) where T : Component
         {

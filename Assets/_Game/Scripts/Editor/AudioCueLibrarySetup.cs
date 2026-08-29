@@ -36,6 +36,12 @@ namespace RoyalDecisions.Editor
             ("intro_logo_rise", "Assets/_Game/Audio/Intro/intro_logo_rise.wav"),
             ("intro_wordmark_sweep", "Assets/_Game/Audio/Intro/intro_wordmark_sweep.wav"),
             ("intro_resolve", "Assets/_Game/Audio/Intro/intro_resolve.wav"),
+            ("prologue_ambient", "Assets/_Game/Audio/Prologue/prologue_ambient.wav"),
+            ("prologue_slide_01", "Assets/_Game/Audio/Prologue/prologue_slide_01.wav"),
+            ("prologue_slide_02", "Assets/_Game/Audio/Prologue/prologue_slide_02.wav"),
+            ("prologue_slide_03", "Assets/_Game/Audio/Prologue/prologue_slide_03.wav"),
+            ("prologue_slide_04", "Assets/_Game/Audio/Prologue/prologue_slide_04.wav"),
+            ("prologue_slide_05", "Assets/_Game/Audio/Prologue/prologue_slide_05.wav"),
         };
 
         public const string ProfilePath = "Assets/_Game/Content/UI/DefaultFeedbackCueProfile.asset";

@@ -49,6 +49,15 @@ namespace RoyalDecisions.Editor
         private const string BootstrapControllerName = "BootstrapController";
         private const string IntroAudioName = "IntroAudio";
 
+        // LoadingCanvas (StartupLoadingSetup.cs) explicitly sorts itself above IntroCanvas's old
+        // default of 0 (its own comment: "an explicit, higher sort order guarantees LoadingCanvas
+        // always paints over IntroCanvas ... while it is visible"), on the assumption the two would
+        // never be visible at once. The crossfade handoff needs the opposite for its brief overlap
+        // window — the intro fading out on top, revealing Loading (already fully visible)
+        // underneath — so IntroCanvas now sorts above LoadingCanvas's fixed value of 10 instead.
+        // Set here, from the intro's own side, so nothing under Loading's ownership needs to change.
+        private const int IntroCanvasSortingOrder = 20;
+
         // Reference-derived target widths on the 1080-wide reference canvas. The wordmark reads
         // clearly wider than the mark — a studio logo with the wordmark as the dominant, legible
         // element and the mark as a smaller emblem above it, matching direct feedback that an
@@ -958,6 +967,7 @@ namespace RoyalDecisions.Editor
             Undo.RecordObject(canvas, "Configure IntroCanvas");
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = false;
+            canvas.sortingOrder = IntroCanvasSortingOrder;
 
             CanvasScaler scaler = EnsureComponent<CanvasScaler>(canvasObject);
             Undo.RecordObject(scaler, "Configure IntroCanvas");

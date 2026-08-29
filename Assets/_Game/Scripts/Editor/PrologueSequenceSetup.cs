@@ -73,6 +73,8 @@ namespace RoyalDecisions.Editor
         private const string ControllerName = "PrologueSequenceController";
         private const string SceneControllerName = "PrologueSceneController";
         private const string MainMenuControllerName = "MainMenuController";
+        private const string AudioObjectName = "PrologueAudio";
+        private const string MusicSourceChildName = "MusicSource";
 
         private const int PlaceholderWidth = 540;
         private const int PlaceholderHeight = 960;
@@ -201,6 +203,11 @@ namespace RoyalDecisions.Editor
 
         private static void ApplyToPrologueScene()
         {
+            // Registers the Prologue ambient/accent cue IDs in the one shared MainAudioCueLibrary
+            // (never a separate library) before anything below reads it — idempotent, and never
+            // touches any cue this tool does not own.
+            Debug.Log("[PrologueSequenceSetup] " + AudioCueLibrarySetup.Update());
+
             PrologueSequenceData data = EnsureDefaultPrologueAsset();
 
             Scene scene = OpenOrCreatePrologueScene();
@@ -227,6 +234,8 @@ namespace RoyalDecisions.Editor
 
             CanvasGroup fadeOverlay = EnsureFadeOverlay(canvasTransform);
 
+            AudioService audioService = EnsurePrologueAudio(scene);
+
             GameObject controllerObject = FindRoot(scene, ControllerName)
                 ?? new GameObject(ControllerName);
             PrologueSequenceController controller =
@@ -234,6 +243,7 @@ namespace RoyalDecisions.Editor
             controller.SetAuthoringReferences(
                 data, layerAImage, layerAFitter, layerBImage, layerBFitter,
                 storyGroup, storyText, continueText, skipLabel, fadeOverlay);
+            controller.SetAudioAuthoringReferences(audioService);
 
             WireButtonClick(tapCatcherButton, controller.OnTapAdvance);
             WireButtonClick(skipButton, controller.Skip);
@@ -394,28 +404,34 @@ namespace RoyalDecisions.Editor
         /// Updates an already-existing <see cref="PrologueSequenceData"/> in place: for each slide
         /// (up to whichever of slide-count/real-art-count is shorter), swaps in the matching real
         /// illustration only when that slide's current illustration is missing or is itself a
-        /// generated placeholder, and syncs the motion style only when it still exactly matches
-        /// <see cref="LegacyDefaultMotions"/> (i.e. was never hand-tuned). Subtitles, slide count,
-        /// order, and any already-real/hand-picked illustration or motion are left completely alone.
+        /// generated placeholder, syncs the motion style only when it still exactly matches
+        /// <see cref="LegacyDefaultMotions"/> (i.e. was never hand-tuned), and fills in a default
+        /// accent cue ID only when the slide currently has none at all — the same "only fill an empty
+        /// field" rule <see cref="AudioCueLibrarySetup.UpdateFeedbackCueProfile"/> already uses for
+        /// cue-ID string fields. Subtitles, slide count, order, and any already-real/hand-picked
+        /// illustration, motion, or accent cue are left completely alone.
         /// </summary>
         private static void SyncSlidesWithRealArt(PrologueSequenceData data, Sprite[] realArt)
         {
             IReadOnlyList<PrologueSlideData> slides = data.Slides;
             bool changed = false;
 
-            for (int i = 0; i < slides.Count && i < realArt.Length; i++)
+            for (int i = 0; i < slides.Count; i++)
             {
                 PrologueSlideData slide = slides[i];
 
-                Sprite real = realArt[i];
-                if (real != null && slide.Illustration != real)
+                if (i < realArt.Length)
                 {
-                    bool illustrationIsMissingOrPlaceholder =
-                        slide.Illustration == null || IsGeneratedPlaceholderSprite(slide.Illustration);
-                    if (illustrationIsMissingOrPlaceholder)
+                    Sprite real = realArt[i];
+                    if (real != null && slide.Illustration != real)
                     {
-                        slide.SetIllustration(real);
-                        changed = true;
+                        bool illustrationIsMissingOrPlaceholder =
+                            slide.Illustration == null || IsGeneratedPlaceholderSprite(slide.Illustration);
+                        if (illustrationIsMissingOrPlaceholder)
+                        {
+                            slide.SetIllustration(real);
+                            changed = true;
+                        }
                     }
                 }
 
@@ -424,6 +440,16 @@ namespace RoyalDecisions.Editor
                 {
                     slide.SetMotion(RealArtMotions[i]);
                     changed = true;
+                }
+
+                if (!slide.HasAccentCue)
+                {
+                    string defaultCue = PrologueDefaultContent.DefaultAccentCueId(i);
+                    if (!string.IsNullOrEmpty(defaultCue))
+                    {
+                        slide.SetAccentCueId(defaultCue);
+                        changed = true;
+                    }
                 }
             }
 
@@ -435,8 +461,8 @@ namespace RoyalDecisions.Editor
             EditorUtility.SetDirty(data);
             AssetDatabase.SaveAssets();
             Debug.Log("[PrologueSequenceSetup] Synced " + DefaultDataAssetPath + " with the real "
-                + "Prologue_01–05 illustrations and their reviewed motion styles — only slides still "
-                + "at their placeholder/default state were touched.");
+                + "Prologue_01–05 illustrations, their reviewed motion styles, and default accent "
+                + "cues — only slides still at their placeholder/default/empty state were touched.");
         }
 
         private static bool IsGeneratedPlaceholderSprite(Sprite sprite)
@@ -780,6 +806,57 @@ namespace RoyalDecisions.Editor
             return group;
         }
 
+        /// <summary>
+        /// Builds/reuses a root <c>PrologueAudio</c> object carrying the SFX <see cref="AudioSource"/>
+        /// (for the one-shot slide accents) plus a child <c>MusicSource</c> object with a second,
+        /// looping <see cref="AudioSource"/> (for the ambient bed) — mirrors the same dual-source
+        /// pattern <c>SceneSetupAutomation</c> already uses for Game/MainMenu, and the single-source
+        /// pattern <c>IntroSceneSetup.EnsureIntroAudio</c> uses where only SFX is needed. Wired to the
+        /// one shared <see cref="AudioCueLibrarySetup.LibraryPath"/>, never a Prologue-only library.
+        /// </summary>
+        private static AudioService EnsurePrologueAudio(Scene scene)
+        {
+            GameObject audioObject = FindRoot(scene, AudioObjectName) ?? new GameObject(AudioObjectName);
+
+            AudioSource sfxSource = EnsureComponent<AudioSource>(audioObject);
+            Undo.RecordObject(sfxSource, "Configure PrologueAudio");
+            sfxSource.playOnAwake = false;
+            sfxSource.loop = false;
+            sfxSource.spatialBlend = 0f;
+
+            Transform musicTransform = audioObject.transform.Find(MusicSourceChildName);
+            GameObject musicObject;
+            if (musicTransform != null)
+            {
+                musicObject = musicTransform.gameObject;
+            }
+            else
+            {
+                musicObject = new GameObject(MusicSourceChildName);
+                musicObject.transform.SetParent(audioObject.transform, false);
+            }
+
+            AudioSource musicSource = EnsureComponent<AudioSource>(musicObject);
+            Undo.RecordObject(musicSource, "Configure PrologueAudio MusicSource");
+            musicSource.playOnAwake = false;
+            musicSource.loop = true;
+            musicSource.spatialBlend = 0f;
+
+            AudioService audioService = EnsureComponent<AudioService>(audioObject);
+            AudioCueLibrary library =
+                AssetDatabase.LoadAssetAtPath<AudioCueLibrary>(AudioCueLibrarySetup.LibraryPath);
+            audioService.SetAuthoringReferences(sfxSource, library, musicSource);
+
+            if (library == null)
+            {
+                Debug.LogWarning(
+                    "[PrologueSequenceSetup] No AudioCueLibrary found at '" + AudioCueLibrarySetup.LibraryPath
+                    + "'; the prologue is wired but plays silently until it exists.");
+            }
+
+            return audioService;
+        }
+
         private static GameObject EnsurePrologueCanvas(Scene scene)
         {
             GameObject canvasObject = FindRoot(scene, CanvasName)
@@ -869,6 +946,15 @@ namespace RoyalDecisions.Editor
                 TMP_Text storyTextForShadowCheck = serialized.FindProperty("storyText")
                     ?.objectReferenceValue as TMP_Text;
                 ok &= ValidateStoryTextReadabilityStyling(storyTextForShadowCheck);
+
+                ok &= ValidateReference(serialized, "audioService", "PrologueSequenceController.audioService");
+                SerializedProperty ambientCueProperty = serialized.FindProperty("ambientCueId");
+                if (ambientCueProperty == null || string.IsNullOrEmpty(ambientCueProperty.stringValue))
+                {
+                    Debug.LogError(
+                        "[PrologueSequenceSetup] Validation: PrologueSequenceController.ambientCueId is empty.");
+                    ok = false;
+                }
             }
 
             Transform canvasTransformForValidation = FindRoot(scene, CanvasName)?.transform;
@@ -1076,7 +1162,9 @@ namespace RoyalDecisions.Editor
                         status = "OK ('" + sprite.name + "')";
                     }
 
-                    report.AppendLine("  Slide " + (i + 1) + ": " + status + ", motion=" + slides[i].Motion);
+                    string accentStatus = slides[i].HasAccentCue ? "'" + slides[i].AccentCueId + "'" : "(none)";
+                    report.AppendLine("  Slide " + (i + 1) + ": " + status + ", motion=" + slides[i].Motion
+                        + ", accentCue=" + accentStatus);
                 }
             }
 
@@ -1087,6 +1175,12 @@ namespace RoyalDecisions.Editor
             report.AppendLine("- SkipButton label (TMP): " + DescribeReference(serialized, "skipButtonLabel"));
             report.AppendLine("- ContinueIndicator (TMP): " + DescribeReference(serialized, "continueIndicatorText"));
             report.AppendLine("- FadeOverlay (CanvasGroup): " + DescribeReference(serialized, "fadeOverlayGroup"));
+
+            report.AppendLine("- Audio service: " + DescribeReference(serialized, "audioService"));
+            SerializedProperty ambientCueProperty = serialized.FindProperty("ambientCueId");
+            string ambientCueId = ambientCueProperty != null ? ambientCueProperty.stringValue : null;
+            report.AppendLine("- Ambient cue ID: "
+                + (string.IsNullOrEmpty(ambientCueId) ? "MISSING" : "'" + ambientCueId + "'"));
 
             TMP_Text storyTextForReport = serialized.FindProperty("storyText")?.objectReferenceValue as TMP_Text;
             Shadow storyTextShadow = storyTextForReport != null

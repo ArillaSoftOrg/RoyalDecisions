@@ -43,6 +43,8 @@ namespace RoyalDecisions.Presentation
 
         public void StopMusic() { }
 
+        public void StopSfx() { }
+
         public void SetSfxVolume(float value) => SetVolume(value);
 
         public void SetMusicVolume(float value) => MusicVolume = Mathf.Clamp01(value);

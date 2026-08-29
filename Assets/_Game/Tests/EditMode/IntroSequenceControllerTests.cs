@@ -159,5 +159,55 @@ namespace RoyalDecisions.Tests.EditMode
 
             Assert.That(completed, Is.True);
         }
+
+        [Test]
+        public void Play_OutsidePlayMode_FiresFadeOutStartedExactlyOnceBeforeComplete()
+        {
+            // Outside Play Mode CanAnimate() is false, so Play() resolves synchronously through
+            // Complete() without ever running the real fade-out coroutine. Complete() itself still
+            // guarantees FadeOutStarted fires — exactly once, and strictly before onComplete — so
+            // callers relying on FadeOutStarted to reveal what comes next are never left waiting.
+            IntroSequenceController controller = Build();
+            int fadeOutStartedCount = 0;
+            bool fadeOutStartedBeforeComplete = false;
+            controller.FadeOutStarted += () =>
+            {
+                fadeOutStartedCount++;
+                fadeOutStartedBeforeComplete = !controller.HasCompleted;
+            };
+
+            controller.Play(() => { });
+
+            Assert.That(fadeOutStartedCount, Is.EqualTo(1));
+            Assert.That(fadeOutStartedBeforeComplete, Is.True,
+                "FadeOutStarted must fire before HasCompleted becomes true, not after.");
+        }
+
+        [Test]
+        public void Skip_CalledBeforePlay_FiresFadeOutStartedExactlyOnce()
+        {
+            IntroSequenceController controller = Build();
+            int fadeOutStartedCount = 0;
+            controller.FadeOutStarted += () => fadeOutStartedCount++;
+
+            controller.Skip();
+
+            Assert.That(fadeOutStartedCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void FadeOutStarted_NeverFiresTwice_AcrossRepeatedSkipCalls()
+        {
+            IntroSequenceController controller = Build();
+            int fadeOutStartedCount = 0;
+            controller.FadeOutStarted += () => fadeOutStartedCount++;
+
+            controller.Play(() => { });
+            controller.Skip();
+            controller.Skip();
+            controller.Skip();
+
+            Assert.That(fadeOutStartedCount, Is.EqualTo(1));
+        }
     }
 }

@@ -23,6 +23,11 @@ namespace RoyalDecisions.Data
             + "(the default) disables auto-advance — the player must tap to continue.")]
         [SerializeField] private float autoAdvanceSeconds;
 
+        [Tooltip("Optional. Matches an AudioCueLibrary entry exactly, compared ordinally — same "
+            + "convention as ChoiceDefinition.audioEventId. Plays once, exactly when this slide "
+            + "becomes visible. An empty ID is a silent slide, not an error.")]
+        [SerializeField] private string accentCueId = string.Empty;
+
         public PrologueSlideData()
         {
         }
@@ -31,12 +36,14 @@ namespace RoyalDecisions.Data
             Sprite illustration,
             string subtitle,
             PrologueSlideMotion motion = PrologueSlideMotion.Zoom,
-            float autoAdvanceSeconds = 0f)
+            float autoAdvanceSeconds = 0f,
+            string accentCueId = null)
         {
             this.illustration = illustration;
             this.subtitle = subtitle ?? string.Empty;
             this.motion = motion;
             this.autoAdvanceSeconds = autoAdvanceSeconds;
+            this.accentCueId = accentCueId ?? string.Empty;
         }
 
         public Sprite Illustration => illustration;
@@ -48,6 +55,10 @@ namespace RoyalDecisions.Data
         public float AutoAdvanceSeconds => Mathf.Max(0f, autoAdvanceSeconds);
 
         public bool HasAutoAdvance => AutoAdvanceSeconds > 0f;
+
+        public string AccentCueId => accentCueId ?? string.Empty;
+
+        public bool HasAccentCue => !string.IsNullOrEmpty(accentCueId);
 
 #if UNITY_EDITOR
         /// <summary>
@@ -64,6 +75,11 @@ namespace RoyalDecisions.Data
         public void SetMotion(PrologueSlideMotion newMotion)
         {
             motion = newMotion;
+        }
+
+        public void SetAccentCueId(string newAccentCueId)
+        {
+            accentCueId = newAccentCueId ?? string.Empty;
         }
 #endif
     }

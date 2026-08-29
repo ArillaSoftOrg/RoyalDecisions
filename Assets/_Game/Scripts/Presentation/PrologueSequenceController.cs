@@ -54,12 +54,23 @@ namespace RoyalDecisions.Presentation
             + "the prologue never hard-cuts.")]
         [SerializeField] private CanvasGroup fadeOverlayGroup;
 
+        [Header("Audio")]
+        [Tooltip("Optional. Absent audio is a supported configuration, same as every other "
+            + "IAudioService caller in this project.")]
+        [SerializeField] private AudioService audioService;
+
+        [Tooltip("Plays once, looping, as soon as the sequence actually starts showing slides. "
+            + "Treated as music (respects master/mute and the music volume setting), not SFX.")]
+        [SerializeField] private string ambientCueId = "prologue_ambient";
+
         [Header("Timing (unscaled seconds)")]
         [SerializeField] private float imageCrossfadeSeconds = 0.45f;
         [SerializeField] private float subtitleFadeInDelaySeconds = 0.20f;
         [SerializeField] private float subtitleFadeInSeconds = 0.45f;
         [SerializeField] private float subtitleFadeOutSeconds = 0.15f;
-        [SerializeField] private float completionFadeSeconds = 0.35f;
+        // Brief, so the final tap reads as "fade then Game", never as a black screen that lingers
+        // long enough to feel stuck.
+        [SerializeField] private float completionFadeSeconds = 0.25f;
 
         [Header("Motion")]
         [Tooltip("How long the gentle zoom/pan takes to reach its target, then holds. Skipped "
@@ -76,9 +87,17 @@ namespace RoyalDecisions.Presentation
         private bool reducedMotionEnabled;
         private Action onComplete;
 
+        /// <summary>Test-injection seam, separate from the Inspector-facing <see cref="audioService"/>
+        /// field — mirrors how <c>MainMenuController.Configure</c> accepts interfaces for tests while
+        /// scene authoring wires concrete types. Takes priority when set.</summary>
+        private IAudioService audioServiceOverride;
+
+        private IAudioService ActiveAudioService => audioServiceOverride ?? audioService;
+
         private Coroutine slideRoutine;
         private Coroutine motionRoutine;
         private Coroutine autoAdvanceRoutine;
+        private Coroutine completionRoutine;
 
         private bool accessibilityDefaultsCaptured;
         private float defaultImageCrossfadeSeconds;
@@ -160,6 +179,36 @@ namespace RoyalDecisions.Presentation
             return reduced ? Mathf.Min(defaultValue, 0.05f) : defaultValue;
         }
 
+        /// <summary>Injection seam for tests, which must never touch real audio hardware/settings.
+        /// Call before <see cref="Play"/>.</summary>
+        public void SetAudioService(IAudioService service)
+        {
+            audioServiceOverride = service;
+        }
+
+        /// <summary>
+        /// Applies the player's current audio volume/mute settings to this sequence's own
+        /// AudioService instance — called by <c>PrologueSceneController</c> before <see cref="Play"/>,
+        /// mirroring how <c>BootstrapController</c>/<c>GameSceneController</c> each apply
+        /// <c>GameSettings</c> to their own scene's AudioService, since Prologue owns a fresh
+        /// AudioService instance rather than sharing one across scenes. Entirely separate from
+        /// <see cref="SetReducedMotion"/> — Reduced Motion is a visual setting and must never affect
+        /// whether audio plays.
+        /// </summary>
+        public void ApplyAudioSettings(float masterVolume, float musicVolume, float sfxVolume, bool masterMuted)
+        {
+            IAudioService service = ActiveAudioService;
+            if (service == null)
+            {
+                return;
+            }
+
+            service.SetMasterVolume(masterVolume);
+            service.SetMusicVolume(musicVolume);
+            service.SetSfxVolume(sfxVolume);
+            service.SetMasterMuted(masterMuted);
+        }
+
         /// <summary>
         /// Plays the sequence once, starting at the first slide. <paramref name="onSequenceComplete"/>
         /// fires exactly once, whether the sequence finishes naturally, is skipped, or cannot play at
@@ -183,6 +232,11 @@ namespace RoyalDecisions.Presentation
                 Complete();
                 return;
             }
+
+            // Started once real slides are actually about to show — not before the fail-open check
+            // above, so a misconfigured (empty) sequence never even briefly starts the ambient just
+            // to immediately stop it again.
+            StartAmbient();
 
             (Image incoming, RectTransform incomingRect, PrologueSlideData slide) = ApplySlideState(0);
 
@@ -213,6 +267,10 @@ namespace RoyalDecisions.Presentation
             int next = PrologueSequenceMath.NextSlideIndexOrCompletion(currentSlideIndex, SlideCount);
             if (next < 0)
             {
+                // Already on the final slide: there is no next slide to transition to, so this must
+                // complete right here in this same call — never start a transition coroutine (which
+                // would need a further tap to resolve) and never show an index-out-of-range "phantom"
+                // slide.
                 Complete();
                 return;
             }
@@ -254,6 +312,12 @@ namespace RoyalDecisions.Presentation
         {
             currentSlideIndex = PrologueSequenceMath.ClampSlideIndex(index, SlideCount);
             PrologueSlideData slide = CurrentSlide;
+
+            // Exactly once per slide by construction: ApplySlideState is the single choke point both
+            // Play() (first slide) and OnTapAdvance() (every later slide) call to make a slide
+            // current, and OnTapAdvance's isTransitioning guard already prevents this from running
+            // twice for the same slide — no extra de-duplication needed here for spam taps.
+            PlaySlideAccentCue(slide);
 
             Image incoming = layerAActive ? slideLayerBImage : slideLayerAImage;
             AspectRatioFitter incomingFitter = layerAActive ? slideLayerBFitter : slideLayerAFitter;
@@ -393,9 +457,20 @@ namespace RoyalDecisions.Presentation
             hasCompleted = true;
             StopAllRoutines();
 
+            // Stopped immediately and synchronously — well before the visual fade even finishes, let
+            // alone before Game loads — so neither the ambient nor a still-ringing accent cue can
+            // ever bleed into the next scene. Covers both natural completion and Skip()/ATLA, since
+            // both funnel through this one method, and never repeats on a second Complete() call
+            // thanks to the hasCompleted guard above.
+            StopPrologueAudio();
+
             if (fadeOverlayGroup != null && CanAnimate() && completionFadeSeconds > 0f)
             {
-                StartCoroutine(CompletionFadeRoutine());
+                // Self-driving: once started, this coroutine reaches InvokeCompletion() on its own a
+                // fixed ~completionFadeSeconds later, with no further input required. Tracked in a
+                // field (like every other routine here) purely so OnDisable's safety net below can
+                // tell whether it is still the one that owes InvokeCompletion() a call.
+                completionRoutine = StartCoroutine(CompletionFadeRoutine());
                 return;
             }
 
@@ -420,6 +495,7 @@ namespace RoyalDecisions.Presentation
             }
 
             fadeOverlayGroup.alpha = 1f;
+            completionRoutine = null;
             InvokeCompletion();
         }
 
@@ -492,9 +568,53 @@ namespace RoyalDecisions.Presentation
             }
         }
 
+        /// <summary>No-op without an assigned service or cue ID — every "no sound" outcome here is
+        /// normal, exactly like every other <see cref="IAudioService"/> caller in this codebase.
+        /// Plays as music (looping, respecting the music/master volume and mute settings) rather than
+        /// as an SFX one-shot, since this is a continuous bed, not a discrete event.</summary>
+        private void StartAmbient()
+        {
+            if (string.IsNullOrEmpty(ambientCueId))
+            {
+                return;
+            }
+
+            ActiveAudioService?.PlayMusic(ambientCueId);
+        }
+
+        /// <summary>Plays a slide's optional one-shot accent. Silent when the slide has none —
+        /// most slides are expected to.</summary>
+        private void PlaySlideAccentCue(PrologueSlideData slide)
+        {
+            if (slide == null || !slide.HasAccentCue)
+            {
+                return;
+            }
+
+            ActiveAudioService?.Play(slide.AccentCueId);
+        }
+
+        /// <summary>Stops the ambient and cuts any accent cue still ringing out, so neither can bleed
+        /// into whatever scene loads next. Reduced Motion never reaches this — audio only ever stops
+        /// here, on genuine completion, not as a side effect of the visual accessibility setting.</summary>
+        private void StopPrologueAudio()
+        {
+            ActiveAudioService?.StopMusic();
+            ActiveAudioService?.StopSfx();
+        }
+
         private void OnDisable()
         {
             StopAllRoutines();
+
+            // Completion was already requested (hasCompleted) but the fade coroutine never reached
+            // its own InvokeCompletion() call — e.g. this component was disabled mid-fade, which also
+            // stops the coroutine at the engine level. The player must never be left on a black
+            // screen with no way to reach Game, so resolve the callback here instead of losing it.
+            if (hasCompleted && onComplete != null)
+            {
+                InvokeCompletion();
+            }
         }
 
         private void StopAllRoutines()
@@ -502,6 +622,7 @@ namespace RoyalDecisions.Presentation
             StopCoroutineIfRunning(ref slideRoutine);
             StopMotionRoutine();
             StopAutoAdvanceRoutine();
+            StopCoroutineIfRunning(ref completionRoutine);
         }
 
         private void StopMotionRoutine()
@@ -553,6 +674,14 @@ namespace RoyalDecisions.Presentation
             continueIndicatorText = continueText;
             skipButtonLabel = skipText;
             fadeOverlayGroup = fadeOverlay;
+        }
+
+        /// <summary>Editor-only wiring hook for the optional Prologue audio service. Separate from
+        /// <see cref="SetAuthoringReferences"/>, mirroring
+        /// <see cref="IntroSequenceController.SetAudioAuthoringReferences"/>.</summary>
+        public void SetAudioAuthoringReferences(AudioService service)
+        {
+            audioService = service;
         }
 
         [ContextMenu("Debug/Play")]

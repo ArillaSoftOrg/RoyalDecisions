@@ -44,6 +44,7 @@ namespace RoyalDecisions.Composition
         private ISettingsStore settingsStore;
         private ISceneLoader sceneLoader;
         private bool hasBegunStartup;
+        private bool hasBegunLoading;
         private bool hasLoadedMainMenu;
 
         /// <summary>The settings that were applied. Exposed for diagnostics and tests.</summary>
@@ -74,14 +75,16 @@ namespace RoyalDecisions.Composition
         }
 
         /// <summary>
-        /// Drives the full startup handoff, in order: the studio intro (if assigned) plays first;
-        /// once it completes (or immediately if absent), the loading screen (if assigned) shows real
-        /// startup milestones and holds for its own configured minimum display duration, then fades
-        /// out; only once that finishes does <see cref="LoadMainMenuOnce"/> run. Either or both
-        /// stages missing skips straight to whichever comes next, unchanged from before this existed.
-        /// Public (rather than folded into <see cref="Start"/>) so a test can drive it directly after
-        /// <see cref="Configure"/> without waiting on Unity's own lifecycle. Safe to call more than
-        /// once — only the first call drives anything.
+        /// Drives the full startup handoff, in order: the studio intro (if assigned) plays first; the
+        /// instant its own final fade-out begins — not when it fully completes — the loading screen
+        /// (if assigned) reveals itself and starts showing real startup milestones underneath, so the
+        /// two overlap in a brief crossfade instead of appearing back-to-back. Loading then holds for
+        /// its own configured minimum display duration and fades out; only once that finishes does
+        /// <see cref="LoadMainMenuOnce"/> run. Either or both stages missing skips straight to
+        /// whichever comes next, unchanged from before this existed. Public (rather than folded into
+        /// <see cref="Start"/>) so a test can drive it directly after <see cref="Configure"/> without
+        /// waiting on Unity's own lifecycle. Safe to call more than once — only the first call drives
+        /// anything.
         /// </summary>
         public void BeginStartupSequence()
         {
@@ -95,16 +98,22 @@ namespace RoyalDecisions.Composition
         }
 
         /// <summary>
-        /// Plays the intro if one is assigned, then moves on to <see cref="BeginLoadingSequence"/>;
-        /// skips straight there otherwise. The loading screen must never begin animating behind the
-        /// intro, so nothing here touches <see cref="loadingSequence"/> until the intro's own
-        /// callback fires.
+        /// Plays the intro if one is assigned; skips straight to <see cref="BeginLoadingSequence"/>
+        /// otherwise. <see cref="IntroSequenceController.FadeOutStarted"/> — not completion — is
+        /// what actually starts Loading: the intro guarantees that event fires the instant its own
+        /// final fade begins (whether reached naturally or via a post-lock skip), so Loading is
+        /// already revealing underneath while the intro is still visibly fading out on top —
+        /// one continuous handoff instead of two back-to-back screens. The intro's completion
+        /// callback is wired too, purely as a defence-in-depth second caller of
+        /// <see cref="BeginLoadingSequence"/>'s own guard — by construction it should always find
+        /// Loading already begun by then.
         /// </summary>
         private void PlayIntro()
         {
             if (introSequence != null)
             {
-                introSequence.Play(BeginLoadingSequence);
+                introSequence.FadeOutStarted += HandleIntroFadeOutStarted;
+                introSequence.Play(HandleIntroCompleted);
             }
             else
             {
@@ -113,13 +122,47 @@ namespace RoyalDecisions.Composition
         }
 
         /// <summary>
-        /// Runs after the intro (or immediately if it is absent): shows real startup milestones on
-        /// the loading screen and holds for its own configured minimum display duration, then fades
-        /// out before <see cref="LoadMainMenuOnce"/> runs. Skips straight to
-        /// <see cref="LoadMainMenuOnce"/> if no loading screen is assigned.
+        /// Unsubscribes itself immediately — this must drive <see cref="BeginLoadingSequence"/> at
+        /// most once no matter how this is ever reached.
+        /// </summary>
+        private void HandleIntroFadeOutStarted()
+        {
+            if (introSequence != null)
+            {
+                introSequence.FadeOutStarted -= HandleIntroFadeOutStarted;
+            }
+
+            BeginLoadingSequence();
+        }
+
+        /// <summary>
+        /// Normally a no-op by the time this runs — <see cref="HandleIntroFadeOutStarted"/> already
+        /// started Loading, since <see cref="IntroSequenceController"/> guarantees
+        /// <see cref="IntroSequenceController.FadeOutStarted"/> fires before its own completion.
+        /// Kept as an explicit fallback so Loading still begins even if that guarantee were ever
+        /// broken — <see cref="BeginLoadingSequence"/>'s own guard makes calling it twice harmless.
+        /// </summary>
+        private void HandleIntroCompleted()
+        {
+            BeginLoadingSequence();
+        }
+
+        /// <summary>
+        /// Reveals the loading screen and shows real startup milestones, holding for its own
+        /// configured minimum display duration before fading out into <see cref="LoadMainMenuOnce"/>.
+        /// Skips straight to <see cref="LoadMainMenuOnce"/> if no loading screen is assigned. Guarded
+        /// independently of <see cref="hasBegunStartup"/> so this can be triggered from either the
+        /// intro's fade-start signal or its completion callback without ever starting Loading twice.
         /// </summary>
         private void BeginLoadingSequence()
         {
+            if (hasBegunLoading)
+            {
+                return;
+            }
+
+            hasBegunLoading = true;
+
             if (loadingSequence == null)
             {
                 LoadMainMenuOnce();
@@ -130,6 +173,16 @@ namespace RoyalDecisions.Composition
             loadingSequence.ReportProgress(SettingsAppliedProgress);
             loadingSequence.ReportProgress(StartupReadyProgress);
             loadingSequence.CompleteLoading(LoadMainMenuOnce);
+        }
+
+        /// <summary>Symmetric with the subscription in <see cref="PlayIntro"/>: guards against a
+        /// dangling handler if this object is destroyed before the intro ever signals.</summary>
+        private void OnDestroy()
+        {
+            if (introSequence != null)
+            {
+                introSequence.FadeOutStarted -= HandleIntroFadeOutStarted;
+            }
         }
 
         /// <summary>

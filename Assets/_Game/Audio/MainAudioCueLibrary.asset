@@ -43,3 +43,15 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: 9a400e43df889c24daa3b62cfff341fb, type: 3}
   - id: intro_resolve
     clip: {fileID: 8300000, guid: 94760bb90c213eb4d85f1ca3fe0d395f, type: 3}
+  - id: prologue_ambient
+    clip: {fileID: 8300000, guid: 027c2df7812940947bedf416416fb7ea, type: 3}
+  - id: prologue_slide_01
+    clip: {fileID: 8300000, guid: 329791529c61bec40bd1e4c4c65bf8d6, type: 3}
+  - id: prologue_slide_02
+    clip: {fileID: 8300000, guid: edc41101e894d0c4783327eb236a9f01, type: 3}
+  - id: prologue_slide_03
+    clip: {fileID: 8300000, guid: 2a07f614389a3f94898e649c92688a7d, type: 3}
+  - id: prologue_slide_04
+    clip: {fileID: 8300000, guid: 993f37ea6dd24ac449b7f8cea3eef3a5, type: 3}
+  - id: prologue_slide_05
+    clip: {fileID: 8300000, guid: 035326a50b6bbd44481a96e24b09eb1a, type: 3}

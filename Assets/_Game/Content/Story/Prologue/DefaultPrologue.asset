@@ -17,22 +17,27 @@ MonoBehaviour:
     subtitle: "D\xFCnya, birka\xE7 y\u0131l i\xE7inde sessizli\u011Fe g\xF6m\xFCld\xFC."
     motion: 1
     autoAdvanceSeconds: 0
+    accentCueId: prologue_slide_01
   - illustration: {fileID: 21300000, guid: 9f68279fdfe55e947967280f09eba2c6, type: 3}
     subtitle: "Hayatta kalanlar, g\xFCvenli oldu\u011Funu d\xFC\u015F\xFCnd\xFCkleri
       son s\u0131\u011F\u0131naklara \xE7ekildi."
     motion: 1
     autoAdvanceSeconds: 0
+    accentCueId: prologue_slide_02
   - illustration: {fileID: 21300000, guid: 852ab8c87ef196344a66dfa92f685b49, type: 3}
     subtitle: "Fakat duvarlar a\xE7l\u0131\u011F\u0131, korkuyu ve insanlar\u0131n
       birbirine olan g\xFCvensizli\u011Fini durduramad\u0131."
     motion: 2
     autoAdvanceSeconds: 0
+    accentCueId: prologue_slide_03
   - illustration: {fileID: 21300000, guid: 427f87a72771f8b4bb3c373300c4ed10, type: 3}
     subtitle: "\u015Eimdi onlar\u0131n gelece\u011Fini belirleyecek kararlar senin
       elinde."
     motion: 1
     autoAdvanceSeconds: 0
+    accentCueId: prologue_slide_04
   - illustration: {fileID: 21300000, guid: 7ddce6d2115baef40890fc1a318a57cc, type: 3}
     subtitle: "Her se\xE7im bir hayat kurtarabilir... ya da her \u015Feyi sona erdirebilir."
     motion: 2
     autoAdvanceSeconds: 0
+    accentCueId: prologue_slide_05

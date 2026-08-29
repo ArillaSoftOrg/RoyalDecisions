@@ -45,10 +45,10 @@ namespace RoyalDecisions.Composition
         }
 
         /// <summary>
-        /// Applies the current reduced-motion setting and starts the prologue, or loads Game
-        /// immediately if no sequence is wired. Public (rather than folded into <see cref="Start"/>)
-        /// so a test can drive it directly after <see cref="Configure"/> without waiting on Unity's
-        /// own lifecycle. Safe to call more than once: the underlying
+        /// Applies the current reduced-motion and audio settings and starts the prologue, or loads
+        /// Game immediately if no sequence is wired. Public (rather than folded into
+        /// <see cref="Start"/>) so a test can drive it directly after <see cref="Configure"/> without
+        /// waiting on Unity's own lifecycle. Safe to call more than once: the underlying
         /// <see cref="PrologueSequenceController.Play"/> and <see cref="LoadGameOnce"/> guards mean
         /// only the first call's sequence ever actually plays, and Game only ever loads once.
         /// </summary>
@@ -62,17 +62,20 @@ namespace RoyalDecisions.Composition
                 return;
             }
 
-            ApplyReducedMotion();
+            ApplySettings();
             prologueSequence.Play(LoadGameOnce);
         }
 
         /// <summary>
-        /// Reads the same persisted setting <c>BootstrapController</c>/<c>GameSceneController</c>
+        /// Reads the same persisted settings <c>BootstrapController</c>/<c>GameSceneController</c>
         /// apply, through the same file-backed store — Prologue is reached mid-session, after
-        /// Bootstrap has already run once, so it reads its own fresh copy rather than sharing a
-        /// live instance across scenes.
+        /// Bootstrap has already run once, so it reads its own fresh copy rather than sharing a live
+        /// instance across scenes. Applies both the reduced-motion accessibility setting and the
+        /// audio volume/mute settings, so the prologue's ambient/accent audio respects master
+        /// volume, music volume, and mute exactly like every other scene's — Reduced Motion itself
+        /// never touches audio, only <see cref="PrologueSequenceController.SetReducedMotion"/>.
         /// </summary>
-        private void ApplyReducedMotion()
+        private void ApplySettings()
         {
             if (settingsStore == null)
             {
@@ -85,6 +88,8 @@ namespace RoyalDecisions.Composition
             // store is used.
             GameSettings settings = settingsStore.Load();
             prologueSequence.SetReducedMotion(settings.ReducedMotion);
+            prologueSequence.ApplyAudioSettings(
+                settings.MasterVolume, settings.MusicVolume, settings.SfxVolume, settings.MasterMuted);
         }
 
         private void LoadGameOnce()

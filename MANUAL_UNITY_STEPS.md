@@ -3885,3 +3885,95 @@ sequence, including the reveal itself.
       identical to before (nothing about the mechanism changed, only the sizes it operates on)
 - [ ] Confirm the wordmark is not stretched — its own aspect ratio (13.91) should look identical to
       `Assets/_Game/Art/Branding/Generated/ArillaGamesWordmark.png` viewed directly, just scaled up
+
+---
+
+## Intro → Loading crossfade handoff (2026-08-29)
+
+Previously the intro fully finished (faded to black, held briefly) and only then did `Loading`
+appear — two back-to-back screens rather than one continuous opening. This pass makes them
+overlap: `IntroSequenceController` gained one new public signal,
+`event Action FadeOutStarted`, that fires exactly once the instant its own final fade begins
+(natural completion, or a skip once past a new input lock — see below). `BootstrapController`
+(the only thing that touches both) uses that signal to reveal `Loading` underneath while the intro
+is still visibly fading out on top, instead of waiting for the intro to fully disappear first.
+**`StartupLoadingController.cs`, `StartupLoadingSetup.cs`, and `BloodFillGraphic.cs` were not
+touched** — Terminal 2 owns those and was actively editing them during this pass; everything here
+uses only `StartupLoadingController`'s existing public `BeginLoading()`/`ReportProgress()`/
+`CompleteLoading()`.
+
+### Why the crossfade needed one more change nothing else could make
+
+`LoadingCanvas` (`StartupLoadingSetup.cs`) already sorts itself above `IntroCanvas` — sort order
+10 versus the intro's old default of 0 — by design, since the two were never meant to be visible at
+once before. For the crossfade's brief overlap, the intro needs to render **on top** instead (it is
+the one fading out to reveal Loading underneath, not the other way round). Fixed entirely from the
+intro's own side, without touching anything Loading owns: `IntroSceneSetup.cs` now explicitly sets
+`IntroCanvas.sortingOrder = 20`.
+
+### How the signal works
+
+- `IntroSequenceController.FadeOutStarted` fires once, guaranteed, from whichever of three places
+  reaches it first: right before the natural fade-out tween in `SequenceRoutine`, right at the start
+  of the new skip handoff (`SkipHandoffRoutine`), or — as a last-resort guarantee — inside
+  `Complete()` itself, so it always fires before `onComplete` even if neither of the other two ever
+  ran (e.g. the intro had nothing to animate at all).
+- `IntroSequenceController` still knows nothing about Loading, scenes, or Bootstrap — it only knows
+  "my final fade has started." `BootstrapController.HandleIntroFadeOutStarted` is what actually
+  calls `BeginLoadingSequence()`, unsubscribing itself immediately so it can only ever drive that
+  once. `BootstrapController.HandleIntroCompleted` (wired as the intro's own completion callback) is
+  a second, harmless caller of the same guarded method — normally a no-op by the time it runs, kept
+  purely as a defence-in-depth fallback.
+- `BeginLoadingSequence` itself gained a `hasBegunLoading` guard so it is safe to be entered from
+  either caller without ever starting `Loading` twice.
+
+### Skip: a 0.60s input lock, then the same smooth handoff
+
+- `IntroSequenceController.skipLockSeconds` (default **0.60s**, serialized/tunable) — a tap in this
+  window after the intro actually starts animating is silently ignored, so an accidental launch tap
+  cannot dismiss the studio ident before the player has registered it exists.
+- Past that window, `Skip()` no longer cuts instantly to black. It starts the same
+  alpha/scale/brightness fade-out the natural path uses (`fadeOutDurationSeconds`/`fadeOutEase`),
+  begun from whatever state the logo is currently in (so there is never a pop, even if tapped mid
+  fade-in or mid hold), firing `FadeOutStarted` at the very start exactly like natural completion —
+  so skip reveals `Loading` in the same crossfade, just earlier.
+- Outside Play Mode (EditMode tests), none of this can animate, so `Skip()` still resolves instantly
+  and synchronously exactly as before this feature existed — `Complete()`'s own guarantee still
+  fires `FadeOutStarted` first either way.
+
+### Reduced Motion
+
+Nothing new was added for this — it falls out of the existing mechanism. Reduced motion already
+shortens `fadeOutDurationSeconds` to at most 0.25s, and `FadeOutStarted` fires at the start of
+*whatever* that duration is, so reduced-motion players automatically get a short crossfade instead
+of a long one, with no special-cased code.
+
+### I12 — Re-run the Intro scene setup
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Intro > Apply Intro Setup` — required, since
+      `IntroCanvas`'s new `sortingOrder = 20` is authored at setup time, not read live at runtime
+- [ ] Console reports `[IntroSceneSetup] Bootstrap intro wiring applied.` and
+      `Validation passed: hierarchy and references are correct.`
+- [ ] Confirm Mark/Wordmark/gap/Y-scale are still exactly as before this pass (390 / 840 / 20 / 1.25)
+      — none of those constants changed in this pass
+
+### I13 — Verify in the Editor
+
+- [ ] Enter Play Mode from `Bootstrap.unity` — during the intro's fade-out, `Loading` (background,
+      status text, blood tube — whatever Terminal 2's current build of it looks like) should become
+      visible **underneath** the intro while it is still fading, not after a black gap
+- [ ] Confirm there is no extra black frame and no hard cut between the intro disappearing and
+      Loading being fully visible and running
+- [ ] Tap within roughly the first half-second after the intro starts — nothing happens, the intro
+      keeps playing normally
+- [ ] Tap after that — the intro smoothly fades out (not an instant cut) and Loading appears in the
+      same crossfade, exactly once; repeated taps afterward do nothing further
+- [ ] In Settings, enable **Reduced Motion** — short intro fade, still a brief crossfade into
+      Loading, no jarring cut
+- [ ] Temporarily unassign `loadingSequence` on `BootstrapController` (or `introSequence`, or both)
+      to confirm the existing fallback matrix still holds: intro-only → MainMenu after intro;
+      loading-only → Loading runs, then MainMenu; neither → MainMenu immediately
+- [ ] Console clean throughout
+- [ ] `Window > General > Test Runner`: EditMode — `IntroSequenceControllerTests`,
+      `BootstrapControllerTests` (both extended with new `FadeOutStarted` coverage) green; PlayMode —
+      new `IntroSequenceControllerPlayModeTests` (skip-lock timing) green alongside the existing suite
