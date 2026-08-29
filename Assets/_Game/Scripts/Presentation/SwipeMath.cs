@@ -110,6 +110,27 @@ namespace RoyalDecisions.Presentation
         }
 
         /// <summary>
+        /// Small upward arc as the card is dragged — presentation only. Zero at rest, ramping
+        /// toward <paramref name="maxLift"/> as the drag approaches the confirm threshold, eased
+        /// so most of the rise happens early rather than linearly.
+        /// </summary>
+        public static float ArcLift(float displacement, float thresholdDistance, float maxLift)
+        {
+            float progress = Progress(displacement, thresholdDistance);
+            return maxLift * Mathf.Pow(progress, 0.7f);
+        }
+
+        /// <summary>
+        /// Subtle scale response while dragging — presentation only. 1 at rest, ramping toward
+        /// <paramref name="maxScale"/> as the drag approaches the confirm threshold.
+        /// </summary>
+        public static float DragScale(float displacement, float thresholdDistance, float maxScale)
+        {
+            float progress = Progress(displacement, thresholdDistance);
+            return Mathf.Lerp(1f, maxScale, progress);
+        }
+
+        /// <summary>
         /// Where the card must end up to be completely off screen, derived from geometry rather
         /// than a pixel literal.
         /// </summary>

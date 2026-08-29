@@ -24,8 +24,9 @@ namespace RoyalDecisions.Presentation
             Configure(fallbackSurface, null, theme.OverallBackground, true);
             Configure(artwork, theme.BackgroundSprite, Color.white, false);
             ApplyArtworkCoverFit(theme.BackgroundSprite);
-            // Detailed artwork needs more separation from foreground UI than a flat colour did.
-            Configure(darkOverlay, null, new Color(0f, 0f, 0f, 0.38f), true);
+            // Background2 is already a dark scene, so only a light scrim is needed to keep HUD
+            // and SituationText readable — a heavy overlay would just muddy the artwork.
+            Configure(darkOverlay, null, new Color(0f, 0f, 0f, 0.12f), true);
             Configure(vignette, theme.VignetteSprite, Color.white, false);
             if (proceduralVignette != null)
             {

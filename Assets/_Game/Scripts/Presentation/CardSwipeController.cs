@@ -53,17 +53,44 @@ namespace RoyalDecisions.Presentation
 
         [SerializeField] private bool rotateClockwiseOnRightDrag = true;
 
+        [Tooltip("Ease exponent applied to signed drag progress before it drives rotation — below "
+            + "1 ramps up quickly then flattens near the threshold, reading as a smooth nonlinear "
+            + "tilt rather than a mechanically linear one. SwipeMath.Rotation's own formula, and "
+            + "the confirm threshold, are untouched by this — it only pre-warps its input.")]
+        [Range(0.3f, 1.5f)]
+        [SerializeField] private float rotationEaseExponent = 0.85f;
+
+        [Tooltip("Small vertical rise as the card is dragged toward either side.")]
+        [SerializeField] private float maxDragLift = 18f;
+
+        [Tooltip("Subtle scale-up while dragging toward either side. 1 = no scale response.")]
+        [Range(1f, 1.1f)]
+        [SerializeField] private float maxDragScale = 1.02f;
+
         [Header("Animation")]
         [SerializeField] private float snapBackDuration = 0.18f;
 
         [SerializeField] private float exitDuration = 0.25f;
 
-        [SerializeField] private AnimationCurve snapBackEase = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+        [SerializeField] private AnimationCurve snapBackEase = BuildSnapBackSpringCurve();
 
         [SerializeField] private AnimationCurve exitEase = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
         [Tooltip("Extra card widths travelled past the parent edge.")]
         [SerializeField] private float exitMarginMultiplier = 1f;
+
+        [Header("Committed Exit")]
+        [Tooltip("Rotation the card reaches by the end of its exit — independent of the drag-time "
+            + "maxRotationDegrees, so the \"thrown card\" can lean further than the drag itself "
+            + "ever visually reached.")]
+        [SerializeField] private float exitRotationDegrees = 12f;
+
+        [Tooltip("Small upward arc during the exit throw, peaking mid-flight.")]
+        [SerializeField] private float exitArcHeight = 36f;
+
+        [Tooltip("Subtle scale-up during the exit throw.")]
+        [Range(1f, 1.15f)]
+        [SerializeField] private float exitScale = 1.04f;
 
         /// <summary>Raised once per card, the instant a release is confirmed.</summary>
         public event Action<ChoiceSide> DecisionConfirmed;
@@ -84,6 +111,7 @@ namespace RoyalDecisions.Presentation
         private Vector2 pressLocalPoint;
         private Vector2 initialAnchoredPosition;
         private Quaternion initialRotation = Quaternion.identity;
+        private Vector3 initialScale = Vector3.one;
         private bool hasCapturedNeutral;
         private float currentDisplacement;
         private Coroutine runningAnimation;
@@ -93,6 +121,11 @@ namespace RoyalDecisions.Presentation
         private float defaultMaxRotation;
         private float defaultSnapBackDuration;
         private float defaultExitDuration;
+        private float defaultMaxDragLift;
+        private float defaultMaxDragScale;
+        private float defaultExitRotationDegrees;
+        private float defaultExitArcHeight;
+        private float defaultExitScale;
         private bool controlsDefaultsCaptured;
         private bool defaultRotateClockwiseOnRightDrag;
         private bool sensitivityDefaultCaptured;
@@ -276,6 +309,11 @@ namespace RoyalDecisions.Presentation
                 defaultMaxRotation = maxRotationDegrees;
                 defaultSnapBackDuration = snapBackDuration;
                 defaultExitDuration = exitDuration;
+                defaultMaxDragLift = maxDragLift;
+                defaultMaxDragScale = maxDragScale;
+                defaultExitRotationDegrees = exitRotationDegrees;
+                defaultExitArcHeight = exitArcHeight;
+                defaultExitScale = exitScale;
                 accessibilityDefaultsCaptured = true;
             }
             maxRotationDegrees = enabled ? 4f : defaultMaxRotation;
@@ -283,6 +321,15 @@ namespace RoyalDecisions.Presentation
                 : defaultSnapBackDuration;
             exitDuration = enabled ? Mathf.Min(defaultExitDuration, 0.05f)
                 : defaultExitDuration;
+            // The arc/scale flourishes are exactly the kind of non-essential motion Reduced
+            // Motion is meant to strip out — suppressed the same way rotation and duration are.
+            maxDragLift = enabled ? 0f : defaultMaxDragLift;
+            maxDragScale = enabled ? 1f : defaultMaxDragScale;
+            exitRotationDegrees = enabled
+                ? Mathf.Min(defaultExitRotationDegrees, 4f)
+                : defaultExitRotationDegrees;
+            exitArcHeight = enabled ? 0f : defaultExitArcHeight;
+            exitScale = enabled ? 1f : defaultExitScale;
         }
 
         /// <summary>
@@ -460,6 +507,7 @@ namespace RoyalDecisions.Presentation
 
             Vector2 startPosition = card != null ? card.anchoredPosition : initialAnchoredPosition;
             Quaternion startRotation = card != null ? card.localRotation : initialRotation;
+            Vector3 startScale = card != null ? card.localScale : initialScale;
             float startLeft = PreviewStrength(ChoiceSide.Left);
             float startRight = PreviewStrength(ChoiceSide.Right);
 
@@ -469,18 +517,25 @@ namespace RoyalDecisions.Presentation
             {
                 // Unscaled: presentation feedback must keep moving even when gameplay time does not.
                 elapsed += Time.unscaledDeltaTime;
+                // Unclamped: the default snapBackEase curve overshoots past 1 before settling back
+                // to it, for a short spring feel — a plain Lerp/Slerp would silently clamp that
+                // overshoot away.
                 float t = Evaluate(snapBackEase, elapsed / snapBackDuration);
 
                 if (card != null)
                 {
-                    card.anchoredPosition = Vector2.Lerp(startPosition, initialAnchoredPosition, t);
-                    card.localRotation = Quaternion.Slerp(startRotation, initialRotation, t);
+                    card.anchoredPosition = Vector2.LerpUnclamped(startPosition, initialAnchoredPosition, t);
+                    card.localRotation = Quaternion.SlerpUnclamped(startRotation, initialRotation, t);
+                    card.localScale = Vector3.LerpUnclamped(startScale, initialScale, t);
                 }
 
                 if (cardView != null)
                 {
-                    float left = Mathf.Lerp(startLeft, 0f, t);
-                    float right = Mathf.Lerp(startRight, 0f, t);
+                    // Clamped here specifically: the preview should fade out smoothly, not flicker
+                    // with the position/rotation overshoot above.
+                    float clampedT = Mathf.Clamp01(t);
+                    float left = Mathf.Lerp(startLeft, 0f, clampedT);
+                    float right = Mathf.Lerp(startRight, 0f, clampedT);
                     cardView.SetChoicePreviews(left, right);
                     PublishChoicePreview(left, right);
                 }
@@ -517,6 +572,10 @@ namespace RoyalDecisions.Presentation
 
             Vector2 startPosition = card != null ? card.anchoredPosition : initialAnchoredPosition;
             Vector2 endPosition = ExitTarget(side);
+            Quaternion startRotation = card != null ? card.localRotation : initialRotation;
+            Quaternion endRotation = initialRotation * Quaternion.Euler(0f, 0f, ExitRotationAngle(side));
+            Vector3 startScale = card != null ? card.localScale : initialScale;
+            Vector3 endScale = initialScale * exitScale;
 
             float elapsed = 0f;
 
@@ -527,7 +586,13 @@ namespace RoyalDecisions.Presentation
 
                 if (card != null)
                 {
-                    card.anchoredPosition = Vector2.LerpUnclamped(startPosition, endPosition, t);
+                    Vector2 position = Vector2.LerpUnclamped(startPosition, endPosition, t);
+                    // Small upward arc during the throw, peaking mid-flight rather than a straight
+                    // line to the exit target.
+                    position.y += exitArcHeight * Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI);
+                    card.anchoredPosition = position;
+                    card.localRotation = Quaternion.SlerpUnclamped(startRotation, endRotation, t);
+                    card.localScale = Vector3.LerpUnclamped(startScale, endScale, t);
                 }
 
                 yield return null;
@@ -542,6 +607,8 @@ namespace RoyalDecisions.Presentation
             if (card != null)
             {
                 card.anchoredPosition = ExitTarget(side);
+                card.localRotation = initialRotation * Quaternion.Euler(0f, 0f, ExitRotationAngle(side));
+                card.localScale = initialScale * exitScale;
             }
 
             runningAnimation = null;
@@ -550,6 +617,37 @@ namespace RoyalDecisions.Presentation
             State = CardSwipeState.Completed;
 
             ExitAnimationCompleted?.Invoke(side);
+        }
+
+        /// <summary>The rotation the card reaches by the end of its exit throw — a fixed lean in
+        /// the exit direction, independent of the drag-time <see cref="maxRotationDegrees"/>.
+        /// Mirrors <see cref="SwipeMath.Rotation"/>'s own sign convention.</summary>
+        private float ExitRotationAngle(ChoiceSide side)
+        {
+            float signed = side == ChoiceSide.Right ? 1f : -1f;
+            float angle = -signed * Mathf.Abs(exitRotationDegrees);
+            return rotateClockwiseOnRightDrag ? angle : -angle;
+        }
+
+        /// <summary>
+        /// Fast initial return, a slight overshoot past the neutral value, then a settle — a short
+        /// spring feel instead of a linear or pure ease-out glide back to centre. Single overshoot
+        /// hump only (no oscillation), so it always settles within one pass. Public so Editor
+        /// scene setup can wire this exact curve into an already-serialized component, not just
+        /// rely on it as a fresh-component default.
+        /// </summary>
+        public static AnimationCurve BuildSnapBackSpringCurve()
+        {
+            AnimationCurve curve = new AnimationCurve(
+                new Keyframe(0f, 0f),
+                new Keyframe(0.6f, 1.08f),
+                new Keyframe(1f, 1f));
+            for (int i = 0; i < curve.length; i++)
+            {
+                curve.SmoothTangents(i, 0.3f);
+            }
+
+            return curve;
         }
 
         private Vector2 ExitTarget(ChoiceSide side)
@@ -595,15 +693,20 @@ namespace RoyalDecisions.Presentation
 
             if (card != null)
             {
+                float lift = SwipeMath.ArcLift(displacement, threshold, maxDragLift);
+                float scale = SwipeMath.DragScale(displacement, threshold, maxDragScale);
+
                 card.anchoredPosition = new Vector2(
                     initialAnchoredPosition.x + (displacement * movementMultiplier),
-                    initialAnchoredPosition.y);
+                    initialAnchoredPosition.y + lift);
 
                 card.localRotation = initialRotation * Quaternion.Euler(
                     0f,
                     0f,
                     SwipeMath.Rotation(
-                        displacement, threshold, maxRotationDegrees, rotateClockwiseOnRightDrag));
+                        EasedDisplacement(displacement, threshold), threshold, maxRotationDegrees,
+                        rotateClockwiseOnRightDrag));
+                card.localScale = initialScale * scale;
             }
 
             SwipeMath.PreviewStrengths(displacement, threshold, out float left, out float right);
@@ -624,6 +727,26 @@ namespace RoyalDecisions.Presentation
             PublishChoicePreview(left, right);
         }
 
+        /// <summary>
+        /// Pre-warps <paramref name="displacement"/> through a power curve so the existing, tested
+        /// <see cref="SwipeMath.Rotation"/> — linear in its own input — reads as a smooth nonlinear
+        /// ramp instead: most of the tilt happens early, then flattens approaching the threshold.
+        /// Presentation only; <see cref="SwipeMath.Rotation"/> itself, and the confirm threshold,
+        /// are untouched.
+        /// </summary>
+        private float EasedDisplacement(float displacement, float thresholdDistance)
+        {
+            if (thresholdDistance <= 0f)
+            {
+                return displacement;
+            }
+
+            float signedProgress = Mathf.Clamp(displacement / thresholdDistance, -1f, 1f);
+            float eased = Mathf.Sign(signedProgress)
+                * Mathf.Pow(Mathf.Abs(signedProgress), rotationEaseExponent);
+            return eased * thresholdDistance;
+        }
+
         private void RestoreNeutral()
         {
             RectTransform card = ResolveCardRoot();
@@ -631,6 +754,7 @@ namespace RoyalDecisions.Presentation
             {
                 card.anchoredPosition = initialAnchoredPosition;
                 card.localRotation = initialRotation;
+                card.localScale = initialScale;
             }
 
             if (cardView != null)
@@ -687,6 +811,7 @@ namespace RoyalDecisions.Presentation
 
             initialAnchoredPosition = card.anchoredPosition;
             initialRotation = card.localRotation;
+            initialScale = card.localScale;
             hasCapturedNeutral = true;
         }
 
@@ -752,9 +877,15 @@ namespace RoyalDecisions.Presentation
                 SwipeMath.AbsoluteMinimumThreshold, minimumThresholdDistance);
             movementMultiplier = Mathf.Clamp(movementMultiplier, 0.1f, 3f);
             maxRotationDegrees = Mathf.Clamp(maxRotationDegrees, 0f, 90f);
+            rotationEaseExponent = Mathf.Clamp(rotationEaseExponent, 0.3f, 1.5f);
+            maxDragLift = Mathf.Max(0f, maxDragLift);
+            maxDragScale = Mathf.Clamp(maxDragScale, 1f, 1.1f);
             snapBackDuration = Mathf.Max(0f, snapBackDuration);
             exitDuration = Mathf.Max(0f, exitDuration);
             exitMarginMultiplier = Mathf.Max(0f, exitMarginMultiplier);
+            exitRotationDegrees = Mathf.Clamp(exitRotationDegrees, 0f, 90f);
+            exitArcHeight = Mathf.Max(0f, exitArcHeight);
+            exitScale = Mathf.Clamp(exitScale, 1f, 1.15f);
         }
 
 #if UNITY_EDITOR

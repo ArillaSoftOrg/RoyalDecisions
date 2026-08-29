@@ -11,17 +11,19 @@ namespace RoyalDecisions.Presentation
     /// </summary>
     /// <remarks>
     /// It never resolves a choice, changes a statistic, writes a save, selects a card, or reads
-    /// input. Phase 6 moves <see cref="CardRoot"/> and drives the preview strengths; Phase 7 decides
-    /// which card to show.
+    /// input. Phase 6 moves <see cref="CardRoot"/> (the swipeable portrait, not the fixed card
+    /// shell around it) and drives the preview strengths; Phase 7 decides which card to show.
     /// </remarks>
     public sealed class CardView : MonoBehaviour
     {
-        // Multiplied onto the queued card's frame/surface tint so it reads as behind and less
-        // prominent than the active card while still sharing the same art.
-        private static readonly Color NextCardDimTint = new Color(0.62f, 0.62f, 0.62f, 1f);
+        // The character name sits in the fixed band below the portrait area, on the plain
+        // NameScrim backing (authored by SceneSetupAutomation). It never moves during a swipe.
+        private static readonly Vector2 NameAnchorMin = new Vector2(0.06f, 0.01f);
+        private static readonly Vector2 NameAnchorMax = new Vector2(0.94f, 0.115f);
 
         [Header("Layout")]
-        [Tooltip("The transform Phase 6 will drag. Defaults to this object's RectTransform.")]
+        [Tooltip("The transform Phase 6 will drag — the moving portrait root, not the fixed card "
+            + "shell. Defaults to this object's RectTransform.")]
         [SerializeField] private RectTransform cardRoot;
 
         [Tooltip("Toggled by Show and Clear. Defaults to this object.")]
@@ -35,20 +37,17 @@ namespace RoyalDecisions.Presentation
 
         [Header("Theme surfaces")]
         [SerializeField] private Image surfaceImage;
-        [SerializeField] private Outline borderOutline;
-        [SerializeField] private Image frameImage;
-        [SerializeField] private Image portraitFrameImage;
-        [SerializeField] private Image portraitMaskImage;
-        [Tooltip("Dark scrim behind the name label at the bottom of the portrait, for legibility.")]
-        [SerializeField] private Image nameScrimImage;
-        [Tooltip("Dark scrim behind the situation/body text near the top of the portrait.")]
-        [SerializeField] private Image bodyScrimImage;
-        [SerializeField] private Image[] cornerImages = System.Array.Empty<Image>();
-        [SerializeField] private Image[] temporaryBorderImages = System.Array.Empty<Image>();
+        [Tooltip("The Mask's own graphic — a flat procedural rounded-rect shape, not a sprite "
+            + "Image, so the portrait's corner radius is exact rather than approximated by a "
+            + "9-sliced sprite border.")]
+        [SerializeField] private Graphic portraitMaskImage;
+        [Tooltip("Paper-toned backing behind the fixed name band, matching ContentPanel so the "
+            + "name reads as sitting on the same paper surface as SituationText. A flat "
+            + "procedural fill, not a sprite Image, so it never reads as a rounded \"pill\".")]
+        [SerializeField] private Graphic nameScrimImage;
+        [Tooltip("Fixed backdrop behind the swipeable portrait, revealed as it is dragged away.")]
+        [SerializeField] private Image cardBackImage;
         [SerializeField] private PortraitFallbackView portraitFallbackView;
-        [SerializeField] private GameObject nextCardRoot;
-        [SerializeField] private Image nextCardSurface;
-        [SerializeField] private Image nextCardFrame;
 
         [Header("Choice previews")]
         [SerializeField] private ChoicePreviewView leftPreview;
@@ -131,74 +130,60 @@ namespace RoyalDecisions.Presentation
                 surfaceImage.color = theme.CardSurface;
             }
 
-            if (borderOutline != null)
-            {
-                borderOutline.effectColor = theme.BorderGold;
-                borderOutline.enabled = theme.CardFrameSprite == null;
-            }
+            ConfigureOptional(portraitMaskImage, Color.white, true);
 
-            for (int i = 0; i < temporaryBorderImages.Length; i++)
+            if (cardBackImage != null)
             {
-                Image border = temporaryBorderImages[i];
-                if (border == null)
+                bool hasArt = theme.CardBackSprite != null;
+                if (hasArt)
                 {
-                    continue;
+                    cardBackImage.sprite = theme.CardBackSprite;
                 }
-
-                border.color = theme.BorderGold;
-                border.raycastTarget = false;
-                border.enabled = theme.CardFrameSprite == null;
+                // Untinted when painted art is supplied (it is already the finished card-back
+                // artwork); otherwise the flat card surface colour keeps the backdrop from
+                // vanishing while placeholder art is missing.
+                cardBackImage.color = hasArt ? Color.white : theme.CardSurface;
+                cardBackImage.raycastTarget = false;
+                cardBackImage.enabled = true;
             }
 
-            // White, not BorderGold: this is real painted frame art (multiple colours), not a flat
-            // gold fallback shape, so it must render untinted rather than colour-multiplied.
-            ConfigureOptional(frameImage, theme.CardFrameSprite, Color.white);
-            ConfigureOptional(portraitFrameImage, theme.PortraitFrameSprite, theme.BorderGold, true);
-            ConfigureOptional(portraitMaskImage, theme.PortraitMaskSprite, Color.white, true);
-            // Dimmed, not full white: the queued card must read as behind/less prominent than the
-            // active one even though it shares the same frame art.
-            ConfigureOptional(nextCardFrame, theme.NextCardFrameSprite, NextCardDimTint);
-
-            if (nextCardSurface != null)
-            {
-                nextCardSurface.color = theme.CardSurface * NextCardDimTint;
-                nextCardSurface.raycastTarget = false;
-            }
-
-            for (int i = 0; i < cornerImages.Length; i++)
-            {
-                ConfigureOptional(cornerImages[i], theme.CornerDecorationSprite, theme.BorderGold);
-            }
-
-            ConfigureText(speakerText, theme.HighlightGold, theme.TitleFont);
-            // bodyText now renders directly over the bottom of the portrait (the parchment
-            // situation panel above the card was removed), so it needs a light colour readable
-            // over painted art, not the parchment ink colour SituationText used.
-            ConfigureText(bodyText, theme.PrimaryText, theme.BodyFont);
+            // Speaker sits on the paper-toned NameScrim below, not the card's dark surface, so it
+            // needs the theme's ink colour (same as bodyText) rather than a gold highlight.
+            ConfigureText(speakerText, theme.SituationText, theme.TitleFont);
+            // bodyText renders the situation panel above the card (light parchment), not the
+            // card's own dark surface, so it needs the theme's ink colour rather than PrimaryText.
+            ConfigureText(bodyText, theme.SituationText, theme.BodyFont);
+            RepositionName();
 
             if (nameScrimImage != null)
             {
-                // The themed plaque tried here read as a washed-out brown box behind the name, not
-                // the visual interest it was meant to add — the user asked for it gone. Disabled,
-                // not deleted, same as bodyScrimImage below: cheap to bring back with a better
-                // colour/graphic later.
+                // Paper tone matching ContentPanel/SituationPanel (SceneSetupAutomation's
+                // SituationPanelColour) so the name band reads as part of the same fixed paper
+                // column rather than a dark scrim over background art.
+                nameScrimImage.color = new Color32(0xD9, 0xC7, 0x9E, 0xFF);
                 nameScrimImage.raycastTarget = false;
-                nameScrimImage.enabled = false;
-            }
-
-            if (bodyScrimImage != null)
-            {
-                // At the user's explicit request: no dark scrim behind the story text any more —
-                // it now reads directly against the (now full-bleed) portrait. Left in place
-                // disabled, not deleted, so it is one flag flip to bring back if legibility over
-                // busy art turns out to need it.
-                bodyScrimImage.enabled = false;
+                nameScrimImage.enabled = true;
             }
 
             portraitFallbackView?.ApplyTheme(theme);
             leftPreview?.ApplyTheme(theme);
             rightPreview?.ApplyTheme(theme);
         }
+
+        private void RepositionName()
+        {
+            RectTransform nameRect = speakerText != null ? speakerText.rectTransform : null;
+            if (nameRect == null)
+            {
+                return;
+            }
+
+            nameRect.anchorMin = NameAnchorMin;
+            nameRect.anchorMax = NameAnchorMax;
+            nameRect.offsetMin = Vector2.zero;
+            nameRect.offsetMax = Vector2.zero;
+        }
+
 
         public float GetChoicePreviewStrength(ChoiceSide side)
         {
@@ -290,10 +275,6 @@ namespace RoyalDecisions.Presentation
         {
             GameObject root = visualRoot != null ? visualRoot : gameObject;
             root.SetActive(visible);
-            if (nextCardRoot != null)
-            {
-                nextCardRoot.SetActive(visible);
-            }
         }
 
         private static void ConfigureOptional(
@@ -314,6 +295,19 @@ namespace RoyalDecisions.Presentation
             image.color = color;
             image.raycastTarget = false;
             image.enabled = sprite != null || enabledWithoutSprite;
+        }
+
+        /// <summary>As above, for a procedural (spriteless) Graphic such as the portrait mask.</summary>
+        private static void ConfigureOptional(Graphic graphic, Color color, bool enabled)
+        {
+            if (graphic == null)
+            {
+                return;
+            }
+
+            graphic.color = color;
+            graphic.raycastTarget = false;
+            graphic.enabled = enabled;
         }
 
         private static void ConfigureText(TMP_Text text, Color color, TMP_FontAsset font)
@@ -350,18 +344,10 @@ namespace RoyalDecisions.Presentation
             GraphicFallbackSettings fallback = null,
             GameObject root = null,
             Image surface = null,
-            Outline outline = null,
-            Image frame = null,
-            Image portraitFrame = null,
-            Image portraitMask = null,
-            Image[] corners = null,
-            GameObject queuedCard = null,
-            Image queuedSurface = null,
-            Image queuedFrame = null,
-            Image[] generatedBorders = null,
+            Graphic portraitMask = null,
             PortraitFallbackView generatedPortraitFallback = null,
-            Image nameScrim = null,
-            Image bodyScrim = null)
+            Graphic nameScrim = null,
+            Image cardBack = null)
         {
             speakerText = speaker;
             bodyText = body;
@@ -376,17 +362,9 @@ namespace RoyalDecisions.Presentation
 
             visualRoot = root;
             surfaceImage = surface;
-            borderOutline = outline;
-            frameImage = frame;
-            portraitFrameImage = portraitFrame;
             portraitMaskImage = portraitMask;
             nameScrimImage = nameScrim;
-            bodyScrimImage = bodyScrim;
-            cornerImages = corners ?? System.Array.Empty<Image>();
-            nextCardRoot = queuedCard;
-            nextCardSurface = queuedSurface;
-            nextCardFrame = queuedFrame;
-            temporaryBorderImages = generatedBorders ?? System.Array.Empty<Image>();
+            cardBackImage = cardBack;
             portraitFallbackView = generatedPortraitFallback;
         }
 #endif

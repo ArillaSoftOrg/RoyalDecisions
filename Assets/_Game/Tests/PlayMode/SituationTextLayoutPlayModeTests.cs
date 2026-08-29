@@ -14,19 +14,20 @@ namespace RoyalDecisions.Tests.PlayMode
     [TestFixture]
     public class SituationTextLayoutPlayModeTests
     {
-        // SituationPanel is 950x160 at the 1080-reference width (SituationArea's authored size);
-        // SituationText's box is that minus its configured margins. Kept in sync by hand with
-        // ConfigureSituationArea — if that method's margins change, update these to match.
-        private const float PanelWidth = 950f;
+        // SituationPanel is full SafeArea width (1080 at reference resolution) — it now spans
+        // edge-to-edge like ContentPanel, no side margins. SituationText's box is that minus its
+        // configured margins. Kept in sync by hand with ConfigureSituationArea — if that method's
+        // margins change, update these to match.
+        private const float PanelWidth = 1080f;
         private const float PanelHeight = 160f;
-        private const float HorizontalMarginEachSide = 50f;
+        private const float HorizontalMarginEachSide = 90f;
         private const float VerticalMarginEachSide = 26f;
         private const float TextWidth = PanelWidth - (HorizontalMarginEachSide * 2f);
         private const float TextHeight = PanelHeight - (VerticalMarginEachSide * 2f);
 
-        private const float FontSizeTarget = 32f;
-        private const float FontSizeMin = 20f;
-        private const float FontSizeMax = 36f;
+        private const float FontSizeTarget = 36f;
+        private const float FontSizeMin = 22f;
+        private const float FontSizeMax = 40f;
         private const float LineSpacing = 2f;
 
         private const string OneLine = "Sinyal söner.";

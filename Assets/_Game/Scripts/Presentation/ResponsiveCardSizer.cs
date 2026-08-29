@@ -9,7 +9,7 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private RectTransform nextCard;
         [Tooltip("Width is measured from this rect, normally SafeArea. Defaults to CardArea.")]
         [SerializeField] private RectTransform widthReference;
-        [Range(0.7f, 0.85f)]
+        [Range(0.7f, 0.95f)]
         [SerializeField] private float preferredWidthRatio = 0.78f;
         [Min(0.01f)]
         [SerializeField] private float widthToHeightRatio = 1024f / 1536f;
@@ -20,6 +20,10 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private Vector2 nextCardOffset = new Vector2(0f, 12f);
         [Range(0.8f, 1f)]
         [SerializeField] private float nextCardScale = 0.96f;
+        [Tooltip("Gap in UI units between this area's top edge and the card's top edge — the card "
+            + "sits near the top of the area instead of being vertically centred in it.")]
+        [Min(0f)]
+        [SerializeField] private float topPadding = 12f;
 
         private void OnEnable()
         {
@@ -50,7 +54,11 @@ namespace RoyalDecisions.Presentation
                 widthToHeightRatio,
                 maximumHeightRatio,
                 maximumWidth);
-            Apply(card, size, Vector2.zero, 1f);
+            // Top-aligned, not centred: anchoredPosition.y is measured from the area's own centre
+            // (anchors are centre/centre), so this places the card's top edge topPadding below the
+            // area's top edge regardless of how much vertical slack the area has.
+            float topAlignedY = (area.rect.height - size.y) / 2f - topPadding;
+            Apply(card, size, new Vector2(0f, topAlignedY), 1f);
             Apply(nextCard, size, nextCardOffset, nextCardScale);
         }
 

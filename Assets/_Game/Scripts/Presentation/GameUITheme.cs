@@ -21,8 +21,10 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private Color authority = new Color32(0x3E, 0x56, 0x7D, 0xFF);
         [SerializeField] private Color wealth = new Color32(0xB3, 0x8A, 0x3D, 0xFF);
         [SerializeField] private Color emptyBar = new Color32(0x2A, 0x2F, 0x3A, 0xFF);
-        [SerializeField] private Color leftChoice = new Color32(0x8A, 0x41, 0x4B, 0xFF);
-        [SerializeField] private Color rightChoice = new Color32(0xB3, 0x8A, 0x3D, 0xFF);
+        // Restrained and mostly dark, with real alpha so the choice preview panel reads as a
+        // translucent scrim over the moving portrait rather than an opaque banner.
+        [SerializeField] private Color leftChoice = new Color32(0x3A, 0x14, 0x18, 0xC0);
+        [SerializeField] private Color rightChoice = new Color32(0x2E, 0x35, 0x14, 0xC0);
         [SerializeField] private Color portraitFallbackBackground =
             new Color32(0x12, 0x16, 0x20, 0xFF);
         [SerializeField] private Color portraitFallbackForeground =
@@ -51,7 +53,10 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private Sprite rightEdgeSprite;
         [SerializeField] private Sprite cornerDecorationSprite;
         [SerializeField] private Sprite sealSprite;
-        [SerializeField] private Sprite nextCardFrameSprite;
+        [Tooltip(
+            "The fixed card-back art shown behind the swipeable portrait, revealed as the "
+            + "portrait is dragged away. Missing falls back to the flat card surface colour.")]
+        [SerializeField] private Sprite cardBackSprite;
         [Tooltip(
             "Optional. The parchment/situation-panel background above the card. Missing falls " +
             "back to the procedural rounded panel rather than failing.")]
@@ -102,7 +107,7 @@ namespace RoyalDecisions.Presentation
         public Sprite RightEdgeSprite => rightEdgeSprite;
         public Sprite CornerDecorationSprite => cornerDecorationSprite;
         public Sprite SealSprite => sealSprite;
-        public Sprite NextCardFrameSprite => nextCardFrameSprite;
+        public Sprite CardBackSprite => cardBackSprite;
         public Sprite SituationPanelSprite => situationPanelSprite;
         public string PositiveImpactGlyph => string.IsNullOrEmpty(positiveImpactGlyph) ? "+" : positiveImpactGlyph;
         public string NegativeImpactGlyph => string.IsNullOrEmpty(negativeImpactGlyph) ? "-" : negativeImpactGlyph;

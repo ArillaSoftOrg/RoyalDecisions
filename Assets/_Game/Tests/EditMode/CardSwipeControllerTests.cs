@@ -383,7 +383,7 @@ namespace RoyalDecisions.Tests.EditMode
         // --- Live drag behaviour ---------------------------------------------------------
 
         [Test]
-        public void TheCardMovesHorizontallyOnly()
+        public void TheCardMovesHorizontallyWithASmallPresentationArc()
         {
             PointerEventData data = Pointer(0, PressX);
             controller.OnBeginDrag(data);
@@ -392,8 +392,12 @@ namespace RoyalDecisions.Tests.EditMode
             controller.OnDrag(data);
 
             Assert.That(card.anchoredPosition.x, Is.EqualTo(150f).Within(0.001f));
-            Assert.That(card.anchoredPosition.y, Is.EqualTo(0f).Within(0.001f),
-                "vertical pointer movement is read and discarded");
+            // Vertical pointer movement (PressY + 400 above) is still read and discarded as an
+            // input signal — this Y offset comes only from the small presentation arc tied to
+            // horizontal displacement (SwipeMath.ArcLift), using the authored default lift since
+            // SetAuthoringReferences did not override it.
+            float expectedLift = SwipeMath.ArcLift(150f, Threshold, 18f);
+            Assert.That(card.anchoredPosition.y, Is.EqualTo(expectedLift).Within(0.001f));
         }
 
         [Test]
