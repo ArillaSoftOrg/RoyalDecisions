@@ -3977,3 +3977,317 @@ of a long one, with no special-cased code.
 - [ ] `Window > General > Test Runner`: EditMode — `IntroSequenceControllerTests`,
       `BootstrapControllerTests` (both extended with new `FadeOutStarted` coverage) green; PlayMode —
       new `IntroSequenceControllerPlayModeTests` (skip-lock timing) green alongside the existing suite
+
+---
+
+## Modern wordmark swap + full-visible hold restored to a readable length (2026-08-30)
+
+Two independent fixes, both intro-only: the "ARILLA GAMES" wordmark now uses a newer, more
+detailed piece of art instead of the original crop; and the pause between the reveal finishing and
+the fade-out starting was too short in the currently-authored scene to actually read as a hold.
+
+### 1 — Why the hold felt rushed: the scene's authored values had drifted from the script defaults
+
+`IntroSequenceController.cs`'s own `[SerializeField]` defaults (`holdDurationSeconds = 1.20f`,
+`fadeOutDurationSeconds = 0.60f`) only apply to a *freshly added* component — `Bootstrap.unity`
+already had this component serialized with different, hand-tuned values baked in
+(`holdDurationSeconds: 0.8`, `fadeOutDurationSeconds: 0.8`), which is what actually ran. Combined
+with the reveal finishing at `t≈2.65s`, the fully-revealed logo only sat still for 0.8s before
+starting to fade — noticeably shorter than it looks on paper. Fixed both places so they agree:
+
+- `Bootstrap.unity`'s `IntroSequenceController` (the instance that actually runs):
+  `holdDurationSeconds` `0.8` → **`1.1`**, `fadeOutDurationSeconds` `0.8` → **`0.55`** (two scalar
+  edits only — no other field on this component touched).
+- `IntroSequenceController.cs` script defaults, for consistency: `holdDurationSeconds` `1.20f` →
+  **`1.10f`**, `fadeOutDurationSeconds` `0.60f` → **`0.55f`**.
+
+Nothing about `preBlackHoldSeconds` (0.4), `fadeInDurationSeconds` (1.05), `postBlackHoldSeconds`
+(0.25), or either wordmark-reveal timing field (`wordmarkRevealDelaySeconds` 0.85,
+`wordmarkRevealDurationSeconds` 1.4) changed — the reveal itself still finishes at the same moment;
+only what happens *after* that moment changed.
+
+### 2 — Exact resulting timeline (unscaled seconds, from `Play()` start)
+
+```
+0.00–0.40  black
+0.40–1.45  AS mark fades in (1.05s), scale 0.94 → 1.0
+0.40→2.65  "ARILLA GAMES" reveals left-to-right (0.85s delay + 1.40s wipe)
+2.65       RevealComplete — wordmark fully visible, reveal motion finished, alpha 1, Loading not
+           yet begun, FadeOutStarted not yet fired
+2.65–3.75  full logo (AS mark + wordmark) holds, static, alpha 1               ← 1.10s hold
+3.75       FadeOutStarted fires (Loading begins revealing underneath from here)
+3.75–4.30  entire LogoGroup fades out                                          ← 0.55s fade
+4.30–4.55  black hold, then handoff completes
+Total ≈ 4.55s (was ≈ 4.50s — +0.05s, not the "couple hundred ms" budget's full amount)
+```
+
+`FadeOutStarted` still fires exactly once and still only after the 1.10s hold has fully elapsed —
+`SignalFadeOutStarted()` is called from `SequenceRoutine` only after `HoldWithPulse(holdDurationSeconds)`
+returns, so Loading's crossfade reveal cannot start early regardless of this timing pass.
+
+### 3 — Modern wordmark: new source, tight runtime crop, old master untouched
+
+The team dropped a new wordmark render at
+`Assets/_Game/Art/Branding/Generated/ChatGPT Image 30 Ağu 2026 03_11_32.png` (1672×941, RGBA, real
+alpha channel — corners are fully transparent, not opaque black). No file named
+`ArillaGamesWordmarkModern.png` existed, so this ChatGPT-named export is the one candidate; it was
+identified by content (a metallic "ARILLA" mark, thin "GAMES" wordmark, blue accent divider —
+unambiguously the same design language as the existing branding) rather than guessed.
+
+**The source has a large empty margin.** Its own alpha bounding box (`alpha > 5`) is only
+`x:[18,1639] y:[299,620]` inside the full 1672×941 canvas — most of the height is transparent
+padding above/below the actual wordmark. Cropping to that bounding box plus a small fixed margin
+(20px every side, clamped to image bounds) produces a tight derivative with no stretch, no
+recolouring, no resampling — a plain crop, alpha channel intact:
+
+- `Assets/_Game/Art/Branding/Generated/ArillaGamesWordmarkModernRuntime.png` — **1530×218** (crop
+  box `(42, 367)`–`(1571, 584)` of the source above), aspect ≈ 7.02.
+
+**Method (deterministic, repeatable):** load the source as RGBA; take the bounding box of pixels
+with `alpha > 60`; pad that box by 20px on every side (clamped to the source's own bounds); crop
+with no resize/rotate/recolour. If the source is ever replaced, redo this same measurement — do not
+hand-edit the crop.
+
+Confirmed by compositing the crop over solid black (matching `BlackBackground` in
+`Bootstrap.unity`): the excess halo/glow in the untrimmed source renders as pure black-on-black —
+invisible either way — so trimming it loses nothing visible in-game; only the previously-empty
+margin shrank.
+
+**The original master and the original wordmark crop are both untouched:**
+`Assets/_Game/Art/Branding/ArillaGamesLogo.png`, `Assets/_Game/Art/Branding/Generated/ArillaGamesMark.png`,
+and `Assets/_Game/Art/Branding/Generated/ArillaGamesWordmark.png` (plus its `.meta`) are all byte-for-byte
+unchanged and still on disk — `ArillaGamesWordmark.png` is simply no longer referenced by
+`IntroSceneSetup`, kept purely as a fallback/rollback option.
+
+### 4 — Code changes to wire the new crop without stretching it
+
+- `IntroSceneSetup.WordmarkAssetPath` now points at
+  `Assets/_Game/Art/Branding/Generated/ArillaGamesWordmarkModernRuntime.png` instead of the old
+  `ArillaGamesWordmark.png`. `WordmarkTargetWidth` (840, on the 1080-wide reference canvas) is
+  unchanged — the existing aspect-preserving fit (`wordmarkHeight = WordmarkTargetWidth / spriteAspect`)
+  already adapts to whatever aspect ratio the wired sprite has, so this alone does not stretch
+  anything; it just changes the *derived* height.
+- Because the new crop's own aspect ratio (≈7.02) is far less extreme than the old crop's (≈13.91),
+  the derived wordmark height grows from ≈60px to ≈120px at the same 840-wide target — visibly
+  bigger, clearer letters, which is the point, but it also grows the two-piece block's total height
+  from ≈325 to ≈384 reference units (mark unchanged at 390×244). Still comfortably within the
+  1080×1920 reference canvas with plenty of headroom either side of `LogoGroup`'s vertical offset
+  (50), so nothing clips or crowds the composition.
+- `IntroSceneSetup.WordmarkRevealRootVerticalScale` **1.25 → 1** (removed). That 1.25 was a
+  hand-tuned fix for the *old* crop's own aspect reading too thin/flat at 840 wide — applying it to
+  the new, already well-proportioned crop would have stretched it non-uniformly on top of its
+  correct proportions, reintroducing exactly the kind of deformation this pass was asked to avoid.
+- Nothing else changed: `MarkTargetWidth` (390), `MarkWordmarkGap` (20), the reveal mask mechanics,
+  the glint, and the audio cue wiring are all untouched.
+
+### I14 — Import the new asset, then re-run Intro Setup
+
+- [ ] Let Unity import `Assets/_Game/Art/Branding/Generated/ArillaGamesWordmarkModernRuntime.png`
+      (automatic on focus/reopen) — it has no authored `.meta` yet, so Unity will assign it default
+      Texture import settings first
+- [ ] `Tools > Royal Decisions > Scene Setup > Intro > Apply Intro Setup` — required: this is what
+      actually reassigns `WordmarkImage`'s sprite to the new asset, and it also forces the new
+      asset's `Texture Type` to **Sprite** and `Sprite Mode` to **Single** (same
+      `EnsureSingleSpriteAt` path every other intro sprite already goes through) — do not set these
+      by hand first, let the tool do it so the validation step below can confirm it took effect
+- [ ] Console reports `[IntroSceneSetup] Bootstrap intro wiring applied.` and
+      `Validation passed: hierarchy and references are correct.`
+- [ ] The validation log's "Wordmark sprite assigned" line should now name
+      `ArillaGamesWordmarkModernRuntime`, not `ArillaGamesWordmark`
+- [ ] `Tools > Royal Decisions > Scene Setup > Intro > Validate Intro Setup` — confirms importer
+      Sprite Mode is Single (OK) and the sprite/rect sizes reported match the ≈840×120 expected here
+
+### I15 — Verify in the Editor
+
+- [ ] Enter Play Mode from `Bootstrap.unity` — AS mark unchanged; "ARILLA GAMES" now shows the newer,
+      more detailed metallic wordmark, clearly larger/crisper than the previous art, still revealing
+      strictly left-to-right with no stretching/squashing at any point in the wipe (pause mid-reveal
+      to confirm the visible portion is an exact, proportioned left slice, not a smeared or distorted
+      partial image)
+- [ ] After the reveal finishes, the fully-formed logo should sit completely still and readable for
+      a clearly perceptible beat (~1.1s) before it starts to fade — this is the main thing to
+      actually feel, not just read in this file
+- [ ] Confirm `Loading` does not become visible until after that hold, i.e. only once the fade-out
+      has visibly begun
+- [ ] Tap to skip, both before and after the ~0.6s skip-lock window — behaviour unchanged from
+      before this pass (ignored while locked, then the same smooth fade-out handoff, audio cut
+      immediately via `StopSfx()`)
+- [ ] In Settings, enable **Reduced Motion** — wordmark still appears (new art, full width, no wipe),
+      short intro, still exactly one handoff to Loading
+- [ ] Console clean throughout
+- [ ] `Window > General > Test Runner > EditMode` — existing `IntroSequenceControllerTests` and
+      `BootstrapControllerTests` still green (no test asserted on the exact timing constants or the
+      old wordmark asset path, so none needed updating for this pass)
+
+---
+
+## Hold actually made visible: fixed the real runtime handoff, not just the number (2026-08-30, later same day)
+
+Direct feedback after testing the previous pass's `holdDurationSeconds: 1.1` in real Play Mode: no
+perceptible pause was visible, even though the number was correctly authored. The number was never
+the bug — the runtime handoff was.
+
+### 1 — Why a correctly-authored hold produced no visible pause
+
+`BootstrapController.PlayIntro` subscribed to `IntroSequenceController.FadeOutStarted` and called
+`BeginLoadingSequence()` — which calls `StartupLoadingController.BeginLoading()` — the instant that
+event fired. `BeginLoading()` sets its own `CanvasGroup.alpha = 1` **synchronously, with no fade-in
+of its own**. `LoadingCanvas` sorts above `IntroCanvas` (`LoadingCanvasSortingOrder = 30` >
+`IntroCanvasSortingOrder = 20`, a real, necessary invariant — see `StartupLoadingSetup.cs`'s own
+comment on why: `IntroCanvas`'s `BlackBackground` is permanently opaque and never fades, so Loading
+can only ever become visible by outranking it in sort order). Combined, this meant: the moment
+`FadeOutStarted` fired, Loading's fully-opaque canvas painted over the still-fading intro in the
+very same frame — not a crossfade, an instant cut. Since `FadeOutStarted` fires at the *end* of the
+hold (correctly — `IntroSequenceController`'s own `SequenceRoutine` already ran
+`HoldWithPulse(holdDurationSeconds)` to completion before signalling it), the hold itself **was**
+running for the full authored duration; what erased the perception of it was that the very next
+thing the player saw, one frame later, was Loading at full opacity — no fade, no transition, nothing
+that read as "a pause just happened, and now something new is arriving." Whatever `holdDurationSeconds`
+said on paper, the visible experience was "reveal finishes, near-instantly cut to Loading."
+
+### 2 — The fix: Loading now only ever starts from the intro's actual completion
+
+`BootstrapController` (`Assets/_Game/Scripts/Composition/BootstrapController.cs`) no longer
+subscribes to `FadeOutStarted` at all. `PlayIntro()` now only wires
+`introSequence.Play(HandleIntroCompleted)`, and `HandleIntroCompleted` is the sole caller of
+`BeginLoadingSequence()`. `IntroSequenceController.Complete()` — and therefore
+`HandleIntroCompleted` — only runs after the full sequence: reveal, hold, fade-out, and the trailing
+`postBlackHoldSeconds` black beat. By the time Loading's canvas snaps to alpha 1, the intro's own
+`CanvasGroup` has already faded all the way to alpha 0, so there is nothing left on screen for
+Loading to abruptly cut off — the cut lands on a screen that is already just `IntroCanvas`'s solid
+black, so it reads clean rather than jarring.
+
+`IntroSequenceController.FadeOutStarted` itself is untouched — it still fires exactly once, still
+strictly after the hold, exactly as its own EditMode/PlayMode tests already verified (those tests
+exercise the component directly, independent of `BootstrapController`, and needed no changes). It is
+simply no longer acted on for this handoff; its class-level remarks were updated to say so, so a
+future reader doesn't rediscover the same crossfade trap.
+
+**Nothing about `IntroCanvas`/`LoadingCanvas` sort order changed** — `LoadingCanvas` sorting above
+`IntroCanvas` is a separate, still-necessary invariant (Loading must outrank Intro's permanently
+opaque background or it can never become visible at all, crossfade or not). Only a stale comment in
+`IntroSceneSetup.cs` describing the old (already-superseded) opposite ordering was corrected to match
+what `StartupLoadingSetup.cs` actually does today.
+
+### 3 — Hold duration: 1.10s → 1.35s
+
+Separately, per direct feedback that 1.10s still didn't read as clearly deliberate: `holdDurationSeconds`
+raised from `1.1` to **`1.35`** — in both `Bootstrap.unity`'s serialized `IntroSequenceController`
+instance (the value that actually runs) and the script's own default. `fadeOutDurationSeconds` stays
+**`0.55`** (unchanged from the previous pass). No other timing field changed.
+
+### 4 — Exact resulting timeline (unscaled seconds, from `Play()` start)
+
+Computed the same way as the previous timing pass — walking `IntroSequenceController.SequenceRoutine`
+step by step, not assumed:
+
+```
+0.00–0.40  black                                  (preBlackHoldSeconds)
+0.40–1.45  AS mark fades in (1.05s)                (fadeInDurationSeconds)
+0.40→2.65  "ARILLA GAMES" reveals left-to-right    (0.85s delay + 1.40s wipe)
+2.65       RevealComplete — mask at full width, wordmark alpha 1, AS mark alpha 1,
+           scale settled at rest — nothing left animating
+2.65–4.00  full logo holds, completely static (no pulse authored beyond the existing
+           negligible 0.01 scale amplitude already in the scene)     ← 1.35s hold
+4.00       FadeOutStarted fires (IntroSequenceController's own signal — no longer
+           acted on by BootstrapController)
+4.00–4.55  entire LogoGroup fades to black                            ← 0.55s fade
+4.55–4.80  trailing black hold                                        (postBlackHoldSeconds, 0.25s)
+4.80       IntroSequenceController.Complete() → BootstrapController.HandleIntroCompleted
+           → StartupLoadingController.BeginLoading() → Loading's CanvasGroup snaps to
+           alpha 1 this same frame
+Total ≈ 4.80s; Loading visual first visible ≈ 4.80s (hold end 4.00, fade end 4.55 — both
+comfortably before Loading ever appears)
+```
+
+`Loading visual first visible time (≈4.80s) >= hold end (4.00s)`, satisfied with room to spare —
+Loading cannot appear before the hold (or the fade, or the trailing black beat) finishes, because it
+is no longer wired to anything that can fire early.
+
+### 5 — Skip and Reduced Motion: unchanged behaviour, still correct under the new wiring
+
+- `skipLockSeconds` (`0.60s`) untouched. A skip past that window still runs
+  `IntroSequenceController.SkipHandoffRoutine`, which still fires `FadeOutStarted` at its own start
+  (unchanged) and still fades out over `fadeOutDurationSeconds`/`fadeOutEase` — `Complete()` still
+  runs at the end of that, so `BootstrapController` still only starts Loading once the skip's own
+  fade has fully finished, same as natural completion. Skip never force-waits out the 1.35s hold —
+  it can only ever skip a hold that is currently in progress, exactly as before.
+- Reduced Motion still caps the hold via the existing `SetReducedMotion` logic
+  (`Mathf.Min(defaultHoldDurationSeconds, 0.35f)`) — raising the "off" default to 1.35s does not
+  change this cap, so reduced motion still holds the completed logo for a short, readable ~0.35s
+  before its own short fade, unaffected by this pass.
+- Intro audio: untouched. `StopSfx()` on skip, natural decay into the trailing black hold otherwise —
+  nothing about the audio cue trigger points changed.
+
+### I16 — No Apply/Validate step required — verify directly in Play Mode
+
+This pass only changed C# logic (`BootstrapController.cs`, `IntroSequenceController.cs`, and the
+corrected comment in `IntroSceneSetup.cs`) and one already-existing scalar field in `Bootstrap.unity`
+(`holdDurationSeconds`). Nothing about scene hierarchy, wiring, or sprite references changed, so
+`Apply Intro Setup` does not need to be re-run.
+
+- [ ] Let Unity recompile scripts (automatic on focus/reopen)
+- [ ] If `Bootstrap.unity` was already open in the Editor before this pass, reload it (reopen the
+      scene, or use the reload prompt Unity shows when it detects the file changed on disk) so the
+      new `holdDurationSeconds: 1.35` is actually picked up — an already-open scene does not re-read
+      changed values from disk on its own
+- [ ] Enter Play Mode from `Bootstrap.unity` — after "ARILLA GAMES" finishes revealing, the complete
+      logo should sit completely still and clearly readable for what feels like a full second and a
+      third, not a beat — this is the main thing to actually feel
+- [ ] Confirm `Loading` does not appear at all until the intro has fully faded to black (there should
+      be a visible black frame or two, not Loading popping in in the middle of the intro's own fade)
+- [ ] Tap to skip, both before and after the ~0.6s skip-lock window — unchanged behaviour
+- [ ] In Settings, enable **Reduced Motion** — short static hold still perceptible, still exactly one
+      clean handoff to Loading, never mid-fade
+- [ ] Console clean throughout
+- [ ] `Window > General > Test Runner > EditMode` — `BootstrapControllerTests` (one test renamed and
+      rewritten to assert Loading has *not* started at the moment `FadeOutStarted` fires, one
+      comment-only update) and `IntroSequenceControllerTests` (untouched) both green
+
+---
+
+## Choice preview: corner-anchored badge instead of a full-width band (2026-08-30)
+
+Compared the card-swipe drag mechanic against a reference recording of the genre
+(`References/WhatsApp Video 2026-08-30 at 03.48.05.mp4`) frame-by-frame. The physical card
+motion (translate + rotate on drag, spring snap-back, diagonal fling on confirm, the
+CardBack-to-next-portrait flip) already matches the reference closely — that was tuned in an
+earlier pass. The one clear remaining mismatch was the choice-preview label: in the reference,
+the label that appears while dragging is a small badge pinned to the corner being dragged
+toward (top-left while dragging left, top-right while dragging right), leaving the opposite
+side of the card completely clear. This project's `ConfigurePreview` (in
+`SceneSetupAutomation.cs`) instead drew a translucent band across the **full width** of the
+card's top ~16% for whichever side was active — both halves of the card changed together
+regardless of drag direction.
+
+### What changed (code only)
+
+`SceneSetupAutomation.cs::ConfigurePreview`: `EdgeHighlight` and `Label` now span
+`ChoicePreviewBadgeWidth` (56%) of the card's width, anchored to the near corner
+(`ChoicePreviewBadgeMargin` = 3% inset from that edge) instead of the full `0..1` width. Vertical
+band position/height (`ChoicePreviewBandStart` = 0.84) is untouched — only reviewed and confirmed
+correct in the prior pass. `CommitMarker` (the small corner tick) was already corner-anchored and
+needed no change. No `.cs` file outside `Assets/_Game/Scripts/Editor/` was touched for this fix.
+
+### Manual steps required
+
+This changes what `Apply Remaining Setup` writes into the scenes — the already-baked
+`Game.unity` still has the old full-width anchors until it is re-applied:
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup` (re-run against
+      `Game.unity`) so `PortraitSwipeRoot/PreviewLeft|PreviewRight/EdgeHighlight` and `.../Label`
+      pick up the new corner-anchored rects
+- [ ] `Tools > Royal Decisions > Scene Setup > Validate` — should report clean (no new
+      `AddInvalid` entries; `ValidatePreview` does not assert exact anchors, so this only confirms
+      references/components, not the new layout)
+- [ ] Enter Play Mode, drag the card left and right: confirm the preview label now appears as a
+      compact badge near the corner you are dragging toward, and the *other* side of the card
+      stays completely free of any tint/label — not a full-width bar lighting up
+- [ ] Check both very short and very long placeholder choice texts on both sides — the narrower
+      badge autosizes (36-50pt) and wraps to at most 2 lines already; confirm nothing clips or
+      overflows the badge at the narrowest widths
+- [ ] Console clean throughout
+- [ ] `Window > General > Test Runner > EditMode` — could not be run from this session because
+      the project was already open in another Unity Editor instance (batchmode refuses to open a
+      project that is already open); please run the full EditMode suite yourself, in particular
+      `SceneSetupAutomationTests` and `PresentationViewTests`, and confirm both are green

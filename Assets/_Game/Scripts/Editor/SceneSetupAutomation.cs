@@ -26,6 +26,10 @@ namespace RoyalDecisions.Editor
         public const string GameScenePath = "Assets/_Game/scenes/Game.unity";
         public const string BootstrapScenePath = "Assets/_Game/scenes/Bootstrap.unity";
         public const string MainMenuScenePath = "Assets/_Game/scenes/MainMenu.unity";
+        // Authored separately by PrologueSequenceSetup.cs; kept here only so the shared build
+        // scene list (ApplyBuildScenes/ValidateBuildScenes) knows about it too — this file does
+        // not open, create, or configure Prologue.unity's own contents.
+        public const string PrologueScenePath = "Assets/_Game/scenes/Prologue.unity";
         public const string SessionIntentPath = "Assets/_Game/Content/SessionIntent.asset";
         public const string CataloguePath =
             "Assets/_Game/Content/Placeholder/PlaceholderContentCatalogue.asset";
@@ -1535,8 +1539,13 @@ namespace RoyalDecisions.Editor
                 Vector2.zero, new Vector2(880f, 978f), new Vector2(0.5f, 0.5f));
             Image cardImage = EnsureSingleComponent<Image>(card.gameObject, report);
             // Card's own full-bounds Image is the drag/tap raycast surface for the whole decision
-            // area; it sits under CardBack and PortraitSwipeRoot, which cover it visually.
-            ConfigureSimpleImage(cardImage, LoadBuiltInUiSprite(report), CardSurfaceColour, true);
+            // area — invisible (alpha 0), not CardSurfaceColour: it sits under CardBack and
+            // PortraitSwipeRoot, but is exposed as soon as PortraitSwipeRoot (drag/rotate/exit)
+            // moves off it, since CardBack itself stays hidden except during the CardFlipController
+            // transition. An opaque colour here read as a static "second card" left behind. Unity's
+            // default raycasting ignores alpha (alphaHitTestMinimumThreshold is unset), so it still
+            // catches every drag/tap fully transparent.
+            ConfigureSimpleImage(cardImage, LoadBuiltInUiSprite(report), Color.clear, true);
 
             // Retired: the picture-frame overlay, its temporary-border fallback, and the corner
             // decorations that stood in for it. The final presentation uses CardBack (Card.png)
@@ -1550,6 +1559,15 @@ namespace RoyalDecisions.Editor
             // Retired along with the old in-card Body text (see RemoveLegacyCardBody): the dark
             // scrim that used to sit behind it for legibility over painted art.
             RemoveObsoleteChild(card, "BodyScrim");
+            // Stray duplicates from an older layout where the previews were authored as direct
+            // children of Card, before PortraitSwipeRoot existed as their parent. Find() below is
+            // non-recursive (direct children only), so this only ever removes a wrongly-placed
+            // "Card/PreviewLeft|Right" pair, never the real ones the ConfigurePreview call further
+            // down creates under PortraitSwipeRoot. Left in place, these sat fixed (never moving
+            // with a drag) with their own EdgeHighlight — a maroon/olive translucent panel — behind
+            // the swipe root, reading as a static smear whenever the moving portrait exposed them.
+            RemoveObsoleteChild(card, "PreviewLeft");
+            RemoveObsoleteChild(card, "PreviewRight");
             // Retired along with Frame: the sharp gold fallback outline drawn at the card's exact
             // bounds when no frame art was assigned.
             RemoveStaleComponents<Outline>(card.gameObject);
@@ -1595,6 +1613,9 @@ namespace RoyalDecisions.Editor
             // false); PortraitMask's own inner mask still handles the portrait image itself.
             ConfigureRoundedFill(
                 portraitSwipeRoot.gameObject, Color.white, PortraitCornerRadius, false, report);
+            // Retired: a decorative gold ring tried briefly inside PortraitSwipeRoot and reverted —
+            // stale scenes from that period still have it authored, and nothing else removes it.
+            RemoveObsoleteChild(portraitSwipeRoot, "CardFrameRing");
             Mask swipeRootMask = EnsureSingleComponent<Mask>(portraitSwipeRoot.gameObject, report);
             if (swipeRootMask != null)
             {
@@ -1726,11 +1747,11 @@ namespace RoyalDecisions.Editor
                 SetFloatProperty(swipe, "snapBackDuration", 0.28f, report);
                 SetAnimationCurveProperty(
                     swipe, "snapBackEase", CardSwipeController.BuildSnapBackSpringCurve(), report);
-                // Committed exit reads as a thrown card: continues rotating past the drag-time
-                // max (~7 deg) to ~13 deg, arcs up slightly, and scales up a touch — visual only,
-                // does not delay or otherwise change when/how the decision itself resolves.
+                // Committed exit reads as a card thrown diagonally off the table: translateX +
+                // translateY + rotate together (no scale) — visual only, does not delay or
+                // otherwise change when/how the decision itself resolves.
                 SetFloatProperty(swipe, "exitRotationDegrees", 13f, report);
-                SetFloatProperty(swipe, "exitArcHeight", 36f, report);
+                SetFloatProperty(swipe, "exitDiagonalDrop", 220f, report);
                 SetFloatProperty(swipe, "exitScale", 1.04f, report);
             }
 
@@ -1950,9 +1971,20 @@ namespace RoyalDecisions.Editor
             return image;
         }
 
-        // Upper band of PortraitSwipeRoot the choice panel occupies (top ~27%, within the
-        // requested 24-30% band height).
-        private const float ChoicePreviewBandStart = 0.73f;
+        // Upper band of PortraitSwipeRoot the choice panel occupies (top ~16%). Raised from 0.76
+        // to 0.84 after in-editor review: at 0.76 the band's hard lower edge still crossed the
+        // character's face when the card tilted. Thinned further so the portrait's eyes/face stay
+        // clear while the choice label remains readable.
+        private const float ChoicePreviewBandStart = 0.84f;
+
+        // The badge is pinned to the corner being dragged toward (top-left for Left, top-right for
+        // Right) and spans a bit over half the card's width — not the full width — so the side the
+        // player is *not* dragging toward stays completely clear of any label, matching the
+        // swipe-to-decide reference mechanic. A full-width band lit up both halves of the card
+        // identically regardless of drag direction, which read as "the whole top of the card
+        // changed colour" rather than "a label appeared near my thumb."
+        private const float ChoicePreviewBadgeWidth = 0.56f;
+        private const float ChoicePreviewBadgeMargin = 0.03f;
 
         private static ChoicePreviewView ConfigurePreview(
             RectTransform portraitSwipeRoot,
@@ -1984,23 +2016,32 @@ namespace RoyalDecisions.Editor
                 group.interactable = false;
             }
 
-            // Unity UI only, no banner sprite: a dark translucent panel spanning the upper 35% of
-            // PortraitSwipeRoot, full width. Moves and rotates with the portrait since it is a
-            // child of PortraitSwipeRoot; ChoicePreviewView.ApplyTheme tints it burgundy (left) or
-            // olive (right) via theme.LeftChoice/RightChoice once no banner sprite is supplied.
+            // Unity UI only, no banner sprite: a dark translucent badge pinned to this side's near
+            // corner (top-left for Left, top-right for Right), spanning ChoicePreviewBadgeWidth of
+            // PortraitSwipeRoot's width, not the full width. Moves and rotates with the portrait
+            // since it is a child of PortraitSwipeRoot; ChoicePreviewView.ApplyTheme tints it
+            // burgundy (left) or olive (right) via theme.LeftChoice/RightChoice once no banner
+            // sprite is supplied.
+            float badgeMinX = left
+                ? ChoicePreviewBadgeMargin
+                : 1f - ChoicePreviewBadgeMargin - ChoicePreviewBadgeWidth;
+            float badgeMaxX = badgeMinX + ChoicePreviewBadgeWidth;
+
             RectTransform edgeTransform = EnsureUiChild(preview, "EdgeHighlight", report);
             SetRect(edgeTransform,
-                new Vector2(0f, ChoicePreviewBandStart),
-                Vector2.one,
+                new Vector2(badgeMinX, ChoicePreviewBandStart),
+                new Vector2(badgeMaxX, 1f),
                 Vector2.zero, Vector2.zero, Center);
             Image edge = EnsureSingleComponent<Image>(edgeTransform.gameObject, report);
             ConfigureSimpleImage(edge, LoadBuiltInUiSprite(report),
                 left ? StatFillColours[0] : StatFillColours[3], false);
 
+            // Kept at the same 0.06 height, shifted up (was 0.80-0.86) so it stays inside the
+            // thinned band instead of poking out below its new 0.84 top edge.
             RectTransform markerTransform = EnsureUiChild(preview, "CommitMarker", report);
             SetRect(markerTransform,
-                new Vector2(left ? 0.02f : 0.94f, 0.80f),
-                new Vector2(left ? 0.06f : 0.98f, 0.86f),
+                new Vector2(left ? 0.02f : 0.94f, 0.88f),
+                new Vector2(left ? 0.06f : 0.98f, 0.94f),
                 Vector2.zero, Vector2.zero, Center);
             Image markerImage = EnsureSingleComponent<Image>(markerTransform.gameObject, report);
             ConfigureSimpleImage(markerImage, LoadBuiltInUiSprite(report), BodyTextColour, false);
@@ -2013,11 +2054,14 @@ namespace RoyalDecisions.Editor
                 marker.interactable = false;
             }
 
-            // The choice label sits centered within the panel band, identical for both sides.
+            // The choice label sits centered within the badge (not the full card width) — inset
+            // from the badge's own edges so it never touches EdgeHighlight's border. Offset shrunk
+            // from +0.03 to +0.02 alongside the band raise so the label's lower anchor lands at
+            // ~0.86 (was ~0.79) instead of drifting to ~0.87.
             RectTransform labelTransform = EnsureUiChild(preview, "Label", report);
             SetRect(labelTransform,
-                new Vector2(0.08f, ChoicePreviewBandStart + 0.03f),
-                new Vector2(0.92f, 0.97f),
+                new Vector2(badgeMinX + 0.04f, ChoicePreviewBandStart + 0.02f),
+                new Vector2(badgeMaxX - 0.04f, 0.97f),
                 Vector2.zero, Vector2.zero, Center);
             TextMeshProUGUI label = EnsureSingleComponent<TextMeshProUGUI>(
                 labelTransform.gameObject, report);
@@ -3896,6 +3940,12 @@ namespace RoyalDecisions.Editor
                 RequireSingleComponent<Mask>(portraitSwipeRootObject, scene.path, report);
                 RequireSingleComponent<ProceduralRoundedRectGraphic>(
                     portraitSwipeRootObject, scene.path, report);
+                if (FindDirectChild(portraitSwipeRootObject.transform, "CardFrameRing", report) != null)
+                {
+                    AddInvalid(report, scene.path,
+                        "/UICanvas/SafeArea/CardArea/Card/PortraitSwipeRoot/CardFrameRing",
+                        "Retired decorative frame ring must not remain on PortraitSwipeRoot.");
+                }
             }
             GameObject portraitMaskObject = RequirePath(
                 scene, "/UICanvas/SafeArea/CardArea/Card/PortraitSwipeRoot/PortraitMask", report);
@@ -3936,7 +3986,11 @@ namespace RoyalDecisions.Editor
                 string[] retiredChildren =
                 {
                     "Frame", "TemporaryBorder", "CornerTopLeft", "CornerTopRight",
-                    "CornerBottomLeft", "CornerBottomRight", "BodyScrim"
+                    "CornerBottomLeft", "CornerBottomRight", "BodyScrim",
+                    // Stray fixed-under-Card duplicates of the previews that must live under
+                    // PortraitSwipeRoot instead (see ConfigureCard) — a fixed EdgeHighlight behind
+                    // the swipe root read as a static smear.
+                    "PreviewLeft", "PreviewRight"
                 };
                 for (int i = 0; i < retiredChildren.Length; i++)
                 {
@@ -4626,13 +4680,14 @@ namespace RoyalDecisions.Editor
 
         private static void ValidateBuildScenes(SceneSetupReport report)
         {
-            string[] expected = { BootstrapScenePath, MainMenuScenePath, GameScenePath };
+            string[] expected =
+                { BootstrapScenePath, MainMenuScenePath, PrologueScenePath, GameScenePath };
             EditorBuildSettingsScene[] actual = EditorBuildSettings.scenes;
             if (actual.Length != expected.Length)
             {
                 report.Add(SceneSetupIssueSeverity.Error, "BUILD_SCENES", "Build",
                     "ProjectSettings/EditorBuildSettings.asset", string.Empty,
-                    "Build scene list must contain exactly Bootstrap, MainMenu, and Game.");
+                    "Build scene list must contain exactly Bootstrap, MainMenu, Prologue, and Game.");
                 return;
             }
 
@@ -6053,6 +6108,7 @@ namespace RoyalDecisions.Editor
             {
                 new EditorBuildSettingsScene(BootstrapScenePath, true),
                 new EditorBuildSettingsScene(MainMenuScenePath, true),
+                new EditorBuildSettingsScene(PrologueScenePath, true),
                 new EditorBuildSettingsScene(GameScenePath, true)
             };
         }

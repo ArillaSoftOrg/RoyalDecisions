@@ -172,6 +172,18 @@ namespace RoyalDecisions.Tests.EditMode
         }
 
         [Test]
+        public void CommittedExitMovesDiagonallyAndRotates()
+        {
+            Swipe(PressX + Threshold + 50f);
+
+            // The committed exit — unlike the drag itself — moves on both axes and rotates, for a
+            // diagonal "thrown off the table" feel rather than a straight sideways slide.
+            Assert.That(card.anchoredPosition.x, Is.GreaterThan(0f));
+            Assert.That(card.anchoredPosition.y, Is.LessThan(0f));
+            Assert.That(card.localRotation, Is.Not.EqualTo(Quaternion.identity));
+        }
+
+        [Test]
         public void DraggingPastThresholdLeftConfirmsLeft()
         {
             Swipe(PressX - Threshold - 50f);
@@ -383,7 +395,7 @@ namespace RoyalDecisions.Tests.EditMode
         // --- Live drag behaviour ---------------------------------------------------------
 
         [Test]
-        public void TheCardMovesHorizontallyWithASmallPresentationArc()
+        public void TheCardMovesHorizontallyOnlyWithNoLift()
         {
             PointerEventData data = Pointer(0, PressX);
             controller.OnBeginDrag(data);
@@ -392,12 +404,10 @@ namespace RoyalDecisions.Tests.EditMode
             controller.OnDrag(data);
 
             Assert.That(card.anchoredPosition.x, Is.EqualTo(150f).Within(0.001f));
-            // Vertical pointer movement (PressY + 400 above) is still read and discarded as an
-            // input signal — this Y offset comes only from the small presentation arc tied to
-            // horizontal displacement (SwipeMath.ArcLift), using the authored default lift since
-            // SetAuthoringReferences did not override it.
-            float expectedLift = SwipeMath.ArcLift(150f, Threshold, 18f);
-            Assert.That(card.anchoredPosition.y, Is.EqualTo(expectedLift).Within(0.001f));
+            // Vertical pointer movement (PressY + 400 above) is read and discarded as an input
+            // signal — the card must stay a plain rectangle translating on X only, so Y never
+            // moves regardless of drag distance.
+            Assert.That(card.anchoredPosition.y, Is.EqualTo(0f).Within(0.001f));
         }
 
         [Test]
@@ -429,7 +439,7 @@ namespace RoyalDecisions.Tests.EditMode
         }
 
         [Test]
-        public void TheCardRotatesWithTheDragAndClampsAtTheMaximum()
+        public void TheCardRotatesWithTheDragAndClampsAtTheMaximumWithNoScale()
         {
             PointerEventData data = Pointer(0, PressX);
             controller.OnBeginDrag(data);
@@ -437,9 +447,12 @@ namespace RoyalDecisions.Tests.EditMode
             data.position = new Vector2(PressX + 5000f, PressY);
             controller.OnDrag(data);
 
-            Assert.That(card.localRotation.eulerAngles.z, Is.Not.EqualTo(0f));
+            // Well past the confirm threshold: rotation must be clamped at the authored maximum
+            // (12 deg, the SetAuthoringReferences default used by this fixture's SetUp) — the same
+            // one whole rigid card (mask, portrait, previews together), never scaled/stretched.
             Assert.That(Mathf.DeltaAngle(0f, card.localRotation.eulerAngles.z),
                 Is.EqualTo(-12f).Within(0.01f));
+            Assert.That(card.localScale, Is.EqualTo(Vector3.one));
         }
 
         [Test]

@@ -30,12 +30,11 @@ namespace RoyalDecisions.Presentation
 
         [SerializeField] private float flipDuration = 0.32f;
 
-        [Tooltip("Small extra ease once the next portrait reaches full scale.")]
-        [SerializeField] private float settleDuration = 0.1f;
-
         [Header("Secondary motion (restrained)")]
+        [Tooltip("Used only by the first half — CardBack's own shrink-to-edge-on flip.")]
         [SerializeField] private float secondaryScaleYPeak = 1.025f;
 
+        [Tooltip("Used only by the first half — CardBack's own shrink-to-edge-on flip.")]
         [SerializeField] private float secondaryTiltDegrees = 1f;
 
         [SerializeField]
@@ -43,6 +42,16 @@ namespace RoyalDecisions.Presentation
 
         [SerializeField]
         private AnimationCurve secondHalfEase = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
+        [Header("Diagonal entry (second half — incoming portrait)")]
+        [Tooltip("Where the incoming portrait starts, relative to its settled centre, as a "
+            + "fraction of its own width/height — e.g. (0.55, 0.45) starts it up and to the "
+            + "right, sliding down-left into place as rotation eases to 0.")]
+        [SerializeField] private Vector2 entryOffsetFraction = new Vector2(0.55f, 0.45f);
+
+        [Tooltip("Tilt the incoming portrait starts at; eases to 0 by the time it settles at "
+            + "centre.")]
+        [SerializeField] private float entryTiltDegrees = 10f;
 
         private Coroutine running;
 
@@ -99,6 +108,9 @@ namespace RoyalDecisions.Presentation
 
             IsTransitioning = true;
             cardView.ForceVisible();
+            // Shown for exactly this transition's duration — see SetCardBackVisible and the
+            // matching hide once the incoming portrait is about to cover it, below.
+            cardView.SetCardBackVisible(true);
             running = StartCoroutine(TransitionRoutine(card, resolved));
         }
 
@@ -136,24 +148,39 @@ namespace RoyalDecisions.Presentation
                 }
             }
 
-            // Midpoint: CardBack resets to neutral (invisible — the next portrait, edge-on at
-            // scale 0, is about to cover it) and the next card's content replaces the outgoing
-            // one's. Until this line, only Card.png has been visible behind the outgoing portrait.
+            // Midpoint: CardBack resets to neutral and is explicitly hidden again (rather than
+            // relying on the next portrait, edge-on at scale 0, to cover it) and the next card's
+            // content replaces the outgoing one's. Until this line, only Card.png has been
+            // visible behind the outgoing portrait.
             if (cardBack != null)
             {
                 cardBack.localScale = cardBackNeutralScale;
                 cardBack.localRotation = cardBackNeutralRotation;
             }
+            cardView.SetCardBackVisible(false);
 
             swipeController.RestoreNeutralGeometry();
             RectTransform portraitRoot = cardView.CardRoot;
-            Vector3 portraitNeutralScale = portraitRoot != null ? portraitRoot.localScale : Vector3.one;
+            Vector2 portraitNeutralPosition =
+                portraitRoot != null ? portraitRoot.anchoredPosition : Vector2.zero;
             Quaternion portraitNeutralRotation =
                 portraitRoot != null ? portraitRoot.localRotation : Quaternion.identity;
 
+            // Diagonal entry: the incoming portrait starts offset up-and-right of its settled
+            // centre and tilted, then translates + de-rotates into place — translateX, translateY,
+            // and rotate together, no scale, matching the diagonal "thrown into place" feel.
+            Vector2 entryStartPosition = portraitNeutralPosition;
+            Quaternion entryStartRotation = portraitNeutralRotation;
             if (portraitRoot != null)
             {
-                portraitRoot.localScale = new Vector3(0f, portraitNeutralScale.y, portraitNeutralScale.z);
+                Vector2 size = portraitRoot.rect.size;
+                Vector2 entryOffset = new Vector2(
+                    entryOffsetFraction.x * size.x, entryOffsetFraction.y * size.y);
+                entryStartPosition = portraitNeutralPosition + entryOffset;
+                entryStartRotation = portraitNeutralRotation * Quaternion.Euler(0f, 0f, entryTiltDegrees);
+
+                portraitRoot.anchoredPosition = entryStartPosition;
+                portraitRoot.localRotation = entryStartRotation;
             }
 
             cardView.Show(card, resolved);
@@ -167,14 +194,11 @@ namespace RoyalDecisions.Presentation
                 {
                     elapsed += Time.unscaledDeltaTime;
                     float t = Evaluate(secondHalfEase, elapsed / half);
-                    float wobble = Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI);
 
-                    portraitRoot.localScale = new Vector3(
-                        Mathf.LerpUnclamped(0f, portraitNeutralScale.x, t),
-                        Mathf.LerpUnclamped(secondaryScaleYPeak, portraitNeutralScale.y, 1f - wobble),
-                        portraitNeutralScale.z);
-                    portraitRoot.localRotation = portraitNeutralRotation
-                        * Quaternion.Euler(0f, 0f, secondaryTiltDegrees * wobble);
+                    portraitRoot.anchoredPosition =
+                        Vector2.LerpUnclamped(entryStartPosition, portraitNeutralPosition, t);
+                    portraitRoot.localRotation =
+                        Quaternion.SlerpUnclamped(entryStartRotation, portraitNeutralRotation, t);
 
                     float contentAlpha = Mathf.Clamp01(t);
                     cardView.SetContentAlpha(contentAlpha, contentAlpha);
@@ -185,31 +209,17 @@ namespace RoyalDecisions.Presentation
 
             cardView.SetContentAlpha(1f, 1f);
 
-            if (portraitRoot != null && settleDuration > 0f)
+            if (portraitRoot != null)
             {
-                float elapsed = 0f;
-                const float SettleStartScale = 0.98f;
-
-                while (elapsed < settleDuration)
-                {
-                    elapsed += Time.unscaledDeltaTime;
-                    float t = Mathf.Clamp01(elapsed / settleDuration);
-                    float scale = Mathf.LerpUnclamped(SettleStartScale, 1f, t);
-
-                    portraitRoot.localScale = new Vector3(
-                        portraitNeutralScale.x * scale,
-                        portraitNeutralScale.y * scale,
-                        portraitNeutralScale.z);
-
-                    yield return null;
-                }
+                portraitRoot.anchoredPosition = portraitNeutralPosition;
+                portraitRoot.localRotation = portraitNeutralRotation;
             }
 
             running = null;
             IsTransitioning = false;
 
-            // Snaps position/rotation/scale to the authoritative neutral values (this settle
-            // approximated the last stretch of it) and unlocks input for the new card.
+            // Snaps position/rotation/scale to the authoritative neutral values (already reached
+            // above, just before this) and unlocks input for the new card.
             swipeController.ResetForNextCard();
         }
 
@@ -230,6 +240,9 @@ namespace RoyalDecisions.Presentation
             {
                 StopCoroutine(running);
                 running = null;
+                // The coroutine may have been stopped mid-flip, with CardBack still shown from
+                // BeginTransition — never leave it stuck visible behind whatever comes next.
+                cardView?.SetCardBackVisible(false);
             }
 
             IsTransitioning = false;

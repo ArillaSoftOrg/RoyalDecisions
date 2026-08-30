@@ -115,6 +115,20 @@ namespace RoyalDecisions.Presentation
         }
 
         /// <summary>
+        /// Shows or hides the fixed CardBack backdrop. Hidden outside of a transition (see
+        /// <see cref="ApplyTheme"/>) so idle, drag, snap-back, and exit never expose it behind the
+        /// moving portrait; <see cref="CardFlipController"/> is the only caller that shows it, for
+        /// the brief card-to-card flip.
+        /// </summary>
+        public void SetCardBackVisible(bool visible)
+        {
+            if (cardBackImage != null)
+            {
+                cardBackImage.enabled = visible;
+            }
+        }
+
+        /// <summary>
         /// Fades the speaker name and situation text independently of their assigned content — for
         /// the card-flip transition's old-question-out/new-question-in crossfade. Does not affect
         /// the portrait, CardBack, or either choice preview.
@@ -160,9 +174,17 @@ namespace RoyalDecisions.Presentation
                 return;
             }
 
+            // surfaceImage is Card's own full-bounds Image — a raycast catcher for the whole
+            // decision area, not a visible surface (CardBack supplies the actual painted card
+            // background). It sits behind CardBack and PortraitSwipeRoot, so dragging or exiting
+            // the portrait away exposes whatever colour this holds; tinting it with the theme's
+            // opaque CardSurface (as this used to do) made every swipe reveal a solid rectangle
+            // where the card used to be. Forced transparent here — every ApplyTheme call, not just
+            // the scene's authored default — so it self-corrects even if a stale bake from before
+            // this fix is still on disk. raycastTarget is untouched: it must keep catching input.
             if (surfaceImage != null)
             {
-                surfaceImage.color = theme.CardSurface;
+                surfaceImage.color = Color.clear;
             }
 
             ConfigureOptional(portraitMaskImage, Color.white, true);
@@ -179,7 +201,12 @@ namespace RoyalDecisions.Presentation
                 // vanishing while placeholder art is missing.
                 cardBackImage.color = hasArt ? Color.white : theme.CardSurface;
                 cardBackImage.raycastTarget = false;
-                cardBackImage.enabled = true;
+                // Hidden by default: CardBack sits at PortraitSwipeRoot's exact bounds but never
+                // moves with it, so leaving it enabled meant every drag/snap-back/exit exposed it
+                // underneath the moving portrait as a second, static "card" — see
+                // SetCardBackVisible. Only CardFlipController's card-to-card flip transition shows
+                // it, for the brief moment CardBack itself is meant to be the visible card.
+                cardBackImage.enabled = false;
             }
 
             // Speaker sits on the paper-toned NameScrim below, not the card's dark surface, so it

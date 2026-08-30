@@ -28,11 +28,14 @@ namespace RoyalDecisions.Presentation
     /// blend over a shared, combined image.
     ///
     /// <see cref="FadeOutStarted"/> is the one thing this exposes beyond "done": a single signal,
-    /// fired exactly once, the instant the intro begins handing off to whatever plays next. This
-    /// component has no idea what that is — no Loading, no scenes, nothing — it only knows its own
-    /// final fade has started. A caller (<c>BootstrapController</c>) can use that moment to start
-    /// revealing something else underneath while this one finishes fading, without either side
-    /// needing to know about the other's internals.
+    /// fired exactly once, the instant the intro's own final fade begins — strictly after its full
+    /// reveal and its own static hold have both already finished. This component has no idea what
+    /// plays next — no Loading, no scenes, nothing — it only knows its own final fade has started.
+    /// <c>BootstrapController</c> deliberately does not act on this to reveal what comes next
+    /// (see its own remarks on <c>PlayIntro</c> for why an earlier crossfade attempt through this
+    /// event read as "no hold at all"); it is kept purely as a "my fade has started" signal for
+    /// anyone who does want that moment, decoupled from what <c>Play</c>'s own completion callback
+    /// is used for today.
     /// </remarks>
     public sealed class IntroSequenceController : MonoBehaviour, IPointerClickHandler
     {
@@ -45,8 +48,8 @@ namespace RoyalDecisions.Presentation
         [Header("Timing (unscaled seconds)")]
         [SerializeField] private float preBlackHoldSeconds = 0.55f;
         [SerializeField] private float fadeInDurationSeconds = 0.90f;
-        [SerializeField] private float holdDurationSeconds = 1.20f;
-        [SerializeField] private float fadeOutDurationSeconds = 0.60f;
+        [SerializeField] private float holdDurationSeconds = 1.35f;
+        [SerializeField] private float fadeOutDurationSeconds = 0.55f;
         [SerializeField] private float postBlackHoldSeconds = 0.15f;
 
         [Header("Motion")]

@@ -26,11 +26,15 @@ namespace RoyalDecisions.Editor
     ///
     /// The AS mark and "ARILLA GAMES" wordmark are wired as two independent sprites
     /// (<see cref="MarkAssetPath"/>, <see cref="WordmarkAssetPath"/>) rather than one shared image,
-    /// so each can be sized independently. Both are pixel-exact crops of the master
-    /// <c>ArillaGamesLogo.png</c> (never modified, never resampled) generated once by a deterministic
-    /// script — see <c>MANUAL_UNITY_STEPS.md</c> for the exact crop bounds. An earlier pass tried
-    /// masking a single combined image with measured padding constants; that made the two elements
-    /// impossible to size independently and left room for subtle misalignment, so it was replaced.
+    /// so each can be sized independently. <see cref="MarkAssetPath"/> is a pixel-exact crop of the
+    /// master <c>ArillaGamesLogo.png</c> (never modified, never resampled) generated once by a
+    /// deterministic script — see <c>MANUAL_UNITY_STEPS.md</c> for the exact crop bounds.
+    /// <see cref="WordmarkAssetPath"/> is a separate, tight alpha-bbox crop of the newer modern
+    /// wordmark source (not derived from <c>ArillaGamesLogo.png</c> at all) — see
+    /// <c>MANUAL_UNITY_STEPS.md</c>'s "modern wordmark" entry for that crop's bounds. An earlier pass
+    /// tried masking a single combined image with measured padding constants; that made the two
+    /// elements impossible to size independently and left room for subtle misalignment, so it was
+    /// replaced.
     /// </remarks>
     public static class IntroSceneSetup
     {
@@ -40,22 +44,29 @@ namespace RoyalDecisions.Editor
         /// the deterministic crop script documented in MANUAL_UNITY_STEPS.md if the master changes.</summary>
         public const string MarkAssetPath = "Assets/_Game/Art/Branding/Generated/ArillaGamesMark.png";
 
-        /// <summary>Pixel-exact "ARILLA GAMES" wordmark crop of the master logo. Same regeneration
-        /// note as <see cref="MarkAssetPath"/>.</summary>
-        public const string WordmarkAssetPath = "Assets/_Game/Art/Branding/Generated/ArillaGamesWordmark.png";
+        /// <summary>Tight alpha-bbox crop of the modern "ARILLA GAMES" wordmark source (not the
+        /// master <c>ArillaGamesLogo.png</c> — that source's own wordmark crop,
+        /// <c>ArillaGamesWordmark.png</c>, is kept on disk untouched as a fallback but is no longer
+        /// wired here). Never hand-edited — regenerate via the same deterministic crop method
+        /// documented in MANUAL_UNITY_STEPS.md if the modern source is ever replaced.</summary>
+        public const string WordmarkAssetPath =
+            "Assets/_Game/Art/Branding/Generated/ArillaGamesWordmarkModernRuntime.png";
 
         private const string CanvasName = "IntroCanvas";
         private const string EventSystemName = "EventSystem";
         private const string BootstrapControllerName = "BootstrapController";
         private const string IntroAudioName = "IntroAudio";
 
-        // LoadingCanvas (StartupLoadingSetup.cs) explicitly sorts itself above IntroCanvas's old
-        // default of 0 (its own comment: "an explicit, higher sort order guarantees LoadingCanvas
-        // always paints over IntroCanvas ... while it is visible"), on the assumption the two would
-        // never be visible at once. The crossfade handoff needs the opposite for its brief overlap
-        // window — the intro fading out on top, revealing Loading (already fully visible)
-        // underneath — so IntroCanvas now sorts above LoadingCanvas's fixed value of 10 instead.
-        // Set here, from the intro's own side, so nothing under Loading's ownership needs to change.
+        // IntroCanvas's BlackBackground is a plain, permanently opaque Image that
+        // IntroSequenceController never fades (only the logo group fades, back to that same black,
+        // not away from it) — it stays on screen for the entire lifetime of Bootstrap.unity. Loading
+        // is only ever revealed after the intro's own completion callback (see
+        // RoyalDecisions.Composition.BootstrapController.HandleIntroCompleted), at which point
+        // IntroCanvas is still sitting there, opaque. LoadingCanvas (StartupLoadingSetup.cs) must
+        // therefore sort strictly above this value (currently 30) or its own opaque background stays
+        // permanently hidden behind IntroCanvas's — see LoadingCanvasSortingOrder's own comment for
+        // the incident that value fixed. Set here, from the intro's own side, so nothing under
+        // Loading's ownership needs to change.
         private const int IntroCanvasSortingOrder = 20;
 
         // Reference-derived target widths on the 1080-wide reference canvas. The wordmark reads
@@ -71,15 +82,12 @@ namespace RoyalDecisions.Editor
         // underneath.
         private const float MarkWordmarkGap = 20f;
 
-        // Found by hand in the Editor: the wordmark crop's own natural height reads too thin/flat
-        // at the authored width, so WordmarkRevealRoot is deliberately stretched 25% taller on Y
-        // only (X stays 1) — a non-uniform scale, not aspect-preserving, applied on top of
-        // WordmarkImage's own correctly-proportioned sizeDelta. Everything nested under
-        // WordmarkRevealRoot (RevealMask, WordmarkImage) inherits it. The horizontal reveal is
-        // unaffected: RevealMask's width animation runs in this same scaled-Y local space exactly
-        // as before, so 0/25/50/75/100% progress still shows 0/210/420/630/840 (pre-scale) units
-        // of width.
-        private const float WordmarkRevealRootVerticalScale = 1.25f;
+        // The previous (now-retired) wordmark crop read too thin/flat at the authored width, so
+        // WordmarkRevealRoot was deliberately stretched 25% taller on Y only as a hand-tuned fix.
+        // The modern wordmark crop is already correctly proportioned at its own aspect ratio, so
+        // this stays at 1 (no extra stretch) — applying the old crop's compensation here would
+        // distort the new art instead of fixing anything.
+        private const float WordmarkRevealRootVerticalScale = 1f;
 
         // "around screen centre, perhaps y=50 max" -- unchanged from the original layout.
         private const float LogoGroupVerticalOffset = 50f;
