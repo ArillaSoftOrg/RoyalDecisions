@@ -213,6 +213,11 @@ namespace RoyalDecisions.Presentation
             {
                 panelRoot?.SetActive(true);
             }
+
+            // Both branches above activate panelRoot synchronously, so this is the first moment
+            // Unity is able to lay the panel out at all — and the last moment before the opening
+            // fade starts rendering it. See RebuildActiveTabLayout.
+            RebuildActiveTabLayout();
         }
 
         public void Render(GameSettings settings)
@@ -280,6 +285,81 @@ namespace RoyalDecisions.Presentation
             if (graphicsPanel != null) graphicsPanel.gameObject.SetActive(graphics);
             if (controlsPanel != null) controlsPanel.gameObject.SetActive(controls);
             if (generalPanel != null) generalPanel.gameObject.SetActive(general);
+
+            // A tab that has just been enabled has never been measured either. This no-ops while
+            // the panel itself is still closed (Show() selects the default tab before opening),
+            // and during a crossfade it runs at zero alpha, so the work is never visible.
+            RebuildActiveTabLayout();
+        }
+
+        /// <summary>
+        /// Settles the active tab's nested layout synchronously, before the panel's first rendered
+        /// frame.
+        /// </summary>
+        /// <remarks>
+        /// The panel is authored inactive, and each tab is a chain of nested
+        /// <see cref="ContentSizeFitter"/>s (ScrollContent → tab → group card → rows). Unity lays
+        /// out nothing while a hierarchy is inactive, and once enabled it resolves roughly one
+        /// level of that chain per frame, because a child fitter only changes its own size *after*
+        /// the parent above it has already measured. The result is that the first frames after
+        /// opening render every row still stacked at its unmeasured position — the sliders visibly
+        /// overlapping before snapping apart, made worse by the opening fade making those frames
+        /// easy to see. Rebuilding depth-first collapses all of them into a single pass.
+        /// </remarks>
+        private void RebuildActiveTabLayout()
+        {
+            RectTransform tab = ActiveTabTransform();
+            if (tab == null || !tab.gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
+            RebuildDepthFirst(tab);
+
+            // The tab's freshly measured height is the ScrollContent's input, so the container
+            // above it has to measure again after the tab, not before.
+            if (tab.parent is RectTransform scrollContent)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(scrollContent);
+            }
+        }
+
+        /// <summary>
+        /// Rebuilds every layout-driven rect under <paramref name="root"/>, children first. Only
+        /// rects that actually drive layout are rebuilt — walking into leaf labels and icons would
+        /// cost far more than it settles.
+        /// </summary>
+        private static void RebuildDepthFirst(RectTransform root)
+        {
+            for (int i = 0; i < root.childCount; i++)
+            {
+                if (root.GetChild(i) is RectTransform child && child.gameObject.activeSelf)
+                {
+                    RebuildDepthFirst(child);
+                }
+            }
+
+            bool drivesLayout = root.GetComponent<LayoutGroup>() != null
+                || root.GetComponent<ContentSizeFitter>() != null;
+            if (drivesLayout)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(root);
+            }
+        }
+
+        private RectTransform ActiveTabTransform()
+        {
+            switch (activeTabId)
+            {
+                case SettingsTabId.Graphics:
+                    return graphicsPanel != null ? graphicsPanel.transform as RectTransform : null;
+                case SettingsTabId.Controls:
+                    return controlsPanel != null ? controlsPanel.transform as RectTransform : null;
+                case SettingsTabId.General:
+                    return generalPanel != null ? generalPanel.transform as RectTransform : null;
+                default:
+                    return audioPanel != null ? audioPanel.transform as RectTransform : null;
+            }
         }
 
         /// <summary>Gives the selected category a distinct fill so the active tab is unambiguous.</summary>
@@ -293,13 +373,24 @@ namespace RoyalDecisions.Presentation
                 ? SettingsPanelTheme.ActiveTabColour
                 : SettingsPanelTheme.InactiveTabColour;
 
-            // White-on-gold reads as low-contrast, so the active tab's text flips dark too.
+            // Cream-on-gold reads as low-contrast, so the active tab's text flips to dark ink.
             TextMeshProUGUI label = tabButton.GetComponentInChildren<TextMeshProUGUI>(true);
             if (label != null)
             {
                 label.color = active
                     ? SettingsPanelTheme.ActiveTabTextColour
                     : SettingsPanelTheme.InactiveTabTextColour;
+            }
+
+            // The border switches too, not just the fill: the active tab is the one carrying the
+            // amber glow, inactive ones keep the ordinary bronze frame. Without this the glow would
+            // stay stuck on whichever tab the authoring pass happened to leave active.
+            Outline outline = tabButton.GetComponent<Outline>();
+            if (outline != null)
+            {
+                outline.effectColor = active
+                    ? SettingsPanelTheme.AmberGlowColour
+                    : SettingsPanelTheme.BorderGoldColour;
             }
         }
 

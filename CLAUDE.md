@@ -307,3 +307,84 @@ conflicts with this specification. Propose the phased implementation plan and
 list the exact files intended for Phase 1. Do not modify any files yet. Do not
 edit scenes, prefabs, ProjectSettings, packages, or CLAUDE.md.
 ```
+# UI/UX & Arayüz Geliştirme Kuralları (Ayarlar Menüsü)
+
+## 1. Tema & Görsel Dil (Post-Apocalyptic Retro)
+* **Renk Paleti:**
+  * Arka Plan: Koyu yıpranmış metalik/ahşap dokular, yarı saydam koyu paneller (`#121214` - `%85-90` alfa).
+  * Vurgu & Çerçeveler: Eskitilmiş bronz, paslı altın ve amber ışıması (`#D4AF37`, `#8C6D37`, `#FFB830`).
+  * Negatif/İptal: Koyu paslı kırmızı/kahve (`#8B2500`).
+  * Pozitif/Uygula: Parlak kehribar / koyu yeşil-altın tonları.
+* **Tipografi:** TextMeshPro kullanılacak. Başlıklar eskitilmiş/retro serif/serif-display, açıklama ve alt metinler okunaklı temiz sans-serif/pixel.
+
+## 2. Arayüz Mimarisi & Hiyerarşi (Unity UI / uGUI)
+* **Canvas Ayarları:** `CanvasScaler` -> `Scale With Screen Size` (Referans: 1080x1920 Dikey Mobil).
+* **Header (Üst Kısım):** 
+  * Sayfa Başlığı: "Ayarlar" (Ortalanmış, süslemeli bronz çerçeve içi).
+  * Sekme Grubu (Horizontal Layout Group): "Ses", "Grafik", "Kontroller", "Genel". Aktif sekme altın ışıltılı, pasif sekmeler karartılmış.
+* **Gövde & Paneller (Content Grouping):**
+  * Ayarlar doğrudan arka plana yayılmayacak; tematik yarı saydam kart panelleri içinde gruplanacak.
+  * **Ses ve Müzik Kartı:**
+    * Başlık + Alt Açıklama ("Müzik ve efekt seviyelerini ayarlayın.").
+    * Slider'lar: Sol tarafta tematik ikon (Hoparlör, Nota, Efekt), ortada eskitilmiş bar + pirinç/bronz knob (ibresi), sağda dinamik TextMeshPro yüzdelik göstergesi (`%100`, `%80`).
+  * **Anahtar (Toggle) Kartı:**
+    * "Sessiz Mod" ve "Titreşim" gibi ikili ayarlar için yatay dizilimde etiket + açıklama ve sağ uçta retro temalı On/Off Switch.
+* **Footer (Alt Aksiyon Alanı):**
+  * Sol: "İptal" butonu (Paslı/koyu çerçeve).
+  * Sağ: "Uygula" butonu (Vurgulu altın/yeşil çerçeve).
+
+## 3. Kodlama & Standartlar (C# / Unity)
+* UI elemanları kod tarafında `[SerializeField]` ile `TextMeshProUGUI`, `Slider`, `Toggle` ve `Button` referansları üzerinden yönetilecek.
+* Slider değer değişimlerinde (`onValueChanged`) yüzdelik metin anlık güncellenecek (`Mathf.RoundToInt(val * 100) + "%"`).
+* Ses ve titreşim ayarları `PlayerPrefs` veya ayrık bir `SettingsManager` üzerinden kaydedilip yüklenecek.
+* Layout yapıları için `VerticalLayoutGroup` ve `ContentSizeFitter` standartlarına uyulacak, hard-coded piksel kaymaları yapılmayacak.
+# UI/UX & Layout Standartları: Ayarlar Menüsü (Settings Menu)
+
+## 1. Görsel Dil ve Temel Tasarım Kuralları
+* **Tema:** Post-apokaliptik / Dark Fantasy / Retro Kart Oyunu.
+* **Renk Paleti:**
+  * Ana Arka Plan: Koyu yıpranmış doku / eskitilmiş siyah-kahve tonları (`#121214`).
+  * Panel / Kart Zeminleri: Koyu yarı saydam (`#1A1A1E` - `%90` alfa), ince altın/bronz çerçeveli kenarlıklar (`#8C6D37`).
+  * Vurgu & Aktif Butonlar: Kehribar / Parlak Turuncu (`#D4AF37`, `#D97706`).
+  * Pasif Elemanlar: Karartılmış mat gri/kahve (`#3F3F46`).
+* **Tipografi (TextMeshPro):**
+  * Başlıklar: Eskitilmiş serif / display font, altın sarısı/krem rengi.
+  * Açıklamalar: Okunaklı, küçük punto, soluk gri (`#A1A1AA`).
+
+---
+
+## 2. Arayüz Hiyerarşisi (Unity uGUI)
+
+Ayarlar menüsü tek parça düz bir liste olmayacak; mutlaka 3 ayrı panel/kart olarak gruplanacaktır:
+
+### A. Üst Alan (Header & Navigation)
+* **Sayfa Başlığı:** Ortalanmış "Ayarlar" metni ve altında dekoratif baklava (`◆`) ayırıcı çizgi.
+* **Sekme Çubuğu (Tab Bar - Horizontal Layout Group):**
+  * 4 buton: `Ses`, `Grafik`, `Kontroller`, `Genel`.
+  * Aktif sekme: Turuncu/altın ışıltılı arkaplan, yüksek kontrastlı ikon ve metin.
+  * Pasif sekmeler: Koyu zemin, soluk ikon ve metin.
+
+### B. Gövde Panelleri (Body Content - Vertical Layout Group)
+* **1. Grup: Ses ve Müzik Kartı (Ana Panel)**
+  * Başlık Alanı: Sol tarafta baklava çerçeve içinde ikon + "Ses ve Müzik" başlığı + "Müzik ve efekt seviyelerini ayarlayın." alt açıklaması.
+  * Slider Satırları (3 Satır): `Ana Ses`, `Müzik`, `Ses Efektleri`.
+  * Her satırın dizilimi: `[Baklava İkon]` + `[Ayar Adı]` + `[Slider Bar (Bronz Knob)]` + `[Yüzdelik Text (%100, %80 vb.)]`.
+* **2. Grup: Sessiz Mod Kartı (Bağımsız Panel)**
+  * Sol Alan: Baklava çerçeveli sessiz ikonu + "Sessiz Mod" başlığı + "Tüm oyun seslerini kapatır." açıklaması.
+  * Sağ Alan: Retro oval açma/kapama anahtarı (`Toggle Switch`).
+* **3. Grup: Titreşim Kartı (Bağımsız Panel)**
+  * Sol Alan: Baklava çerçeveli titreşim ikonu + "Titreşim" başlığı + "Kart seçimlerinde titreşim." açıklaması.
+  * Sağ Alan: Retro oval açma/kapama anahtarı (`Toggle Switch`).
+
+### C. Alt Alan (Footer Action Bar)
+* Ekranın en altında `HorizontalLayoutGroup` içinde iki eşit genişlikli buton:
+  * **İptal Butonu:** Koyu zeminli, sade bronz çerçeveli.
+  * **Uygula Butonu:** Parlak turuncu/kehribar dolgulu, yüksek kontrastlı ana aksiyon butonu.
+
+---
+
+## 3. Kodlama & Script Standartları (C#)
+* Tüm metin alanları `TextMeshProUGUI` kullanmalıdır.
+* Slider'ların `onValueChanged` olaylarında sağdaki yüzde metinleri anlık güncellenmelidir (`Mathf.RoundToInt(val * 100) + "%"`).
+* Ayar değerleri (`MasterVolume`, `MusicVolume`, `SFXVolume`, `MuteState`, `HapticsState`) `PlayerPrefs` veya `SettingsManager` üzerinden yönetilmelidir.
+* UI bileşenleri `[SerializeField]` ile inspector üzerinden bağlanmalıdır.

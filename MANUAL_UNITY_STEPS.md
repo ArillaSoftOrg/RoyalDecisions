@@ -3978,6 +3978,7 @@ of a long one, with no special-cased code.
       `BootstrapControllerTests` (both extended with new `FadeOutStarted` coverage) green; PlayMode —
       new `IntroSequenceControllerPlayModeTests` (skip-lock timing) green alongside the existing suite
 
+<<<<<<< Updated upstream
 ---
 
 ## Modern wordmark swap + full-visible hold restored to a readable length (2026-08-30)
@@ -4291,3 +4292,311 @@ This changes what `Apply Remaining Setup` writes into the scenes — the already
       the project was already open in another Unity Editor instance (batchmode refuses to open a
       project that is already open); please run the full EditMode suite yourself, in particular
       `SceneSetupAutomationTests` and `PresentationViewTests`, and confirm both are green
+=======
+## Menu re-theme — post-apocalyptic retro palette, grain, slider icons (2026-08-30)
+
+Driven by the new **"UI/UX & Arayüz Geliştirme Kuralları (Ayarlar Menüsü)"** section appended to
+`CLAUDE.md`. Nothing was rebuilt: the existing Settings stack (`SettingsPanelView`,
+`SettingsController`, `SettingsServiceStore` and the four tab views) is untouched in behaviour —
+this pass changes only the visual language and the authoring that produces the hierarchy.
+
+### Palette (`Assets/_Game/Scripts/Presentation/SettingsPanelTheme.cs`)
+
+Member names were deliberately kept so nothing that references them had to change; only values
+moved, plus four new tokens.
+
+| Token | Was | Now | Role |
+|---|---|---|---|
+| `ActiveTabColour` | `#B5581A` | `#D4AF37` | rusty gold — active tab, primary CTAs |
+| `AmberGlowColour` | *(new)* | `#FFB830` | active tab's outer glow |
+| `ApplyColour` | *(new)* | `#FFB830` | Uygula fill |
+| `BorderGoldColour` | `#B58A4A` | `#8C6D37` | aged bronze — every frame/outline |
+| `InactiveTabColour` | `#1E1812` | `#121214` @ alpha `0.88` | semi-transparent panel surface |
+| `PanelSurfaceColour` | *(new)* | `#121214` @ alpha `0.88` | group-card fill (alias of the above) |
+| `ScreenBackgroundColour` | *(new)* | `#121214` opaque | the menu ground |
+| `ActiveTabTextColour` | `#F2E7CF` | `#1A1410` | **dark ink**, see below |
+| `InactiveTabTextColour` | `#D9C9A8` | `#C9B487` | faded bronze on the dark fill |
+| `DangerColour` | `#6B1A1A` | `#8B2500` | rusted red — İptal *and* Reset Progress |
+
+**Why the label colour flipped to dark ink.** Cream `#F2E7CF` on the new gold `#D4AF37` measures
+about **1.4:1** — far under the 4.5:1 WCAG normal-text floor. Dark ink `#1A1410` on the same fill
+measures about **8.7:1**. This is not a taste call, and `SettingsPanelThemeContrastTests` now fails
+if someone puts the cream back. The same flip was applied everywhere that fill is used: Uygula, the
+active tab, About's Kapat, and MainMenu's Yeni Oyun / Devam Et.
+
+The menu ground moved off `SceneSetupAutomation`'s private `MainMenuBackgroundColour` (deleted, it
+had no other reader) onto `SettingsPanelTheme.ScreenBackgroundColour`, so the Editor authoring and
+the runtime views read the same constant. `EnsureCamera` paints the camera clear colour with it.
+
+### New texture-free graphics
+
+The project ships no image assets and cannot extend its font atlas (the source
+`LiberationSans-Turkish.ttf` is not in the repo), so both of the spec's "material" requirements are
+met procedurally:
+
+- `ProceduralGrainGraphic` — the spec's *"koyu yıpranmış metalik dokular"*. Low-alpha speckles plus
+  vertical brushed streaks from a **positional integer hash, not `Random`**: the same rect always
+  yields the same mesh, so repeated Apply passes do not dirty the scene YAML. Applied full-bleed
+  under `SettingsPanel` and `AboutPanel` as a `Grain` child at sibling index 0.
+- `ProceduralAudioIconGraphic` + `AudioIconKind` — the spec's speaker / note / effect icons on the
+  volume rows. One class for three shapes because they share the same quad/disc/arc primitives.
+- The header's *"süslemeli bronz çerçeve"* reuses the **existing** `ProceduralCornerBracketGraphic`
+  rather than adding a class; the four corners are one mesh mirrored via `localScale`.
+
+### Typography
+
+The spec asks for a retro serif/display for headings. There is exactly one font asset and no source
+`.ttf` to regenerate an atlas from, so adding a second typeface would risk missing Turkish glyphs.
+Instead `ConfigureDisplayText` carries the heading voice with **weight + letter-spacing + caps** on
+the existing sans. Titles are hardcoded uppercase (`"SES VE MÜZİK"`, `"GRAFİK"`, ...) rather than
+`ToUpper()` — Turkish maps `i` to `İ`, which a culture-insensitive `ToUpper()` gets wrong. The
+MainMenu title keeps its string from content data and only takes the display treatment.
+
+> If a Turkish-complete serif/display `.ttf` is ever added, the heading font can be swapped in
+> `ConfigureDisplayText`'s callers without touching layout.
+
+### Structural changes that MUST stay in sync
+
+`SceneSetupAutomation` prunes anything not in an allowlist and validates a fixed path list. Both
+were updated in the same pass; changing one without the other silently breaks the other:
+
+- `RemoveUnexpectedChildren(root, ...)` on `SettingsPanel` now allows `"Grain"` as well as `"SafeArea"`.
+- `Header`'s allowlist now allows `"Frame"`; the header grew `84` to `96` for the bracket clearance.
+- `EnsureSliderControl` allowlists `"Icon"` **only on rows that requested one**, so a row that loses
+  its icon has it swept rather than orphaned.
+- `settingsPaths[]` gained `Grain`, `SafeArea/Content/Header/Frame`, and
+  `AudioTab/VolumeGroup/{MasterVolume,MusicVolume,SfxVolume}/Icon`.
+
+### Runtime, not just authoring
+
+`SettingsPanelView.TintTab` previously swapped only the tab's fill. It now swaps the tab's
+`Outline.effectColor` too (amber to bronze) — otherwise the glow stays stuck on whichever tab the
+authoring pass left active and never follows the user's selection.
+
+### Not changed, on purpose
+
+- **Persistence.** The spec's section 3 allows `PlayerPrefs` *or* a separate settings manager; the
+  project already has the latter (versioned, atomically-written JSON with tests), and `CLAUDE.md`
+  section 8 bars `PlayerPrefs` for anything but small preferences. Untouched.
+- **Setting placement.** *Sessiz Mod* stays on Ses, *Titreşim* stays on Kontroller. The spec pictures
+  them in one toggle card; moving them would change where users find settings for a purely visual
+  gain, so only the card styling was applied.
+- **MainMenu structure.** MainMenu takes the new palette and typography, but **no `Grain` child** —
+  the standing "Main Menu stays untouched" constraint from the earlier polish pass still holds, and
+  its Canvas allowlist actively deletes stray children. Its ground comes from the camera clear
+  colour, which did change.
+- **`GameUITheme.asset`** and all gameplay visuals.
+
+### M1 — Re-run scene setup
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup`
+- [ ] `Tools > Royal Decisions > Scene Setup > Validate` — clean report
+- [ ] Run `Apply` a second time; the scene YAML must be byte-identical (idempotency)
+- [ ] **Re-run `Tools > Royal Decisions > Scene Setup > Use Story Catalogue In Game Scene`** —
+      `Apply` reverts `Game.unity` to the Placeholder catalogue every time
+
+### M2 — Verify in the Editor (portrait 1080x1920)
+
+- [ ] MainMenu: title gold with tracking; Yeni Oyun / Devam Et gold with **dark** labels
+- [ ] Settings: "AYARLAR" gold, inside four bronze corner brackets
+- [ ] Tabs: the active one is gold-filled with an amber frame, the rest dark with bronze frames —
+      and the glow **moves** as you switch tabs
+- [ ] Ses tab: speaker / note / effect icons at the left of the three sliders; percent readouts
+      update live while dragging
+- [ ] Footer: İptal rusted red, Uygula amber — clearly different, not two identical buttons
+- [ ] Grain is *felt*, not seen: no visible banding, no moiré, no shimmer while scrolling
+- [ ] Hakkında matches Settings exactly — no visible seam when navigating between them
+- [ ] Genel tab: İlerlemeyi Sıfırla still reads as the destructive action
+
+### M3 — Accessibility and layout
+
+- [ ] Narrow safe area (e.g. 18:9 with a notch): no label clipped, no horizontal overflow
+- [ ] Every tap target still at least 96x96 (`ConfigureMinimumTouchTarget`)
+- [ ] Büyük Metin + Yüksek Kontrast both on: Settings still legible; icons scale with their rows
+- [ ] Azaltılmış Hareket on: tab crossfade shortens, nothing else regresses
+
+### M4 — Tests
+
+- [ ] EditMode: `SettingsPanelThemeContrastTests` (new), `ProceduralMenuGraphicsTests` (new),
+      `SettingsPanelViewTests`, `UIContrastMathTests` — all green
+- [ ] PlayMode: `SettingsFlowPlayModeTests` — green
+- [ ] Console clean, no project-code warnings
+
+## CardView framing + next-card fields (2026-08-30)
+
+`SceneSetupAutomation`'s card authoring wired nine `CardView` serialized fields that did not exist
+on the class, so every Apply pass logged nine `SERIALIZED_PROPERTY_MISSING` errors and ten
+`SceneSetupAutomationTests` failed on `report.Invalid.Count == 0`. The fields are now declared and,
+more importantly, actually used — a serialized field the authoring writes but nothing ever reads is
+worse than no field at all.
+
+| Field | Type | Authored object | What `ApplyTheme` does with it |
+|---|---|---|---|
+| `borderOutline` | `Outline` | `Card` | re-tints to `theme.BorderGold`, **keeps the authored alpha** |
+| `frameImage` | `Image` | `Card/Frame` | `theme.CardFrameSprite`, disabled when absent |
+| `portraitFrameImage` | `Image` | `Card/PortraitRegion` | `theme.PortraitFrameSprite`, disabled when absent |
+| `bodyScrimImage` | `Image` | `Card/BodyScrim` | **always disabled** |
+| `cornerImages` | `Image[]` | 4 `Card/Corner*` | `theme.CornerDecorationSprite`, disabled when absent |
+| `temporaryBorderImages` | `Image[]` | `Card/TemporaryBorder` | re-tinted, **alpha preserved** |
+| `nextCardRoot` | `GameObject` | `CardArea/NextCard` | shown/hidden with the card (see below) |
+| `nextCardSurface` | `Image` | `CardArea/NextCard` | card-back art, else `theme.CardSurface` |
+| `nextCardFrame` | `Image` | `CardArea/NextCard/Frame` | `theme.CardFrameSprite`, disabled when absent |
+
+### Three decisions worth knowing
+
+**Alpha is never themed on the two border elements.** The card authoring comments explain that
+full-opacity gold at the card's exact bounds reads as a debug bounding box, which is why
+`borderOutline` and the temporary hairlines are authored faint. `ApplyTheme` therefore replaces only
+their RGB and keeps whatever alpha was authored. Two tests pin this.
+
+**`bodyScrimImage` is authored enabled but must never draw.** The authoring comment already stated
+the intent — *"CardView.ApplyTheme keeps this Image disabled unconditionally"* — but no such code
+existed, so the dark band behind the situation text (explicitly removed at the user's request:
+*"hikayenin arkaplanındaki siyahlığı kaldır"*) would have come back the moment the theme was
+applied. The Image keeps its sprite so restoring a legibility scrim later is a one-line change.
+
+**`nextCardRoot` is hidden with the card.** The peeking next card is a *sibling* of the card root
+(`ResponsiveCardSizer` positions it), so `Clear()` did not hide it — an empty card surface would
+keep floating behind the game-over panel. `SetVisible` now toggles both. This is the one behavioural
+change in this pass rather than pure theming; revert that block in `SetVisible` if the peek is meant
+to persist across game over.
+
+### Not done
+
+`SetAuthoringReferences` was **not** extended — folding nine more optional parameters into an
+already twelve-parameter signature would hurt every call site, and the scene authoring wires these
+by serialized-property name anyway. A separate `SetFramingAuthoringReferences` hook covers tests.
+
+### C1 — Verify
+
+- [ ] `Tools > Royal Decisions > Scene Setup > Apply Remaining Setup` — no
+      `SERIALIZED_PROPERTY_MISSING` lines in the report
+- [ ] `Tools > Royal Decisions > Scene Setup > Validate` — clean
+- [ ] Play the Game scene: card frame/corners look unchanged from before this pass (all the
+      decoration sprites are still unassigned in `DefaultGameUITheme.asset`, so they stay hidden)
+- [ ] No dark band behind the situation text
+- [ ] Reach a game over — no leftover empty card peeking behind the panel
+- [ ] EditMode: `CardViewFramingTests` (new) and `SceneSetupAutomationTests` green
+
+## Settings panel opening glitch — nested fitters settling one level per frame (2026-08-30)
+
+**Symptom.** The first time the Settings menu was opened, the rows briefly rendered on top of each
+other — the volume sliders visibly overlapping — and then snapped apart a few frames later. Later
+openings looked fine, which is why it read as a one-off.
+
+**Cause.** `SettingsPanelView.Show()` runs in this order:
+
+```
+Render(settings)     |  panelRoot is still INACTIVE here,
+ShowAudioTab()       |  so Unity lays out nothing at all
+OpenPanel()          <- activates it
+```
+
+Unity does not lay out an inactive hierarchy, so nothing in the panel has ever been measured at the
+moment it is switched on. Each tab is then a chain of nested `ContentSizeFitter`s —
+`ScrollContent -> tab -> group card -> rows` — and a child fitter only changes its own size *after*
+the parent above it has already measured, so the chain resolves roughly one level per frame. The
+0.22s opening fade is exactly long enough to make those frames visible.
+
+**Fix.** `OpenPanel()` calls `RebuildActiveTabLayout()` immediately after activating the panel —
+both animator branches call `SetActive(true)` synchronously, so this is simultaneously the first
+moment Unity *can* lay the panel out and the last moment before the fade starts drawing it. The
+rebuild is depth-first (`RebuildDepthFirst`): children settle before the parent that measures them,
+so the whole chain collapses into one synchronous pass instead of one level per frame. The
+`ScrollContent` above the tab is rebuilt last, because the tab's freshly measured height is its
+input.
+
+`ApplyActiveTabContent` calls it too, for tabs enabled for the first time on a switch. That path was
+never visibly broken — `PanelFadeAnimator.Swap` invokes the callback at zero alpha — but a
+just-enabled tab is unmeasured for the same reason, so it gets the same treatment.
+
+Only rects that actually drive layout (a `LayoutGroup` or a `ContentSizeFitter`) are rebuilt;
+recursing into leaf labels and icons would cost far more than it settles.
+
+### L1 — Verify
+
+- [ ] Play from `MainMenu`, open Ayarlar: the Ses tab's three sliders are correctly spaced on the
+      very first frame of the fade-in, never stacked
+- [ ] Switch through Grafik / Kontroller / Genel — each tab's first appearance is also clean
+- [ ] Close and reopen the panel: still clean, and unapplied edits/scroll position behave as before
+- [ ] EditMode: `SettingsPanelLayoutTests` (new) green
+
+## SettingsMenuController — standalone PlayerPrefs settings controller (2026-08-30)
+
+A second, self-contained way to drive a settings menu, added alongside the existing
+`SettingsController`. Requested against CLAUDE.md's UI/UX §3 (`PlayerPrefs` or a separate settings
+manager; `[SerializeField]` widget references; live percentage labels on `onValueChanged`).
+
+> ⚠️ **Only one of the two may be live in a scene.** `SettingsController` saves to versioned JSON
+> (`SettingsSaveService`); `SettingsMenuController` saves to `PlayerPrefs`. Both write the same
+> `GameSettings`, so wiring both splits the player's preferences across two stores and they will
+> silently disagree. The authored `MainMenu`/`Game` panels still use `SettingsController` — nothing
+> in `SceneSetupAutomation` or either scene was changed by this pass.
+
+### Files
+
+| File | Role |
+|---|---|
+| `Scripts/Composition/SettingsMenuController.cs` | The controller: widgets → `GameSettings` → store |
+| `Scripts/Composition/PlayerPrefsSettingsStore.cs` | `ISettingsStore` over `PlayerPrefs` |
+| `Tests/EditMode/SettingsMenuControllerTests.cs` | Staged-edit contract |
+| `Tests/EditMode/PlayerPrefsSettingsStoreTests.cs` | Round trip, fallbacks, sanitising |
+
+No assembly definition changes — `RoyalDecisions.Composition` already references Domain,
+Application, Presentation, uGUI and TextMeshPro.
+
+### Design notes worth keeping
+
+**No draft copy.** `GameSettings` has no `Clone()`, and none was added. Following
+`SettingsController`'s existing approach, `current` holds only what was last saved and the widgets
+*are* the draft. `Apply` reads the widgets into `current`; `Cancel` simply re-renders `current`,
+which is also what undoes the live audio/accessibility preview. This is why `Render` uses
+`SetValueWithoutNotify`/`SetIsOnWithoutNotify` everywhere — a programmatic render that raised
+`onValueChanged` would look like a player edit.
+
+**Percentage labels do not allocate per frame.** `onValueChanged` fires on every frame of a drag.
+Each label caches the whole-number percentage it last wrote and skips the `string.Format` when it
+has not changed, so dragging a slider allocates roughly once per visible percent rather than once
+per frame (CLAUDE.md §10).
+
+**Unwired controls keep their stored values.** `ReadWidgetsInto` falls back to the current setting
+for any control left unassigned, so a menu that exposes only the audio group cannot stamp defaults
+over Graphics/Controls/General settings on Apply. There is a test for this.
+
+**Frame pacing is guarded by `Application.isPlaying`.** `targetFrameRate` and `vSyncCount` are
+global editor state that nothing resets, so applying settings outside play mode (a test, an
+authoring pass) must not leave the editor itself capped at 30 FPS.
+
+**Text size needs an explicit mapping.** `TextSizeMode` is `Normal=0, Small=1, Large=2` while the
+slider runs smallest-to-largest, so a cast would be wrong — `TextSizeModeToStep` / `StepToTextSizeMode`
+mirror the mapping `GeneralSettingsPanelView` already uses. Frame rate is a straight four-step
+slider (30/60/90/120).
+
+**PlayerPrefs specifics.** Bools are stored as 0/1 and enums as ints, because PlayerPrefs supports
+neither. A version key guards the layout: an unrecognised version logs a warning and falls back to
+defaults rather than guessing. Every load ends in `GameSettings.SanitizeAfterLoad()`, so a
+hand-edited or corrupt value is clamped/rejected before it reaches the audio and accessibility
+systems. The key prefix is a constructor argument so tests use a unique namespace and delete it
+afterwards instead of touching real preferences.
+
+### N1 — Wiring it up (only if you actually want to use it)
+
+- [ ] Add `SettingsMenuController` to a GameObject on the settings Canvas
+- [ ] **Disable or remove `SettingsController` in that scene** — see the warning above
+- [ ] Assign the widgets in the Inspector. All groups are optional; unassigned controls are simply
+      not exposed and keep their stored values
+- [ ] Optionally assign `audioService` (live volume preview), `accessibility` (live text
+      size/contrast/motion preview), `panelRoot` (hidden by Apply/Cancel) and `statusLabel`
+      (shows a failed save)
+- [ ] `percentFormat`, `frameRateNames`, `textSizeNames` and `saveFailedMessage` are serialized, so
+      wording changes need no code change (CLAUDE.md §4)
+
+### N2 — Verify in Play mode
+
+- [ ] Drag each volume slider: the percentage tracks the handle and the audio changes immediately
+- [ ] Sessiz Mod silences everything; Titreşim pulses once when switched on
+- [ ] **Uygula** → leave Play, re-enter: values persisted
+- [ ] **İptal** after dragging → sliders and the audible volume both snap back to the saved state
+- [ ] **Varsayılanlara Dön** → widgets show defaults but nothing is saved until Apply
+- [ ] Delete the PlayerPrefs keys (or run on a clean device): the menu opens on defaults, no errors
+>>>>>>> Stashed changes

@@ -49,6 +49,42 @@ namespace RoyalDecisions.Presentation
         [SerializeField] private Image cardBackImage;
         [SerializeField] private PortraitFallbackView portraitFallbackView;
 
+        [Header("Framing")]
+        [Tooltip("Hairline around the card's own bounds. Only its hue is themed — the authored "
+            + "alpha is preserved, because full-opacity gold at the card's exact bounds reads as a "
+            + "debug bounding box rather than a card edge.")]
+        [SerializeField] private Outline borderOutline;
+
+        [Tooltip("Ornate picture-frame overlay with a transparent window, rendered above the "
+            + "portrait. Optional art: disabled when the theme supplies no frame sprite, rather "
+            + "than left showing a flat gold rectangle.")]
+        [SerializeField] private Image frameImage;
+
+        [Tooltip("Frame around the portrait region. Optional art, like frameImage.")]
+        [SerializeField] private Image portraitFrameImage;
+
+        [Tooltip("Legibility scrim behind the situation text. Authored but never drawn — see "
+            + "ApplyTheme; kept wired so restoring it is one flag flip, not a re-authoring pass.")]
+        [SerializeField] private Image bodyScrimImage;
+
+        [Tooltip("The four corner decorations. Optional art, hidden when the theme has no corner "
+            + "sprite.")]
+        [SerializeField] private Image[] cornerImages;
+
+        [Tooltip("Procedural hairline segments standing in for the final card border while "
+            + "placeholder art is in use. Re-tinted, never re-alpha'd — see borderOutline.")]
+        [SerializeField] private Image[] temporaryBorderImages;
+
+        [Header("Next card peek")]
+        [Tooltip("Root of the card peeking out beneath this one. It is a sibling of this view's "
+            + "own root (ResponsiveCardSizer positions it), so it is shown and hidden here.")]
+        [SerializeField] private GameObject nextCardRoot;
+
+        [SerializeField] private Image nextCardSurface;
+
+        [Tooltip("The peeking card's own frame overlay. Optional art, like frameImage.")]
+        [SerializeField] private Image nextCardFrame;
+
         [Header("Choice previews")]
         [SerializeField] private ChoicePreviewView leftPreview;
         [SerializeField] private ChoicePreviewView rightPreview;
@@ -187,6 +223,9 @@ namespace RoyalDecisions.Presentation
                 surfaceImage.color = Color.clear;
             }
 
+            ApplyFraming(theme);
+            ApplyNextCardPeek(theme);
+
             ConfigureOptional(portraitMaskImage, Color.white, true);
 
             if (cardBackImage != null)
@@ -230,6 +269,85 @@ namespace RoyalDecisions.Presentation
             portraitFallbackView?.ApplyTheme(theme);
             leftPreview?.ApplyTheme(theme);
             rightPreview?.ApplyTheme(theme);
+        }
+
+        /// <summary>
+        /// Frame, corners and border hairlines. Every decoration here is optional art: when the
+        /// theme ships no sprite the Image is switched off rather than left rendering as a flat
+        /// gold rectangle, so a missing decoration degrades to "no decoration" instead of a
+        /// visible placeholder block.
+        /// </summary>
+        private void ApplyFraming(GameUITheme theme)
+        {
+            ConfigureOptional(frameImage, theme.CardFrameSprite, theme.BorderGold);
+            ConfigureOptional(portraitFrameImage, theme.PortraitFrameSprite, theme.BorderGold);
+
+            if (cornerImages != null)
+            {
+                for (int i = 0; i < cornerImages.Length; i++)
+                {
+                    ConfigureOptional(cornerImages[i], theme.CornerDecorationSprite, theme.BorderGold);
+                }
+            }
+
+            // Hue only, never alpha: these hairlines are deliberately faint, and re-tinting them to
+            // full-opacity gold would turn the card into a debug bounding box.
+            if (temporaryBorderImages != null)
+            {
+                for (int i = 0; i < temporaryBorderImages.Length; i++)
+                {
+                    Image border = temporaryBorderImages[i];
+                    if (border == null)
+                    {
+                        continue;
+                    }
+
+                    border.color = KeepAlphaOf(theme.BorderGold, border.color);
+                    border.raycastTarget = false;
+                }
+            }
+
+            if (borderOutline != null)
+            {
+                borderOutline.effectColor = KeepAlphaOf(theme.BorderGold, borderOutline.effectColor);
+            }
+
+            // Authored but never drawn. The situation text renders on the parchment panel above the
+            // card, and the dark band behind it was explicitly removed; the Image stays wired (with
+            // its sprite intact) so restoring a legibility scrim is a one-line change here.
+            if (bodyScrimImage != null)
+            {
+                bodyScrimImage.raycastTarget = false;
+                bodyScrimImage.enabled = false;
+            }
+        }
+
+        /// <summary>
+        /// The card peeking out beneath the active one. It shows a card <em>back</em>, so it
+        /// follows the same art-or-flat-colour rule as <see cref="cardBackImage"/>.
+        /// </summary>
+        private void ApplyNextCardPeek(GameUITheme theme)
+        {
+            if (nextCardSurface != null)
+            {
+                bool hasArt = theme.CardBackSprite != null;
+                if (hasArt)
+                {
+                    nextCardSurface.sprite = theme.CardBackSprite;
+                }
+
+                nextCardSurface.color = hasArt ? Color.white : theme.CardSurface;
+                nextCardSurface.raycastTarget = false;
+                nextCardSurface.enabled = true;
+            }
+
+            ConfigureOptional(nextCardFrame, theme.CardFrameSprite, theme.BorderGold);
+        }
+
+        /// <summary>Takes the RGB of <paramref name="hue"/> but keeps <paramref name="source"/>'s alpha.</summary>
+        private static Color KeepAlphaOf(Color hue, Color source)
+        {
+            return new Color(hue.r, hue.g, hue.b, source.a);
         }
 
         private void RepositionName()
@@ -337,6 +455,14 @@ namespace RoyalDecisions.Presentation
         {
             GameObject root = visualRoot != null ? visualRoot : gameObject;
             root.SetActive(visible);
+
+            // The peek is a sibling of this root, not a child of it, so hiding the card does not
+            // hide the peek on its own — without this an empty card surface keeps floating behind
+            // the game-over panel after Clear().
+            if (nextCardRoot != null)
+            {
+                nextCardRoot.SetActive(visible);
+            }
         }
 
         private static void ConfigureOptional(
@@ -428,6 +554,34 @@ namespace RoyalDecisions.Presentation
             nameScrimImage = nameScrim;
             cardBackImage = cardBack;
             portraitFallbackView = generatedPortraitFallback;
+        }
+
+        /// <summary>
+        /// Editor-only wiring hook for the framing and next-card references. Deliberately separate
+        /// from <see cref="SetAuthoringReferences"/>: folding nine more optional parameters into
+        /// that signature would make it unreadable at every call site, and the scene authoring
+        /// wires these by serialized-property name rather than through either method.
+        /// </summary>
+        public void SetFramingAuthoringReferences(
+            Outline outline = null,
+            Image frame = null,
+            Image portraitFrame = null,
+            Image bodyScrim = null,
+            Image[] corners = null,
+            Image[] temporaryBorders = null,
+            GameObject nextRoot = null,
+            Image nextSurface = null,
+            Image nextFrame = null)
+        {
+            borderOutline = outline;
+            frameImage = frame;
+            portraitFrameImage = portraitFrame;
+            bodyScrimImage = bodyScrim;
+            cornerImages = corners;
+            temporaryBorderImages = temporaryBorders;
+            nextCardRoot = nextRoot;
+            nextCardSurface = nextSurface;
+            nextCardFrame = nextFrame;
         }
 #endif
     }

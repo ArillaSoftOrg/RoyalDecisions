@@ -43,11 +43,6 @@ namespace RoyalDecisions.Editor
         // as the story content files already in this project; the source is UTF-8 throughout.
         private const string ArtFolder = "Assets/Tasarım/";
         private const string BackgroundArtPath = ArtFolder + "Background.png";
-        // The active full-screen backdrop (Reigns-style final presentation). Background.png stays
-        // imported but unused — the team may still want it, per "do not delete source assets."
-        private const string Background2ArtPath = ArtFolder + "Background2.png";
-        // Card-back art shown fixed behind the swipeable portrait, revealed as it is dragged away.
-        private const string CardBackArtPath = ArtFolder + "Card.png";
         private const string CardFrameArtPath = ArtFolder + "KartÇerçevesi.png";
         private const string SituationPanelArtPath = ArtFolder + "Parşömen.png";
         private const string PeopleIconArtPath = ArtFolder + "People.png";
@@ -115,26 +110,16 @@ namespace RoyalDecisions.Editor
         // this is a secondary, always-visible in-run control, not a primary menu action — so it sits
         // measurably tighter/denser than MainMenu's single lone settings icon.
         private const float GameTopBarIconSize = 96f;
-        // Trimmed from 20 (was 136 combined with HUD below, ~17.9% of a 1920-tall SafeArea) so
-        // TopBar+HUD together land inside the requested ~14-17% band instead of just over it.
-        // The icon itself stays at the 96px accessibility touch-target floor.
-        private const float GameTopBarIconMargin = 12f;
+        private const float GameTopBarIconMargin = 20f;
         // Symmetric top/bottom breathing room around the icon: margin + icon + margin.
         private const float GameTopBarHeight =
             GameTopBarIconMargin * 2f + GameTopBarIconSize;
-        private const float GameHudHeight = 208f;
-        // Where the fixed content column (SituationArea, ContentPanel) begins: directly below the
-        // combined TopBar+HUD strip, which together read as one continuous dark panel.
-        private const float GameContentTopInset = GameTopBarHeight + GameHudHeight;
 
         private static readonly Color OverallBackgroundColour = new Color32(0x07, 0x11, 0x1B, 0xFF);
         private static readonly Color SurfaceColour = new Color32(0x12, 0x16, 0x20, 0xFF);
-        // Warm royal palette (MainMenu + Settings + About only), matching the game's own gold/navy
-        // branding rather than a generic neutral theme. Applied to the camera clear colour, which
-        // only these three screens ever actually show — the Game scene's own opaque Background
-        // (ConfigureBackground) always covers its camera, so repainting this tone has no visible
-        // effect there.
-        private static readonly Color MainMenuBackgroundColour = new Color32(0x12, 0x10, 0x0C, 0xFF);
+        // The menu ground (MainMenu + Settings + About) now lives on SettingsPanelTheme as
+        // ScreenBackgroundColour, so the palette has exactly one owner shared by the Editor
+        // authoring here and the runtime views — see EnsureCamera and ConfigureSettingsPanel.
         private static readonly Color CardSurfaceColour = new Color32(0x21, 0x17, 0x1A, 0xFF);
         private static readonly Color BorderGoldColour = new Color32(0xB5, 0x8A, 0x4A, 0xFF);
         private static readonly Color StatBackgroundColour = new Color32(0x2A, 0x2F, 0x3A, 0xFF);
@@ -142,31 +127,20 @@ namespace RoyalDecisions.Editor
         // did before the zombie re-theme below), so the Settings-only palette change below cannot
         // change the Game scene's restart button or any other default-coloured menu button there.
         private static readonly Color ButtonColour = new Color(0.78f, 0.58f, 0.18f, 1f);
-        // TopBar + HUD panel — a single dark warm brown so the two read as one continuous bar
-        // (there is no illustrated background left behind them to blend with any more).
-        private static readonly Color HudPanelColour = new Color32(0x2E, 0x1D, 0x12, 0xFF);
-        // Dark ink, not gold: the name band now sits on the same aged-paper surface as
-        // SituationText (NameScrimColour below, ContentPanel), so it reads as paper-column
-        // text rather than a highlight over raw background art. Literal duplicate of
-        // SituationTextColour rather than a reference to it — static field initializers run in
-        // declaration order, and that field is declared after this one.
-        private static readonly Color SpeakerTextColour = new Color32(0x2A, 0x1E, 0x14, 0xFF);
+        private static readonly Color SpeakerTextColour = new Color32(0xD9, 0xC2, 0x8B, 0xFF);
+        // Already close to GameUITheme.PrimaryText (0.949, 0.906, 0.812) — reused below for
+        // Card/Body's authoring-time colour instead of adding a near-duplicate constant.
+        // CardView.ApplyTheme overrides it at runtime with theme.PrimaryText regardless.
         private static readonly Color BodyTextColour = new Color32(0xF2, 0xE7, 0xCF, 0xFF);
         private static readonly Color SecondaryTextColour = new Color32(0xB9, 0xAA, 0x90, 0xFF);
         // The situation panel sits above the card as light parchment, not the card's dark
         // surface, so it needs its own light background and dark ink text colours.
         private static readonly Color SituationPanelColour = new Color32(0xD9, 0xC7, 0x9E, 0xFF);
         private static readonly Color SituationTextColour = new Color32(0x2A, 0x1E, 0x14, 0xFF);
-        // Paper backing behind the fixed name band — literal duplicate of SituationPanelColour
-        // (same reason as SpeakerTextColour above) so Speaker reads as sitting on the same
-        // paper column as SituationText, not a dark scrim over raw background art.
-        private static readonly Color NameScrimColour = new Color32(0xD9, 0xC7, 0x9E, 0xFF);
-        // Restrained and mostly dark, with real alpha so the choice preview panel reads as a
-        // translucent scrim over the moving portrait rather than an opaque banner.
-        // Alpha raised from 0xC0 (~75%) to 0xE0 (~88%) for stronger contrast against the portrait
-        // while dragging — within the requested ~82-90% maximum-opacity band.
-        private static readonly Color ChoicePreviewLeftTint = new Color32(0x3A, 0x14, 0x18, 0xE0);
-        private static readonly Color ChoicePreviewRightTint = new Color32(0x2E, 0x35, 0x14, 0xE0);
+        private static readonly Color NameScrimColour = new Color(0f, 0f, 0f, 0.55f);
+        // Dark olive/khaki, not black — a themed plaque behind the name at the top of the card,
+        // matching the zombie/military palette instead of a plain dark scrim.
+        private static readonly Color TopPlaqueColour = new Color32(0x2E, 0x2A, 0x1C, 0xCC);
         // A quarter-opacity version of BorderGoldColour: still signals "no frame art yet" without
         // reading as a solid debug/bounding-box rectangle around the card.
         private static readonly Color TemporaryCardBorderColour = new Color32(0xB5, 0x8A, 0x4A, 0x40);
@@ -338,18 +312,14 @@ namespace RoyalDecisions.Editor
                     AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(TurkishFontPath);
                 GameUITheme theme = EnsureDefaultTheme(report);
                 FeedbackCueProfile feedback = EnsureDefaultFeedbackCueProfile(report);
-                // The real Game scene is canonically wired to the Story catalogue (see
-                // StorySceneWiring) — Apply must wire and validate against the same asset, or its
-                // own post-apply validation (which already checks the Game scene against
-                // StorySceneWiring.StoryCataloguePath) fails against whatever Apply just wrote.
                 ContentCatalogue catalogue = AssetDatabase.LoadAssetAtPath<ContentCatalogue>(
-                    StorySceneWiring.StoryCataloguePath);
+                    CataloguePath);
 
                 if (catalogue == null)
                 {
                     report.Add(SceneSetupIssueSeverity.Error, "CATALOGUE_MISSING", "Assets",
-                        StorySceneWiring.StoryCataloguePath, string.Empty,
-                        "The story catalogue is missing or has the wrong type.");
+                        CataloguePath, string.Empty,
+                        "The placeholder catalogue is missing or has the wrong type.");
                     throw new InvalidOperationException("Required catalogue is unavailable.");
                 }
                 if (interfaceText == null || turkishFont == null)
@@ -484,7 +454,7 @@ namespace RoyalDecisions.Editor
             try
             {
                 ContentCatalogue catalogue = AssetDatabase.LoadAssetAtPath<ContentCatalogue>(
-                    StorySceneWiring.StoryCataloguePath);
+                    CataloguePath);
                 SessionIntent intent = AssetDatabase.LoadAssetAtPath<SessionIntent>(SessionIntentPath);
                 report.Merge(ValidateProjectLoadedState(operation, catalogue, intent));
             }
@@ -510,8 +480,7 @@ namespace RoyalDecisions.Editor
             // caller. Reload stable asset references before comparing serialized fields.
             if (catalogue == null)
             {
-                catalogue = AssetDatabase.LoadAssetAtPath<ContentCatalogue>(
-                    StorySceneWiring.StoryCataloguePath);
+                catalogue = AssetDatabase.LoadAssetAtPath<ContentCatalogue>(CataloguePath);
             }
             if (intent == null)
             {
@@ -539,8 +508,7 @@ namespace RoyalDecisions.Editor
             if (catalogue == null)
             {
                 report.Add(SceneSetupIssueSeverity.Error, "CATALOGUE_MISSING", "Assets",
-                    StorySceneWiring.StoryCataloguePath, string.Empty,
-                    "ContentCatalogue is missing or invalid.");
+                    CataloguePath, string.Empty, "ContentCatalogue is missing or invalid.");
             }
 
             if (intent == null)
@@ -549,10 +517,9 @@ namespace RoyalDecisions.Editor
                     SessionIntentPath, string.Empty, "SessionIntent is missing or invalid.");
             }
 
-            // Reloaded independently here (rather than reusing the catalogue captured above)
-            // because this runs inside ValidateSceneAsset's callback, after the Game scene has
-            // been opened Single — which can unload asset references nothing else currently
-            // holds live, per the same caution StorySceneWiring documents.
+            // The committed Game scene is wired to the story catalogue (see StorySceneWiring),
+            // not the placeholder one CataloguePath points at — validate against the asset the
+            // scene is actually meant to reference.
             ValidateSceneAsset(GameScenePath, report,
                 scene => ValidateGameScene(
                     scene,
@@ -646,13 +613,14 @@ namespace RoyalDecisions.Editor
             // A top strip above HUD for Geri (back to MainMenu) and Ayarlar (Settings) — HUD's own
             // row is already edge-to-edge with the four stat bars, so these need their own space.
             // Surfaced the same as HUD (zero gap between the two) so together they read as one
-            // continuous dark warm-brown panel — there is no illustrated background left behind
-            // them on portrait mobile to blend with any more.
+            // continuous panel instead of the icon buttons floating loose over the game background.
             RectTransform topBar = EnsureUiChild(safeArea, "TopBar", report);
             SetRect(topBar, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
                 new Vector2(0f, GameTopBarHeight), new Vector2(0.5f, 1f));
+            // Left fully transparent (rather than SurfaceColour) so this strip reads as part of the
+            // background artwork/vignette instead of a distinct flat panel behind Geri/Ayarlar.
             Image topBarSurface = EnsureSingleComponent<Image>(topBar.gameObject, report);
-            ConfigureSimpleImage(topBarSurface, LoadBuiltInUiSprite(report), HudPanelColour, false);
+            ConfigureSimpleImage(topBarSurface, LoadBuiltInUiSprite(report), Color.clear, false);
             Button backButton = EnsureBackIconButton(
                 topBar, report, GameTopBarIconSize, GameTopBarIconMargin);
             Button settingsButton = EnsureSettingsIconButton(
@@ -666,16 +634,13 @@ namespace RoyalDecisions.Editor
                 // Shift HUD down by GameTopBarHeight so it sits below the new top bar instead of
                 // flush with SafeArea's own top edge.
                 SetRect(hud.transform as RectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f),
-                    new Vector2(0f, -GameTopBarHeight), new Vector2(0f, GameHudHeight),
-                    new Vector2(0.5f, 1f));
+                    new Vector2(0f, -GameTopBarHeight), new Vector2(0f, 208f), new Vector2(0.5f, 1f));
             }
-            RectTransform contentPanel = ConfigureContentPanel(safeArea, report);
             FooterParts footer = ConfigureFooter(safeArea, interfaceText, font, report);
             // Kept (hidden, not deleted) for its layout slot and in case it's ever needed again —
             // see ConfigureSituationArea. bodyText is wired inside ConfigureCard now instead.
             SituationAreaParts situationArea = ConfigureSituationArea(safeArea, font, report);
-            CardParts card = ConfigureCard(safeArea, contentPanel, font, report);
-            SetObjectProperty(card.View, "bodyText", situationArea.Text, report);
+            CardParts card = ConfigureCard(safeArea, font, report);
             TapChoiceButtonsParts tapChoices = ConfigureTapChoiceButtons(
                 safeArea, font, card.Swipe, report);
             TutorialParts tutorial = ConfigureTutorial(safeArea, font, report);
@@ -697,7 +662,6 @@ namespace RoyalDecisions.Editor
                 SetObjectProperty(controller, "hudView", hud, report);
                 SetObjectProperty(controller, "gameOverView", gameOver.View, report);
                 SetObjectProperty(controller, "swipeController", card.Swipe, report);
-                SetObjectProperty(controller, "cardFlipController", card.Flip, report);
                 SetObjectProperty(controller, "tapChoiceButtonsView", tapChoices.View, report);
                 SetObjectProperty(controller, "runStatusView", footer.RunStatus, report);
                 SetObjectProperty(controller, "footerView", footer.Footer, report);
@@ -803,19 +767,18 @@ namespace RoyalDecisions.Editor
                 SetSiblingIndex(safeArea, 1);
             }
 
-            if (hud != null && contentPanel != null && situationArea.Root != null
-                && card.Area != null && tapChoices.Root != null && footer.Root != null
+            if (hud != null && situationArea.Root != null && card.Area != null
+                && tapChoices.Root != null && footer.Root != null
                 && tutorial.Root != null && gameOver.Root != null)
             {
                 SetSiblingIndex(topBar, 0);
                 SetSiblingIndex(hud.transform, 1);
-                SetSiblingIndex(contentPanel, 2);
-                SetSiblingIndex(situationArea.Root, 3);
-                SetSiblingIndex(card.Area, 4);
-                SetSiblingIndex(tapChoices.Root, 5);
-                SetSiblingIndex(footer.Root, 6);
-                SetSiblingIndex(tutorial.Root, 7);
-                SetSiblingIndex(gameOver.Root, 8);
+                SetSiblingIndex(situationArea.Root, 2);
+                SetSiblingIndex(card.Area, 3);
+                SetSiblingIndex(tapChoices.Root, 4);
+                SetSiblingIndex(footer.Root, 5);
+                SetSiblingIndex(tutorial.Root, 6);
+                SetSiblingIndex(gameOver.Root, 7);
             }
 
             // TMP auto-sizing stores both its configured base size and its last calculated size.
@@ -911,9 +874,9 @@ namespace RoyalDecisions.Editor
             Image overlay = EnsureSingleComponent<Image>(overlayTransform.gameObject, report);
             Image vignette = EnsureSingleComponent<Image>(vignetteTransform.gameObject, report);
             ConfigureSimpleImage(artwork, null, Color.white, false, false);
-            // Background2 is already dark, so only a light scrim is needed; BackgroundView.
-            // ApplyTheme sets the same value at runtime.
-            ConfigureSimpleImage(overlay, null, new Color(0f, 0f, 0f, 0.12f), false);
+            // Detailed artwork needs more separation from foreground UI than a flat colour did;
+            // BackgroundView.ApplyTheme sets the same value at runtime.
+            ConfigureSimpleImage(overlay, null, new Color(0f, 0f, 0f, 0.38f), false);
             ConfigureSimpleImage(vignette, null, Color.white, false, false);
             ProceduralVignetteGraphic procedural =
                 EnsureSingleComponent<ProceduralVignetteGraphic>(proceduralTransform.gameObject, report);
@@ -942,13 +905,13 @@ namespace RoyalDecisions.Editor
         {
             RectTransform hudTransform = EnsureUiChild(safeArea, "HUD", report);
             SetRect(hudTransform, new Vector2(0f, 1f), new Vector2(1f, 1f),
-                Vector2.zero, new Vector2(0f, GameHudHeight), new Vector2(0.5f, 1f));
+                Vector2.zero, new Vector2(0f, 208f), new Vector2(0.5f, 1f));
 
             HUDView hud = EnsureSingleComponent<HUDView>(hudTransform.gameObject, report);
-            // Dark warm brown, same as TopBar above it — the two read as one continuous panel
-            // (there is no illustrated background left behind them to blend with any more).
+            // Left fully transparent (rather than SurfaceColour) so this row reads as part of the
+            // background artwork/vignette instead of a distinct flat panel behind the stat bars.
             Image hudSurface = EnsureSingleComponent<Image>(hudTransform.gameObject, report);
-            ConfigureSimpleImage(hudSurface, LoadBuiltInUiSprite(report), HudPanelColour, false);
+            ConfigureSimpleImage(hudSurface, LoadBuiltInUiSprite(report), Color.clear, false);
             HorizontalLayoutGroup layout = EnsureSingleComponent<HorizontalLayoutGroup>(
                 hudTransform.gameObject, report);
             if (layout != null)
@@ -1324,6 +1287,22 @@ namespace RoyalDecisions.Editor
             image.enabled = enabled;
         }
 
+        private static void ConfigureOptionalSlicedImage(Image image, Sprite sprite, Color colour)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            Undo.RecordObject(image, "Configure optional sliced Image");
+            image.sprite = sprite;
+            image.type = Image.Type.Sliced;
+            image.preserveAspect = false;
+            image.raycastTarget = false;
+            image.color = colour;
+            image.enabled = sprite != null;
+        }
+
         /// <summary>
         /// For art with unique, non-repeating detail at every edge (ornate frame corners, torn
         /// parchment edges) where 9-slicing would stretch and deform that detail. Fits by
@@ -1410,33 +1389,6 @@ namespace RoyalDecisions.Editor
         }
 
         /// <summary>
-        /// The fixed flat aged-beige surface filling everything below TopBar+HUD — full SafeArea
-        /// width, no side margins, no illustrated background behind it. Never moves. A sibling of
-        /// SituationArea and CardArea, drawn behind both, so SituationText and the card's fixed
-        /// name band read as sitting directly on this one continuous paper surface.
-        /// </summary>
-        private static RectTransform ConfigureContentPanel(
-            RectTransform safeArea, SceneSetupReport report)
-        {
-            // Retired: an earlier pass of this presentation used a narrower "DecisionColumn"
-            // (72-78% width, Background2 visible on the sides) in this same role. Superseded by
-            // this full-width ContentPanel now that portrait mobile has no background art at all.
-            RemoveObsoleteChild(safeArea, "DecisionColumn");
-
-            RectTransform panel = EnsureUiChild(safeArea, "ContentPanel", report);
-            // Top inset matches SituationArea's own top offset below TopBar+HUD; bottom inset is
-            // zero — the panel reaches the very bottom of SafeArea, so no background art (or the
-            // flat navy Background fallback behind it) is ever exposed on portrait mobile.
-            SetRect(panel, Vector2.zero, Vector2.one,
-                new Vector2(0f, -GameContentTopInset / 2f), new Vector2(0f, -GameContentTopInset),
-                Center);
-            // Flat (0 radius) restrained aged-beige surface — no ornate frame, no floating box;
-            // SituationPanel above shares this exact colour so the two read as one surface.
-            ConfigureRoundedFill(panel.gameObject, SituationPanelColour, 0f, false, report);
-            return panel;
-        }
-
-        /// <summary>
         /// The situation/question panel sitting above the swipe card, outside <c>Card</c> so it
         /// never moves with the drag. A sibling of <c>CardArea</c>, flush below <c>HUD</c>.
         /// </summary>
@@ -1445,99 +1397,99 @@ namespace RoyalDecisions.Editor
             TMP_FontAsset font,
             SceneSetupReport report)
         {
-            // Full SafeArea width, no side margins — same horizontal span as ContentPanel (see
-            // ConfigureContentPanel) so its edges sit flush with it instead of floating as a
-            // separately-sized box. A short fixed height (room for 2-4 lines) directly below
-            // TopBar+HUD (see ConfigureCard's top margin, which is derived from this height).
+            // Compact — supporting text above the card, not a primary visual object: ~88% of
+            // SafeArea width, a short fixed height (room for 2-4 lines), and only a small gap
+            // above CardArea (see ConfigureCard's top margin, which is derived from this height).
             RectTransform root = EnsureUiChild(safeArea, "SituationArea", report);
             SetRect(root, new Vector2(0f, 1f), new Vector2(1f, 1f),
-                new Vector2(0f, -GameContentTopInset), new Vector2(0f, 160f), new Vector2(0.5f, 1f));
+                new Vector2(0f, -208f), new Vector2(-130f, 160f), new Vector2(0.5f, 1f));
             // Final sibling position is pinned by ApplyGameScene's canonical SafeArea ordering
             // block once every sibling exists, so this new object's position here is provisional.
-            // Forced active regardless of prior state — a scene carried over from before the
-            // situation text moved here (or from an older Apply run) may have this deactivated.
-            SetActiveIfNeeded(root.gameObject, true);
+
+            // Hidden at the user's explicit request — the situation/body text now renders directly
+            // on the card (see ConfigureCard's BodyScrim/Body) instead of this parchment panel
+            // above it. Kept in the hierarchy rather than destroyed: cheap to bring back, and its
+            // theme wiring (SituationPanelImage/Fallback) still runs harmlessly while inactive.
+            SetActiveIfNeeded(root.gameObject, false);
 
             RectTransform panelTransform = EnsureUiChild(root, "SituationPanel", report);
             Stretch(panelTransform);
-            // Flat (0 radius), same colour as ContentPanel immediately behind it: the two
-            // surfaces read as one continuous paper strip instead of a separate floating rounded
-            // box sitting on top of it.
             ProceduralRoundedRectGraphic panelFallback = ConfigureRoundedFill(
-                panelTransform.gameObject, SituationPanelColour, 0f, false, report);
+                panelTransform.gameObject, SituationPanelColour, 14f, false, report);
 
             // Sprite-driven surface, sibling of the procedural fallback rather than the same
             // object (two Graphics cannot safely share one CanvasRenderer). Starts disabled —
             // GameUIThemeController.ApplyTheme enables exactly one of the two based on whether
-            // GameUITheme.SituationPanelSprite is assigned (it is not: the flat paper-column look
-            // is the target presentation, not Parşömen.png).
+            // GameUITheme.SituationPanelSprite is assigned. Simple + preserveAspect, not Sliced:
+            // the supplied parchment has pronounced torn/curled edges on every side (most notably
+            // a rolled corner), which a 9-slice border would stretch and smear. The regenerated,
+            // wider Parşömen.png (2079x756, aspect ~2.75 — Unity's own auto-slice detection on
+            // import measured the actually-painted shape at ~2025x710, aspect ~2.85, so there is
+            // little wasted transparent canvas to trim) is essentially the same proportions as the
+            // file it replaced (~2.9) and still well short of this panel's approved compact
+            // proportions (aspect ~5.9). Preserve Aspect remains correct policy — it avoids
+            // distortion — but the transparent side margins this leaves are not meaningfully
+            // smaller than before. Flagged in the integration report rather than resized, since
+            // panel dimensions are out of scope here; closing the gap needs art drawn wider
+            // relative to its height, not an import-setting change.
             RectTransform artworkTransform = EnsureUiChild(panelTransform, "Artwork", report);
             Stretch(artworkTransform);
             Image artwork = EnsureSingleComponent<Image>(artworkTransform.gameObject, report);
             ConfigureOptionalSimpleImage(artwork, null, Color.white);
             SetSiblingIndex(artworkTransform, 0);
 
-            // Generous fixed pixel margins (not percentage) so text never reads edge-to-edge on
-            // the now full-width panel: ~90px left/right at the 1080-reference width, ~26px
-            // top/bottom. See SituationTextLayoutPlayModeTests, which reproduces this exact box
-            // against real 1-, 3- and 4-line authored story text.
+            // Fixed pixel margins (not percentage) so text stays clear of the parchment's torn
+            // edges regardless of panel width: ~50px left/right at the 1080-reference width
+            // (unchanged), ~26px top/bottom — widened from ~18px because the parchment's own
+            // decorative edge detail reads as encroaching on the text at the panel's short 160px
+            // height, not because SituationPanel's own bounds were wrong. See
+            // SituationTextLayoutPlayModeTests, which reproduces this exact box against real
+            // 1-, 3- and 4-line authored story text.
             RectTransform textTransform = EnsureUiChild(panelTransform, "SituationText", report);
             SetRect(textTransform, Vector2.zero, Vector2.one,
-                Vector2.zero, new Vector2(-180f, -52f), Center);
+                Vector2.zero, new Vector2(-100f, -52f), Center);
             TextMeshProUGUI text = EnsureSingleComponent<TextMeshProUGUI>(
                 textTransform.gameObject, report);
-            // Sized up ~10-12% (32/20-36 -> 36/22-40) now that the full-width panel and wider
-            // margins give more room than the old narrower column did. Target/max raised again
-            // here (36/40 -> 40/46); fontSizeMin (22) is left untouched — it is the floor
-            // SituationTextLayoutPlayModeTests proves the longest authored four-line body still
-            // fits at, and raising it would risk that same body overflowing this unchanged box.
-            ConfigureReadableText(text, font, 40f, 22f, 46f, true, true, 2f);
+            // Auto-size range and spacing tightened (36/28-40/6 -> 32/20-36/2) to trade a little
+            // headroom at the largest size for guaranteed room to fit ~4 lines inside the smaller
+            // safe box above without hitting Ellipsis truncation.
+            ConfigureReadableText(text, font, 32f, 20f, 36f, true, true, 2f);
             SetTextColour(text, SituationTextColour);
-            // Bottom-aligned (horizontally still centred), not top/middle: a short question then
-            // sits flush against the small fixed gap above the portrait instead of leaving slack
-            // directly above the card that reads as extra empty beige space before it.
-            text.alignment = TextAlignmentOptions.Bottom;
             SetSiblingIndex(textTransform, 1);
 
             return new SituationAreaParts(root, text, artwork, panelFallback);
         }
 
-        // Fraction of Card's height reserved for the fixed CharacterName band at the bottom;
-        // the portrait area (CardBack + PortraitSwipeRoot) occupies the remainder above it.
-        private const float NameBandHeightFraction = 0.13f;
-
-        // Pronounced rounding for the portrait card (PortraitMask) and CardBack, which share
-        // identical bounds and so must share this exact radius too — otherwise CardBack's sharp
-        // corners would peek out from behind the portrait's rounded ones at rest. Also shared by
-        // PortraitSwipeRoot's own clip mask (see ConfigureCard) so the choice-preview panels are
-        // clipped to the same rounded silhouette instead of poking past it at the top corners.
-        private const float PortraitCornerRadius = 28f;
-
         private static CardParts ConfigureCard(
             RectTransform safeArea,
-            RectTransform contentPanel,
             TMP_FontAsset font,
             SceneSetupReport report)
         {
             RectTransform area = EnsureUiChild(safeArea, "CardArea", report);
-            // Top margin clears TopBar+HUD (328) + SituationArea (160) + a small 12-unit gap =
-            // 500; bottom margin (80) is tight since Footer is hidden and TapChoiceButtons are
-            // now visually subtle — the card is the dominant object on screen (see the polish
-            // pass). anchoredPosition/sizeDelta below encode that 500/80 split directly (half of
-            // the 580 total minus/plus the offset) — see ConfigureContentPanel for the same trick.
-            SetRect(area, Vector2.zero, Vector2.one, new Vector2(0f, -210f),
-                new Vector2(-40f, -580f), Center);
+            // Top margin now clears just HUD (208) + a small 12-unit gap = 220 — was 380
+            // (HUD + SituationArea's old 160 + the same 12-unit gap) until the user asked to pull
+            // the card up and close the empty space SituationArea's hidden panel left behind,
+            // instead of filling it with a decorative divider (tried and reverted the same
+            // session). Bottom margin (80) is unchanged. For a stretched RectTransform with
+            // pivot (0.5, 0.5): bottom-margin = anchoredPosition.y - sizeDelta.y * 0.5,
+            // top-margin = -anchoredPosition.y - sizeDelta.y * 0.5 — solving those two for the
+            // desired (220, 80) gives anchoredPosition.y = -70, sizeDelta.y = -300.
+            SetRect(area, Vector2.zero, Vector2.one, new Vector2(0f, -70f),
+                new Vector2(-40f, -300f), Center);
 
-            // Retired: the dimmed "next card in the deck" peek. Superseded by CardBack, which
-            // reveals the fixed card-back art directly behind the swiped portrait instead.
-            RemoveObsoleteChild(area, "NextCard");
+            RectTransform nextCard = EnsureUiChild(area, "NextCard", report);
+            Image nextSurface = EnsureSingleComponent<Image>(nextCard.gameObject, report);
+            ConfigureSimpleImage(nextSurface, LoadBuiltInUiSprite(report), CardSurfaceColour, false);
+            RectTransform nextFrameTransform = EnsureUiChild(nextCard, "Frame", report);
+            Stretch(nextFrameTransform);
+            Image nextFrame = EnsureSingleComponent<Image>(nextFrameTransform.gameObject, report);
+            ConfigureOptionalSimpleImage(nextFrame, null, BorderGoldColour);
 
             RectTransform card = EnsureUiChild(area, "Card", report);
-            // Near-square (portrait area) plus a name band beneath it, rather than the old tall
-            // 2:3 frame shape — see widthToHeightRatio below, which drives the real size.
             SetRect(card, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                Vector2.zero, new Vector2(880f, 978f), new Vector2(0.5f, 0.5f));
+                Vector2.zero, new Vector2(880f, 1320f), new Vector2(0.5f, 0.5f));
             Image cardImage = EnsureSingleComponent<Image>(card.gameObject, report);
+<<<<<<< Updated upstream
             // Card's own full-bounds Image is the drag/tap raycast surface for the whole decision
             // area — invisible (alpha 0), not CardSurfaceColour: it sits under CardBack and
             // PortraitSwipeRoot, but is exposed as soon as PortraitSwipeRoot (drag/rotate/exit)
@@ -1621,13 +1573,49 @@ namespace RoyalDecisions.Editor
             {
                 Undo.RecordObject(swipeRootMask, "Configure portrait swipe root mask");
                 swipeRootMask.showMaskGraphic = false;
+=======
+            ConfigureSimpleImage(cardImage, LoadBuiltInUiSprite(report), CardSurfaceColour, true);
+            Outline outline = EnsureSingleComponent<Outline>(card.gameObject, report);
+            if (outline != null)
+            {
+                Undo.RecordObject(outline, "Configure card outline");
+                // Subdued on purpose — full-opacity gold at the card's exact bounds read as a
+                // debug/layout bounding box rather than a card edge (see the polish pass).
+                outline.effectColor = TemporaryCardBorderColour;
+                outline.effectDistance = new Vector2(1.25f, -1.25f);
+                outline.useGraphicAlpha = true;
+>>>>>>> Stashed changes
             }
 
-            RectTransform portraitMask = EnsureUiChild(portraitSwipeRoot, "PortraitMask", report);
-            Stretch(portraitMask);
-            // Same procedural rounded-rect radius as CardBack above — see PortraitCornerRadius.
-            ProceduralRoundedRectGraphic maskGraphic = ConfigureRoundedFill(
-                portraitMask.gameObject, Color.white, PortraitCornerRadius, false, report);
+            RectTransform frameTransform = EnsureUiChild(card, "Frame", report);
+            Stretch(frameTransform);
+            Image frame = EnsureSingleComponent<Image>(frameTransform.gameObject, report);
+            // Simple + preserveAspect, not Sliced: the ornate corner detail (filigree, torn cloth
+            // accents) would deform under 9-slice stretching. Renders above PortraitRegion (see
+            // sibling order below) since it is a picture-frame overlay with a transparent window,
+            // not a background behind the art.
+            ConfigureOptionalSimpleImage(frame, null, BorderGoldColour);
+
+            RectTransform temporaryBorder = EnsureUiChild(card, "TemporaryBorder", report);
+            Stretch(temporaryBorder);
+            Image[] temporaryBorders = ConfigureTemporaryCardBorders(
+                temporaryBorder, LoadBuiltInUiSprite(report), TemporaryCardBorderColour, report);
+
+            RectTransform portraitRegion = EnsureUiChild(card, "PortraitRegion", report);
+            // Full-bleed, at the user's explicit request ("resim çerçevenin hepsini kaplasın").
+            // No need to estimate KartÇerçevesi.png's window thickness this way any more: Frame
+            // renders above PortraitRegion in sibling order (see below) as an opaque-bordered
+            // overlay, so its own border naturally covers the portrait's edge — the frame does the
+            // masking, not this rect.
+            Stretch(portraitRegion);
+            Image portraitFrame = EnsureSingleComponent<Image>(portraitRegion.gameObject, report);
+            ConfigureSimpleImage(portraitFrame, LoadBuiltInUiSprite(report), BorderGoldColour, false);
+
+            RectTransform portraitMask = EnsureUiChild(portraitRegion, "PortraitMask", report);
+            SetRect(portraitMask, Vector2.zero, Vector2.one, Vector2.zero,
+                new Vector2(-8f, -8f), Center);
+            Image maskImage = EnsureSingleComponent<Image>(portraitMask.gameObject, report);
+            ConfigureSimpleImage(maskImage, LoadBuiltInUiSprite(report), Color.white, false);
             Mask mask = EnsureSingleComponent<Mask>(portraitMask.gameObject, report);
             if (mask != null)
             {
@@ -1636,18 +1624,11 @@ namespace RoyalDecisions.Editor
             }
 
             RectTransform portraitTransform = FindDirectChild(portraitMask, "Portrait", report);
-            if (portraitTransform == null && legacyPortraitRegion != null)
+            RectTransform legacyPortrait = FindDirectChild(card, "Portrait", report);
+            if (portraitTransform == null && legacyPortrait != null)
             {
-                RectTransform legacyMask = FindDirectChild(legacyPortraitRegion, "PortraitMask", report);
-                RectTransform legacyPortrait = legacyMask != null
-                    ? FindDirectChild(legacyMask, "Portrait", report)
-                    : null;
-                if (legacyPortrait != null)
-                {
-                    Undo.SetTransformParent(
-                        legacyPortrait, portraitMask, "Move portrait into card mask");
-                    portraitTransform = legacyPortrait;
-                }
+                Undo.SetTransformParent(legacyPortrait, portraitMask, "Move portrait into card mask");
+                portraitTransform = legacyPortrait;
             }
             portraitTransform ??= EnsureUiChild(portraitMask, "Portrait", report);
             Stretch(portraitTransform);
@@ -1662,76 +1643,104 @@ namespace RoyalDecisions.Editor
             PortraitFallbackView portraitFallback = ConfigurePortraitFallback(
                 portraitMask, portraitTransform, report);
 
-            // The old fixed portrait window is now fully superseded by PortraitSwipeRoot; remove
-            // it once its reusable children have been migrated above.
-            if (legacyPortraitRegion != null)
-            {
-                Undo.DestroyObjectImmediate(legacyPortraitRegion.gameObject);
-            }
-
-            ChoicePreviewView left = ConfigurePreview(
-                portraitSwipeRoot, "PreviewLeft", ChoiceSide.Left, font, report);
-            ChoicePreviewView right = ConfigurePreview(
-                portraitSwipeRoot, "PreviewRight", ChoiceSide.Right, font, report);
-
-            // The situation text ("Body") moved to SituationArea above the card; remove a
-            // leftover in-card Body object from a scene built by the previous layout.
-            RemoveLegacyCardBody(card, report);
-
-            // Opaque paper-toned backing behind the fixed name band, matching ContentPanel and
-            // SituationPanel so Speaker reads as sitting inside the same paper column, not
-            // floating over background art. Flat (0 radius) procedural fill, not a sprite Image —
-            // the built-in UISprite stretched across this short, wide rect used to read as a
-            // rounded "pill" instead of a plain paper backing.
+            // Swapped to the top of the card at the user's explicit request. The plaque behind it
+            // (tried at 0.88-1) read as a washed-out brown box floating above the card's actual
+            // visible top edge — KartÇerçevesi.png's canvas has more transparent/glow margin above
+            // the drawn metal border than assumed, so anything anchored flush to y=1 sits in that
+            // margin, off the card. Pulled down 0.08 (same band height) and the plaque disabled
+            // (CardView.ApplyTheme) rather than re-estimating the margin a third time. Field/object
+            // names kept as "NameScrim"/"Speaker" (not renamed) to avoid touching every reference.
             RectTransform nameScrimTransform = EnsureUiChild(card, "NameScrim", report);
-            SetRect(nameScrimTransform, Vector2.zero, new Vector2(1f, NameBandHeightFraction),
+            SetRect(nameScrimTransform, new Vector2(0f, 0.80f), new Vector2(1f, 0.92f),
                 Vector2.zero, Vector2.zero, Center);
-            ProceduralRoundedRectGraphic nameScrim = ConfigureRoundedFill(
-                nameScrimTransform.gameObject, NameScrimColour, 0f, false, report);
+            Image nameScrim = EnsureSingleComponent<Image>(nameScrimTransform.gameObject, report);
+            ConfigureSimpleImage(nameScrim, LoadBuiltInUiSprite(report), TopPlaqueColour, false);
 
             RectTransform speakerTransform = EnsureUiChild(card, "Speaker", report);
-            SetRect(speakerTransform, new Vector2(0.06f, 0.01f), new Vector2(0.94f, 0.115f),
+            SetRect(speakerTransform, new Vector2(0.08f, 0.815f), new Vector2(0.92f, 0.905f),
                 Vector2.zero, Vector2.zero, Center);
             TextMeshProUGUI speaker = EnsureSingleComponent<TextMeshProUGUI>(
                 speakerTransform.gameObject, report);
-            // Sized up ~10% (38/32-42 -> 42/35-46), same visual family as SituationText. Nudged
-            // again here (42/46 -> 46/50) for a slightly stronger name band.
-            ConfigureReadableText(speaker, font, 46f, 38f, 50f, true, false, 3f);
+            ConfigureReadableText(speaker, font, 38f, 32f, 42f, true, false, 3f);
             SetTextColour(speaker, SpeakerTextColour);
+
+            // Swapped to the bottom of the card at the user's explicit request. Same margin issue
+            // as the name plaque above, mirrored: the old band (0-0.19) sat partly below the card's
+            // actual visible bottom edge, in the canvas's transparent margin. Pulled up 0.08 (same
+            // band height). No scrim behind it — also at the user's explicit request ("hikayenin
+            // arkaplanındaki siyahlığı kaldır") — CardView.ApplyTheme keeps this Image disabled
+            // unconditionally, so it is authored here but never actually drawn; kept rather than
+            // deleted so restoring a legibility scrim later is one flag flip, not a rebuild.
+            RectTransform bodyScrimTransform = EnsureUiChild(card, "BodyScrim", report);
+            SetRect(bodyScrimTransform, new Vector2(0f, 0.08f), new Vector2(1f, 0.27f),
+                Vector2.zero, Vector2.zero, Center);
+            Image bodyScrim = EnsureSingleComponent<Image>(bodyScrimTransform.gameObject, report);
+            ConfigureSimpleImage(bodyScrim, LoadBuiltInUiSprite(report), NameScrimColour, false);
+
+            RectTransform bodyTransform = EnsureUiChild(card, "Body", report);
+            SetRect(bodyTransform, new Vector2(0.08f, 0.097f), new Vector2(0.92f, 0.253f),
+                Vector2.zero, Vector2.zero, Center);
+            TextMeshProUGUI body = EnsureSingleComponent<TextMeshProUGUI>(
+                bodyTransform.gameObject, report);
+            ConfigureReadableText(body, font, 32f, 20f, 32f, true, true, 2f);
+            SetTextColour(body, BodyTextColour);
+
+            Image[] corners = new Image[4];
+            string[] cornerNames =
+            {
+                "CornerTopLeft", "CornerTopRight", "CornerBottomLeft", "CornerBottomRight"
+            };
+            Vector2[] cornerAnchors =
+            {
+                new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, new Vector2(1f, 0f)
+            };
+            for (int i = 0; i < cornerNames.Length; i++)
+            {
+                RectTransform corner = EnsureUiChild(card, cornerNames[i], report);
+                SetRect(corner, cornerAnchors[i], cornerAnchors[i], Vector2.zero,
+                    new Vector2(96f, 96f), cornerAnchors[i]);
+                corners[i] = EnsureSingleComponent<Image>(corner.gameObject, report);
+                ConfigureOptionalSlicedImage(corners[i], null, BorderGoldColour);
+            }
+
+            ChoicePreviewView left = ConfigurePreview(
+                card, "PreviewLeft", ChoiceSide.Left, font, report);
+            ChoicePreviewView right = ConfigurePreview(
+                card, "PreviewRight", ChoiceSide.Right, font, report);
 
             CardView view = EnsureSingleComponent<CardView>(card.gameObject, report);
             CardSwipeController swipe = EnsureSingleComponent<CardSwipeController>(
                 card.gameObject, report);
-            CardFlipController flip = EnsureSingleComponent<CardFlipController>(
-                card.gameObject, report);
-            if (flip != null)
-            {
-                SetObjectProperty(flip, "cardView", view, report);
-                SetObjectProperty(flip, "swipeController", swipe, report);
-            }
 
             if (view != null)
             {
-                // The dragged/rotated root is PortraitSwipeRoot, not Card itself — HUD,
-                // SituationText, CardBack, and CharacterName all stay fixed.
-                SetObjectProperty(view, "cardRoot", portraitSwipeRoot, report);
+                SetObjectProperty(view, "cardRoot", card, report);
                 SetObjectProperty(view, "speakerText", speaker, report);
-                // bodyText (the situation text) is wired by the caller to SituationArea's text.
+                SetObjectProperty(view, "bodyText", body, report);
                 SetObjectProperty(view, "portraitImage", portrait, report);
                 SetObjectProperty(view, "leftPreview", left, report);
                 SetObjectProperty(view, "rightPreview", right, report);
                 SetObjectProperty(view, "visualRoot", card.gameObject, report);
                 SetObjectProperty(view, "surfaceImage", cardImage, report);
-                SetObjectProperty(view, "portraitMaskImage", maskGraphic, report);
+                SetObjectProperty(view, "borderOutline", outline, report);
+                SetObjectProperty(view, "frameImage", frame, report);
+                SetObjectProperty(view, "portraitFrameImage", portraitFrame, report);
+                SetObjectProperty(view, "portraitMaskImage", maskImage, report);
                 SetObjectProperty(view, "nameScrimImage", nameScrim, report);
-                SetObjectProperty(view, "cardBackImage", cardBack, report);
+                SetObjectProperty(view, "bodyScrimImage", bodyScrim, report);
+                SetObjectArrayProperty(view, "cornerImages", corners, report);
+                SetObjectArrayProperty(view, "temporaryBorderImages", temporaryBorders, report);
                 SetObjectProperty(view, "portraitFallbackView", portraitFallback, report);
+                SetObjectProperty(view, "nextCardRoot", nextCard.gameObject, report);
+                SetObjectProperty(view, "nextCardSurface", nextSurface, report);
+                SetObjectProperty(view, "nextCardFrame", nextFrame, report);
             }
 
             if (swipe != null)
             {
                 SetObjectProperty(swipe, "cardView", view, report);
                 SetObjectProperty(swipe, "dragParent", area, report);
+<<<<<<< Updated upstream
                 // Restrained Reigns-style tilt (was 12°) — presentation only; does not change the
                 // confirm threshold or resolution logic in SwipeMath.
                 SetFloatProperty(swipe, "maxRotationDegrees", 7f, report);
@@ -1753,76 +1762,35 @@ namespace RoyalDecisions.Editor
                 SetFloatProperty(swipe, "exitRotationDegrees", 13f, report);
                 SetFloatProperty(swipe, "exitDiagonalDrop", 220f, report);
                 SetFloatProperty(swipe, "exitScale", 1.04f, report);
+=======
+>>>>>>> Stashed changes
             }
 
             ResponsiveCardSizer sizer = EnsureSingleComponent<ResponsiveCardSizer>(
                 area.gameObject, report);
             SetObjectProperty(sizer, "card", card, report);
-            SetObjectProperty(sizer, "nextCard", null, report);
-            // ContentPanel is full SafeArea width now, so this is equivalently ~82-86% of either.
-            SetObjectProperty(sizer, "widthReference", contentPanel, report);
-            SetFloatProperty(sizer, "preferredWidthRatio", 0.84f, report);
+            SetObjectProperty(sizer, "nextCard", nextCard, report);
+            SetObjectProperty(sizer, "widthReference", safeArea, report);
+            SetFloatProperty(sizer, "preferredWidthRatio", 0.82f, report);
             SetFloatProperty(sizer, "maximumWidth", 960f, report);
-            // Near-square portrait area (NameBandHeightFraction reserved beneath it for the fixed
-            // name band) — 1:1 once the name band is subtracted (0.87 / (1 - 0.13) = 1.0), not
-            // KartÇerçevesi's old tall 1024/1536 frame aspect.
-            SetFloatProperty(sizer, "widthToHeightRatio", 0.87f, report);
-            // Top-aligned close under SituationArea (12px here + CardArea's own 12px top margin
-            // component = ~24px total gap) instead of centred in CardArea's remaining height —
-            // closes the empty beige space that centring left above the portrait.
-            SetFloatProperty(sizer, "topPadding", 12f, report);
+            // Matches KartÇerçevesi.png's native canvas aspect (1024/1536) exactly, so the frame
+            // art (Image.Simple, preserveAspect) fills the card with zero letterbox/crop.
+            SetFloatProperty(sizer, "widthToHeightRatio", 1024f / 1536f, report);
             sizer?.RecalculateLayout();
 
-            SetSiblingIndex(card, 0);
-            SetSiblingIndex(cardBackTransform, 0);
-            SetSiblingIndex(portraitSwipeRoot, 1);
-            SetSiblingIndex(nameScrimTransform, 2);
-            SetSiblingIndex(speakerTransform, 3);
+            SetSiblingIndex(nextCard, 0);
+            SetSiblingIndex(card, 1);
+            // Frame renders above PortraitRegion: it is a picture-frame overlay with a transparent
+            // window, meant to sit on top of the art it frames, not behind it.
+            SetSiblingIndex(temporaryBorder, 0);
+            SetSiblingIndex(portraitRegion, 1);
+            SetSiblingIndex(frameTransform, 2);
+            SetSiblingIndex(nameScrimTransform, 3);
+            SetSiblingIndex(speakerTransform, 4);
+            SetSiblingIndex(bodyScrimTransform, 5);
+            SetSiblingIndex(bodyTransform, 6);
 
-            return new CardParts(area, view, swipe, flip);
-        }
-
-        /// <summary>Destroys <paramref name="name"/> under <paramref name="parent"/> if present —
-        /// used to retire structural children from an earlier layout. Idempotent: a no-op once the
-        /// child is gone.</summary>
-        private static void RemoveObsoleteChild(Transform parent, string name)
-        {
-            if (parent == null)
-            {
-                return;
-            }
-
-            Transform existing = parent.Find(name);
-            if (existing != null)
-            {
-                Undo.DestroyObjectImmediate(existing.gameObject);
-            }
-        }
-
-        /// <summary>
-        /// Removes an in-card "Body" text object left over from the layout that rendered the
-        /// situation text inside the card. Only removes it when it is unambiguously that legacy
-        /// object (a plain text leaf with no children of its own), leaving anything unexpected
-        /// in place rather than guessing.
-        /// </summary>
-        private static void RemoveLegacyCardBody(RectTransform card, SceneSetupReport report)
-        {
-            RectTransform legacy = FindDirectChild(card, "Body", report);
-            if (legacy == null)
-            {
-                return;
-            }
-
-            bool isPlainTextLeaf = legacy.childCount == 0
-                && legacy.GetComponent<TextMeshProUGUI>() != null;
-            if (!isPlainTextLeaf)
-            {
-                AddInvalid(report, card.gameObject.scene.path, HierarchyPath(legacy),
-                    "Obsolete Card/Body child is not a plain text leaf and was preserved.");
-                return;
-            }
-
-            Undo.DestroyObjectImmediate(legacy.gameObject);
+            return new CardParts(area, view, swipe);
         }
 
         /// <summary>
@@ -1924,6 +1892,43 @@ namespace RoyalDecisions.Editor
             return button;
         }
 
+        private static Image[] ConfigureTemporaryCardBorders(
+            RectTransform root,
+            Sprite sprite,
+            Color colour,
+            SceneSetupReport report)
+        {
+            string[] names = { "Top", "Right", "Bottom", "Left" };
+            Vector2[] minimums =
+            {
+                new Vector2(0f, 1f), new Vector2(1f, 0f), Vector2.zero, Vector2.zero
+            };
+            Vector2[] maximums =
+            {
+                Vector2.one, Vector2.one, new Vector2(1f, 0f), new Vector2(0f, 1f)
+            };
+            Vector2[] sizes =
+            {
+                new Vector2(0f, 1.25f), new Vector2(1.25f, 0f),
+                new Vector2(0f, 1.25f), new Vector2(1.25f, 0f)
+            };
+            Vector2[] pivots =
+            {
+                new Vector2(0.5f, 1f), new Vector2(1f, 0.5f),
+                new Vector2(0.5f, 0f), new Vector2(0f, 0.5f)
+            };
+            Image[] images = new Image[names.Length];
+            for (int i = 0; i < names.Length; i++)
+            {
+                RectTransform edge = EnsureUiChild(root, names[i], report);
+                SetRect(edge, minimums[i], maximums[i], Vector2.zero, sizes[i], pivots[i]);
+                images[i] = EnsureSingleComponent<Image>(edge.gameObject, report);
+                ConfigureSimpleImage(images[i], sprite, colour, false);
+                SetSiblingIndex(edge, i);
+            }
+            return images;
+        }
+
         private static PortraitFallbackView ConfigurePortraitFallback(
             RectTransform portraitMask,
             RectTransform portrait,
@@ -1971,6 +1976,7 @@ namespace RoyalDecisions.Editor
             return image;
         }
 
+<<<<<<< Updated upstream
         // Upper band of PortraitSwipeRoot the choice panel occupies (top ~16%). Raised from 0.76
         // to 0.84 after in-editor review: at 0.76 the band's hard lower edge still crossed the
         // character's face when the card tilted. Thinned further so the portrait's eyes/face stay
@@ -1986,14 +1992,16 @@ namespace RoyalDecisions.Editor
         private const float ChoicePreviewBadgeWidth = 0.56f;
         private const float ChoicePreviewBadgeMargin = 0.03f;
 
+=======
+>>>>>>> Stashed changes
         private static ChoicePreviewView ConfigurePreview(
-            RectTransform portraitSwipeRoot,
+            RectTransform card,
             string name,
             ChoiceSide side,
             TMP_FontAsset font,
             SceneSetupReport report)
         {
-            RectTransform preview = EnsureUiChild(portraitSwipeRoot, name, report);
+            RectTransform preview = EnsureUiChild(card, name, report);
             bool left = side == ChoiceSide.Left;
             Stretch(preview);
 
@@ -2016,6 +2024,7 @@ namespace RoyalDecisions.Editor
                 group.interactable = false;
             }
 
+<<<<<<< Updated upstream
             // Unity UI only, no banner sprite: a dark translucent badge pinned to this side's near
             // corner (top-left for Left, top-right for Right), spanning ChoicePreviewBadgeWidth of
             // PortraitSwipeRoot's width, not the full width. Moves and rotates with the portrait
@@ -2031,6 +2040,20 @@ namespace RoyalDecisions.Editor
             SetRect(edgeTransform,
                 new Vector2(badgeMinX, ChoicePreviewBandStart),
                 new Vector2(badgeMaxX, 1f),
+=======
+            // Sized to match the supplied banner art's own aspect (pole-and-cloth flag, ~1.5-1.7
+            // wide) so preserveAspect fills the box with minimal wasted space: box aspect here is
+            // (0.72*cardWidth)/(0.30*cardHeight) ≈ 1.51 for the left side (solSwipeBanner is
+            // ~1.5), and (0.81*cardWidth)/(0.30*cardHeight) ≈ 1.70 for the right (SağSwipeBanner
+            // is ~1.7), given the card's own width/height ratio. Anchored flush to its side so the
+            // banner's pole edge aligns with the card edge; the far ~20-28% of card width stays
+            // uncovered so the portrait remains visible on the opposite side. The flat-colour
+            // fallback (no banner art) uses this same box.
+            RectTransform edgeTransform = EnsureUiChild(preview, "EdgeHighlight", report);
+            SetRect(edgeTransform,
+                new Vector2(left ? 0f : 0.19f, 0.35f),
+                new Vector2(left ? 0.72f : 1f, 0.65f),
+>>>>>>> Stashed changes
                 Vector2.zero, Vector2.zero, Center);
             Image edge = EnsureSingleComponent<Image>(edgeTransform.gameObject, report);
             ConfigureSimpleImage(edge, LoadBuiltInUiSprite(report),
@@ -2054,6 +2077,7 @@ namespace RoyalDecisions.Editor
                 marker.interactable = false;
             }
 
+<<<<<<< Updated upstream
             // The choice label sits centered within the badge (not the full card width) — inset
             // from the badge's own edges so it never touches EdgeHighlight's border. Offset shrunk
             // from +0.03 to +0.02 alongside the band raise so the label's lower anchor lands at
@@ -2062,28 +2086,25 @@ namespace RoyalDecisions.Editor
             SetRect(labelTransform,
                 new Vector2(badgeMinX + 0.04f, ChoicePreviewBandStart + 0.02f),
                 new Vector2(badgeMaxX - 0.04f, 0.97f),
+=======
+            // The choice label sits centered within the banner band, inset from the pole edge so
+            // it reads over the cloth rather than the ornate pole graphic.
+            RectTransform labelTransform = EnsureUiChild(preview, "Label", report);
+            SetRect(labelTransform,
+                new Vector2(left ? 0.10f : 0.35f, 0.42f),
+                new Vector2(left ? 0.65f : 0.90f, 0.58f),
+>>>>>>> Stashed changes
                 Vector2.zero, Vector2.zero, Center);
             TextMeshProUGUI label = EnsureSingleComponent<TextMeshProUGUI>(
                 labelTransform.gameObject, report);
-            // Noticeably larger and bolder than before (30/26-34 -> 38/32-44) so it stays readable
-            // while the portrait is moving; warm cream, not stark white. Pushed further again here
-            // (38/44 -> 44/50) — the choice text is the single highest-readability-priority label
-            // on the card, read mid-drag and mid-rotation over any portrait.
-            ConfigureReadableText(label, font, 44f, 36f, 50f, true, true, 4f);
-            Undo.RecordObject(label, "Configure choice label weight");
-            label.fontStyle = FontStyles.Bold;
-            // Capped at two lines: a longer preview should shrink (autosize) rather than wrap into
-            // a third line that could crowd the band or clip against its edges.
-            label.maxVisibleLines = 2;
-            SetTextColour(label, BodyTextColour);
-            // Stronger dark shadow (was 0.75 alpha / 1.5px) so the label stays readable over both
-            // bright and dark portraits while dragging.
+            ConfigureReadableText(label, font, 30f, 26f, 34f, true, true, 4f);
+            // Subtle dark shadow so the label stays readable over the banner's fabric texture.
             Shadow labelShadow = EnsureSingleComponent<Shadow>(labelTransform.gameObject, report);
             if (labelShadow != null)
             {
                 Undo.RecordObject(labelShadow, "Configure choice label shadow");
-                labelShadow.effectColor = new Color(0f, 0f, 0f, 0.9f);
-                labelShadow.effectDistance = new Vector2(2f, -2f);
+                labelShadow.effectColor = new Color(0f, 0f, 0f, 0.75f);
+                labelShadow.effectDistance = new Vector2(1.5f, -1.5f);
                 labelShadow.useGraphicAlpha = true;
             }
 
@@ -2505,6 +2526,10 @@ namespace RoyalDecisions.Editor
                 new Vector2(850f, 160f), 64f, report);
             ConfigureReadableText(title, font, 64f, 52f, 68f, true, true, 2f);
             title.text = interfaceText != null ? interfaceText.MainMenuTitle : "Royal Decisions";
+            // Display treatment only — the string itself stays whatever the content data says, so
+            // renaming the game never needs a code change (CLAUDE.md §4).
+            ConfigureDisplayText(title, 10f);
+            SetTextColour(title, SettingsPanelTheme.ActiveTabColour);
 
             Button newGame = EnsureMenuButton(panel, "NewGameButton", "Yeni Oyun", 40f, report,
                 colourOverride: SettingsPanelTheme.ActiveTabColour);
@@ -2523,7 +2548,12 @@ namespace RoyalDecisions.Editor
                 : null;
             ConfigureReadableText(newGameText, font, 40f, 34f, 42f, true, true, 2f);
             ConfigureReadableText(continueText, font, 40f, 34f, 42f, true, true, 2f);
+            // Dark ink on the gold CTA fill, same reason as the Settings Apply button: cream on
+            // this fill sits under the 4.5:1 normal-text contrast floor.
+            SetTextColour(newGameText, SettingsPanelTheme.ActiveTabTextColour);
+            SetTextColour(continueText, SettingsPanelTheme.ActiveTabTextColour);
             ConfigureReadableText(saveError, font, 30f, 28f, 32f, true, true, 2f);
+            SetTextColour(saveError, SettingsPanelTheme.DangerAccentColour);
             saveError.text = string.Empty;
             saveError.gameObject.SetActive(false);
             if (interfaceText != null)
@@ -2634,7 +2664,13 @@ namespace RoyalDecisions.Editor
             Image surface = EnsureSingleComponent<Image>(root.gameObject, report);
             // Flat colour, no sprite: the built-in UISprite bakes a subtle bevel/shadow into its
             // pixels, which reads as a thin dark rectangle when stretched to fill the whole screen.
-            ConfigureSimpleImage(surface, null, MainMenuBackgroundColour, true);
+            ConfigureSimpleImage(surface, null, SettingsPanelTheme.ScreenBackgroundColour, true);
+
+            // Weathered-metal grain over the flat ground, full-bleed like the ground itself (not
+            // inset by the safe area) so the texture never stops short of the screen edge. Drawn
+            // before SafeArea so every panel and control sits on top of it.
+            RectTransform grain = EnsureGrainOverlay(root, report);
+            SetSiblingIndex(grain, 0);
 
             // The panel's own content still respects the safe area, independent of the full-bleed
             // background above — mirrors the top-level SafeArea/MainMenuPanel pattern.
@@ -2644,9 +2680,9 @@ namespace RoyalDecisions.Editor
             MigrateChildIfNeeded(safeContent, root, "Content", report);
             // Sweeps a leftover "HeaderBackdrop" from an earlier pass — it existed only to bleed
             // Header's own card colour behind the notch, and Header no longer has a card colour
-            // (every row is transparent now), so root's own flat MainMenuBackgroundColour already
-            // covers that area uniformly on its own.
-            RemoveUnexpectedChildren(root, report, "SafeArea");
+            // (every row is transparent now), so root's own flat ground already covers that area
+            // uniformly on its own.
+            RemoveUnexpectedChildren(root, report, "Grain", "SafeArea");
 
             // Full-bleed to the safe area's own edges (was inset 8%/6%, leaving the root's flat
             // colour visible as a margin) — at the user's request, the panel now fills the screen
@@ -2669,26 +2705,38 @@ namespace RoyalDecisions.Editor
 
             // Header -----------------------------------------------------------------
             RectTransform header = EnsureUiChild(content, "Header", report);
+            // 96 rather than the old 84: the title now sits inside a bracketed frame that needs
+            // clearance above and below the glyphs to read as an ornament rather than a crop.
             SetRect(header, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
-                new Vector2(0f, 84f), new Vector2(0.5f, 1f));
-            ConfigureLayoutElement(header.gameObject, 84f, report);
+                new Vector2(0f, 96f), new Vector2(0.5f, 1f));
+            ConfigureLayoutElement(header.gameObject, 96f, report);
             // No card background, matching every other row — RemoveStaleComponents drops the
             // Image/Outline a previous pass's ConfigureRowCard call left behind.
             RemoveStaleComponents<Image>(header.gameObject);
             RemoveStaleComponents<Outline>(header.gameObject);
             MigrateChildIfNeeded(header, content, "Title", report);
+            // Bronze corner brackets around the title, per the spec's "süslemeli bronz çerçeve" —
+            // an ornament rather than a full box, so it frames the word without boxing in the
+            // scrollable content directly beneath it.
+            EnsureCornerBracketFrame(header, "Frame", SettingsPanelTheme.BorderGoldColour, report);
             RectTransform titleTransform = EnsureUiChild(header, "Title", report);
             SetRect(titleTransform, new Vector2(0.05f, 0f), new Vector2(0.95f, 1f),
                 Vector2.zero, Vector2.zero, Center);
             TextMeshProUGUI title = EnsureSingleComponent<TextMeshProUGUI>(
                 titleTransform.gameObject, report);
             ConfigureReadableText(title, font, 36f, 30f, 40f, true, false, 2f);
-            title.text = "Ayarlar";
+            // The project ships one sans font (and no source .ttf to extend), so the "retro
+            // serif/display" heading treatment is carried by weight, tracking and caps instead of
+            // by a second typeface. Hardcoded uppercase rather than ToUpper(): Turkish maps i -> İ,
+            // which a culture-insensitive ToUpper() would get wrong.
+            title.text = "AYARLAR";
+            ConfigureDisplayText(title, 12f);
+            SetTextColour(title, SettingsPanelTheme.ActiveTabColour);
             // Sweeps leftovers from earlier authoring passes (e.g. a since-removed decorative
             // tagline, or the since-removed diamond icon) — Header previously had no allowlist, so
             // anything an older pass added and a later pass stopped creating was never cleaned up
             // automatically.
-            RemoveUnexpectedChildren(header, report, "Title");
+            RemoveUnexpectedChildren(header, report, "Frame", "Title");
 
             // Tab bar ------------------------------------------------------------------
             RectTransform tabBar = EnsureUiChild(content, "TabBar", report);
@@ -2748,6 +2796,13 @@ namespace RoyalDecisions.Editor
             ConfigureMinimumTouchTarget(graphicsTabButton, report);
             ConfigureMinimumTouchTarget(controlsTabButton, report);
             ConfigureMinimumTouchTarget(generalTabButton, report);
+            // Every tab carries a frame; the active one's is the amber glow. SettingsPanelView
+            // swaps these same two colours at runtime, so the authored state below is only the
+            // first paint (Ses active) and never the source of truth afterwards.
+            EnsureTabOutline(audioTabButton, true, report);
+            EnsureTabOutline(graphicsTabButton, false, report);
+            EnsureTabOutline(controlsTabButton, false, report);
+            EnsureTabOutline(generalTabButton, false, report);
 
             // Scrollable content: only the active tab's controls are visible at a time, so the
             // scroll content's height always matches whichever tab is currently shown.
@@ -2860,14 +2915,31 @@ namespace RoyalDecisions.Editor
             MigrateChildIfNeeded(bottomActions, content, "CancelButton", report);
 
             // İptal (secondary/neutral) on the left, Uygula (primary) on the right.
+            // The two actions no longer share one colour: İptal takes the palette's rusted red and
+            // Uygula the lit amber, so discard and confirm are told apart by hue rather than by
+            // label weight alone.
             Button cancel = EnsureMenuButton(bottomActions, "CancelButton", "İptal", 0f, report,
-                colourOverride: SettingsPanelTheme.ActiveTabColour);
+                colourOverride: SettingsPanelTheme.DangerColour);
             Button apply = EnsureMenuButton(bottomActions, "ApplyButton", "Uygula", 0f, report,
-                colourOverride: SettingsPanelTheme.ActiveTabColour);
+                colourOverride: SettingsPanelTheme.ApplyColour);
             ConfigureButtonFont(cancel, font, 36f, 30f, 40f);
             ConfigureButtonFont(apply, font, 36f, 30f, 40f);
-            // Apply is the primary action; a heavier weight distinguishes it from İptal without
-            // needing a second colour or size.
+            // A bronze frame on İptal only: Uygula's amber fill is already the brightest thing on
+            // the screen and an outline would only muddy its edge.
+            Outline cancelOutline = cancel != null
+                ? EnsureSingleComponent<Outline>(cancel.gameObject, report) : null;
+            if (cancelOutline != null)
+            {
+                Undo.RecordObject(cancelOutline, "Configure cancel button border");
+                cancelOutline.effectColor = SettingsPanelTheme.BorderGoldColour;
+                cancelOutline.effectDistance = new Vector2(1.5f, -1.5f);
+                cancelOutline.useGraphicAlpha = false;
+            }
+            TextMeshProUGUI cancelLabel = cancel != null
+                ? cancel.GetComponentInChildren<TextMeshProUGUI>(true) : null;
+            SetTextColour(cancelLabel, SettingsPanelTheme.DangerTextColour);
+            // Apply is the primary action; a heavier weight reinforces the colour difference. Its
+            // label is dark ink, not cream — cream on the amber fill falls below the 4.5:1 floor.
             TextMeshProUGUI applyLabel = apply != null
                 ? apply.GetComponentInChildren<TextMeshProUGUI>(true) : null;
             if (applyLabel != null)
@@ -2875,6 +2947,7 @@ namespace RoyalDecisions.Editor
                 Undo.RecordObject(applyLabel, "Configure apply button weight");
                 applyLabel.fontStyle = FontStyles.Bold;
             }
+            SetTextColour(applyLabel, SettingsPanelTheme.ActiveTabTextColour);
             ConfigureMinimumTouchTarget(apply, report);
             ConfigureMinimumTouchTarget(cancel, report);
             SetSiblingIndex(cancel.transform, 0);
@@ -2948,7 +3021,12 @@ namespace RoyalDecisions.Editor
             // colour, no sprite: the built-in UISprite bakes a subtle bevel/shadow into its
             // pixels, which reads as a thin dark rectangle when stretched to fill the whole
             // screen (see ConfigureSettingsPanel).
-            ConfigureSimpleImage(surface, null, MainMenuBackgroundColour, true);
+            ConfigureSimpleImage(surface, null, SettingsPanelTheme.ScreenBackgroundColour, true);
+
+            // Same weathered ground as SettingsPanel — About is reached only from within Settings
+            // and must read as the same surface, not a flatter one.
+            RectTransform aboutGrain = EnsureGrainOverlay(root, report);
+            SetSiblingIndex(aboutGrain, 0);
 
             RectTransform safeContent = EnsureUiChild(root, "SafeArea", report);
             Stretch(safeContent);
@@ -2961,8 +3039,10 @@ namespace RoyalDecisions.Editor
 
             TextMeshProUGUI title = EnsureText(content, "Title", new Vector2(0f, 700f),
                 new Vector2(840f, 110f), 52f, report);
-            title.text = "Hakkında";
+            title.text = "HAKKINDA";
             ConfigureReadableText(title, font, 52f, 44f, 56f, true, true, 2f);
+            ConfigureDisplayText(title, 12f);
+            SetTextColour(title, SettingsPanelTheme.ActiveTabColour);
 
             TextMeshProUGUI body = EnsureText(content, "Body", new Vector2(0f, 100f),
                 new Vector2(840f, 900f), 32f, report);
@@ -2978,6 +3058,10 @@ namespace RoyalDecisions.Editor
                 colourOverride: SettingsPanelTheme.ActiveTabColour);
             ConfigureButtonFont(close, font, 40f, 34f, 42f);
             ConfigureMinimumTouchTarget(close, report);
+            // Dark ink, not cream — see the Apply button: cream on the gold fill is under 4.5:1.
+            SetTextColour(
+                close != null ? close.GetComponentInChildren<TextMeshProUGUI>(true) : null,
+                SettingsPanelTheme.ActiveTabTextColour);
 
             // Sweeps leftovers from earlier authoring passes (e.g. a since-removed decorative
             // "HazardTop" band) — Content here previously had no allowlist, so anything an older
@@ -3008,7 +3092,7 @@ namespace RoyalDecisions.Editor
         {
             RectTransform tab = EnsureUiChild(scrollContent, "AudioTab", report);
             ConfigureTabLayout(tab, report, spacing: 24f);
-            EnsureTabSectionHeader(tab, "Ses ve Müzik",
+            EnsureTabSectionHeader(tab, "SES VE MÜZİK",
                 "Müzik ve efekt seviyelerini ayarlayın.", font, report);
 
             // The three volume sliders share one grouped card, matching the reference layout,
@@ -3024,14 +3108,18 @@ namespace RoyalDecisions.Editor
             MigrateChildIfNeeded(sliderGroup, tab, "MusicVolume", report);
             MigrateChildIfNeeded(sliderGroup, tab, "SfxVolume", report);
 
+            // Each volume row gets its own themed leading icon, per the UI spec's Ses ve Müzik card.
             Slider master = EnsureSliderControl(sliderGroup, "MasterVolume", "Ana Ses", font, report,
-                out TMP_Text masterLabel, defaultValue: GameSettings.MaxVolume);
+                out TMP_Text masterLabel, defaultValue: GameSettings.MaxVolume,
+                icon: AudioIconKind.Speaker);
             SetSiblingIndex(master.transform, 0);
             Slider music = EnsureSliderControl(sliderGroup, "MusicVolume", "Müzik", font, report,
-                out TMP_Text musicLabel, defaultValue: GameSettings.DefaultVolume);
+                out TMP_Text musicLabel, defaultValue: GameSettings.DefaultVolume,
+                icon: AudioIconKind.Note);
             SetSiblingIndex(music.transform, 1);
             Slider sfx = EnsureSliderControl(sliderGroup, "SfxVolume", "Ses Efektleri", font, report,
-                out TMP_Text sfxLabel, defaultValue: GameSettings.DefaultVolume);
+                out TMP_Text sfxLabel, defaultValue: GameSettings.DefaultVolume,
+                icon: AudioIconKind.Effect);
             SetSiblingIndex(sfx.transform, 2);
             // Also prunes any leftover Divider1/Divider2 objects a previous Apply pass created.
             RemoveUnexpectedChildren(sliderGroup, report,
@@ -3067,7 +3155,7 @@ namespace RoyalDecisions.Editor
         {
             RectTransform tab = EnsureUiChild(scrollContent, "GraphicsTab", report);
             ConfigureTabLayout(tab, report);
-            EnsureTabSectionHeader(tab, "Grafik",
+            EnsureTabSectionHeader(tab, "GRAFİK",
                 "Kare hızı ve pil tasarrufu tercihlerini yönetin.", font, report);
 
             // A single slider snapping across three whole-number steps (30 FPS / 60 FPS /
@@ -3115,7 +3203,7 @@ namespace RoyalDecisions.Editor
         {
             RectTransform tab = EnsureUiChild(scrollContent, "ControlsTab", report);
             ConfigureTabLayout(tab, report);
-            EnsureTabSectionHeader(tab, "Kontroller",
+            EnsureTabSectionHeader(tab, "KONTROLLER",
                 "Dokunma butonlarını, kaydırma hassasiyetini ve titreşimi ayarlayın.", font, report);
 
             RectTransform sensitivityGroup = EnsureSettingsGroupPanel(tab, "SensitivityGroup", report);
@@ -3171,7 +3259,7 @@ namespace RoyalDecisions.Editor
         {
             RectTransform tab = EnsureUiChild(scrollContent, "GeneralTab", report);
             ConfigureTabLayout(tab, report);
-            EnsureTabSectionHeader(tab, "Genel",
+            EnsureTabSectionHeader(tab, "GENEL",
                 "Erişilebilirlik seçenekleri ve ilerleme yönetimi.", font, report);
 
             Toggle reduced = EnsureToggleControl(tab, "ReducedMotion", "Azaltılmış Hareket",
@@ -3335,7 +3423,8 @@ namespace RoyalDecisions.Editor
             float labelEndAnchor = 0.36f,
             float trackStartAnchor = 0.40f,
             float trackEndAnchor = 0.78f,
-            float valueLabelStartAnchor = 0.80f)
+            float valueLabelStartAnchor = 0.80f,
+            AudioIconKind? icon = null)
         {
             RectTransform root = EnsureUiChild(parent, name, report);
             SetRect(root, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero,
@@ -3392,8 +3481,30 @@ namespace RoyalDecisions.Editor
             SetSiblingIndex(track, 0);
             SetSiblingIndex(fillArea, 1);
             SetSiblingIndex(handleArea, 2);
+            // A themed leading icon (speaker / note / effect) on the volume rows, per the UI spec.
+            // Rows without one keep the original full-width label split untouched, so the Graphics
+            // and Controls sliders are unaffected.
+            float labelStartAnchor = icon.HasValue ? 0.17f : 0.05f;
+            if (icon.HasValue)
+            {
+                RectTransform iconTransform = EnsureUiChild(root, "Icon", report);
+                SetRect(iconTransform, new Vector2(0.04f, 0.26f), new Vector2(0.145f, 0.74f),
+                    Vector2.zero, Vector2.zero, Center);
+                // See EnsureGrainOverlay: Graphic.OnEnable() runs inside AddComponent and throws
+                // MissingComponentException in a batch run if the CanvasRenderer is not there yet.
+                EnsureSingleComponent<CanvasRenderer>(iconTransform.gameObject, report);
+                ProceduralAudioIconGraphic iconGraphic =
+                    EnsureSingleComponent<ProceduralAudioIconGraphic>(iconTransform.gameObject, report);
+                if (iconGraphic != null)
+                {
+                    Undo.RecordObject(iconGraphic, "Configure slider icon");
+                    iconGraphic.SetKind(icon.Value);
+                    iconGraphic.color = SettingsPanelTheme.BorderGoldColour;
+                }
+            }
+
             RectTransform labelTransform = EnsureUiChild(root, "Label", report);
-            SetRect(labelTransform, new Vector2(0.05f, 0f), new Vector2(labelEndAnchor, 1f),
+            SetRect(labelTransform, new Vector2(labelStartAnchor, 0f), new Vector2(labelEndAnchor, 1f),
                 Vector2.zero, Vector2.zero, Center);
             TextMeshProUGUI label = EnsureSingleComponent<TextMeshProUGUI>(
                 labelTransform.gameObject, report);
@@ -3421,9 +3532,19 @@ namespace RoyalDecisions.Editor
             }
             SetTextColour(valueText, MenuTitleTextColour);
             valueLabel = valueText;
-            // Sweeps the now-removed diamond icon (and any other stale leftovers) — this row never
-            // had an allowlist before, so an old pass's orphan would otherwise persist forever.
-            RemoveUnexpectedChildren(root, report, "Track", "FillArea", "HandleArea", "Label", "ValueLabel");
+            // Sweeps stale leftovers — this row never had an allowlist before, so an old pass's
+            // orphan would otherwise persist forever. "Icon" is allowlisted only on rows that
+            // actually asked for one, so a row that loses its icon has it swept rather than orphaned.
+            if (icon.HasValue)
+            {
+                RemoveUnexpectedChildren(root, report,
+                    "Track", "FillArea", "HandleArea", "Icon", "Label", "ValueLabel");
+            }
+            else
+            {
+                RemoveUnexpectedChildren(root, report,
+                    "Track", "FillArea", "HandleArea", "Label", "ValueLabel");
+            }
 
             if (slider != null)
             {
@@ -3461,7 +3582,7 @@ namespace RoyalDecisions.Editor
             // matching the reference's individually-framed Sessiz Mod/Titreşim rows — rather than
             // the plain transparent row every slider/action row uses. ConfigureRoundedFill drops
             // the plain raycast-only Image an earlier pass left here.
-            ConfigureRoundedFill(root.gameObject, SettingsPanelTheme.InactiveTabColour, 28f, true,
+            ConfigureRoundedFill(root.gameObject, SettingsPanelTheme.PanelSurfaceColour, 28f, true,
                 report);
             Outline cardOutline = EnsureSingleComponent<Outline>(root.gameObject, report);
             if (cardOutline != null)
@@ -3642,8 +3763,6 @@ namespace RoyalDecisions.Editor
             GameObject transitionOverlayObject = RequirePath(
                 scene, "/UICanvas/TransitionOverlay", report);
             GameObject hudObject = RequirePath(scene, "/UICanvas/SafeArea/HUD", report);
-            GameObject contentPanelObject = RequirePath(
-                scene, "/UICanvas/SafeArea/ContentPanel", report);
             GameObject cardArea = RequirePath(scene, "/UICanvas/SafeArea/CardArea", report);
             GameObject cardObject = RequirePath(scene, "/UICanvas/SafeArea/CardArea/Card", report);
             GameObject panel = RequirePath(scene, "/UICanvas/SafeArea/GameOverPanel", report);
@@ -3888,9 +4007,6 @@ namespace RoyalDecisions.Editor
             CardSwipeController swipe = cardObject != null
                 ? RequireSingleComponent<CardSwipeController>(cardObject, scene.path, report)
                 : null;
-            CardFlipController flip = cardObject != null
-                ? RequireSingleComponent<CardFlipController>(cardObject, scene.path, report)
-                : null;
             Image cardImage = cardObject != null ? cardObject.GetComponent<Image>() : null;
             if (cardObject != null && (cardImage == null || !cardImage.raycastTarget))
             {
@@ -3903,23 +4019,23 @@ namespace RoyalDecisions.Editor
                     cardArea, scene.path, report);
                 if (sizer != null
                     && (GetObjectProperty(sizer, "widthReference")
-                            != (contentPanelObject != null ? contentPanelObject.transform : null)
-                        || !Mathf.Approximately(GetFloatProperty(sizer, "preferredWidthRatio"), 0.84f)
-                        || !Mathf.Approximately(GetFloatProperty(sizer, "maximumWidth"), 960f)
-                        || !Mathf.Approximately(GetFloatProperty(sizer, "topPadding"), 12f)))
+                            != (safeArea != null ? safeArea.transform : null)
+                        || !Mathf.Approximately(GetFloatProperty(sizer, "preferredWidthRatio"), 0.82f)
+                        || !Mathf.Approximately(GetFloatProperty(sizer, "maximumWidth"), 960f)))
                 {
                     AddInvalid(report, scene.path, "/UICanvas/SafeArea/CardArea",
-                        "Responsive card sizing reference, phone ratio, tablet cap, or top padding "
-                        + "is incorrect.");
+                        "Responsive card sizing reference, phone ratio, or tablet cap is incorrect.");
                 }
+                RequirePath(scene, "/UICanvas/SafeArea/CardArea/NextCard", report);
                 RectTransform areaRect = cardArea.transform as RectTransform;
-                if (areaRect == null || areaRect.anchoredPosition != new Vector2(0f, -210f)
-                    || areaRect.sizeDelta != new Vector2(-40f, -580f))
+                if (areaRect == null || areaRect.anchoredPosition != new Vector2(0f, -70f)
+                    || areaRect.sizeDelta != new Vector2(-40f, -300f))
                 {
                     AddInvalid(report, scene.path, "/UICanvas/SafeArea/CardArea",
                         "CardArea margins or HUD/SituationArea/footer reservations are incorrect.");
                 }
             }
+<<<<<<< Updated upstream
             // CardBack is fixed behind PortraitSwipeRoot, at the same bounds it occupies at rest;
             // PortraitSwipeRoot is the only part of the decision card that moves during a swipe.
             // CardBack itself is now the rounded Mask container; the actual Card.png Image is one
@@ -3959,30 +4075,43 @@ namespace RoyalDecisions.Editor
                 scene,
                 "/UICanvas/SafeArea/CardArea/Card/PortraitSwipeRoot/PortraitMask/Portrait",
                 report);
+=======
+            RequirePath(scene, "/UICanvas/SafeArea/CardArea/Card/PortraitRegion/PortraitMask/Portrait", report);
+>>>>>>> Stashed changes
             GameObject fallbackObject = RequirePath(scene,
-                "/UICanvas/SafeArea/CardArea/Card/PortraitSwipeRoot/PortraitMask/FallbackSilhouette",
+                "/UICanvas/SafeArea/CardArea/Card/PortraitRegion/PortraitMask/FallbackSilhouette",
                 report);
             PortraitFallbackView portraitFallback = fallbackObject != null
                 ? RequireSingleComponent<PortraitFallbackView>(fallbackObject, scene.path, report)
                 : null;
-            if (card != null && GetObjectProperty(card, "portraitFallbackView") != portraitFallback)
+            RequirePath(scene, "/UICanvas/SafeArea/CardArea/Card/Frame", report);
+            string[] borderNames = { "Top", "Right", "Bottom", "Left" };
+            Image[] borders = new Image[borderNames.Length];
+            for (int i = 0; i < borderNames.Length; i++)
             {
-                AddInvalid(report, scene.path, "/UICanvas/SafeArea/CardArea/Card",
-                    "Card portrait fallback reference is incorrect.");
+                string borderPath = "/UICanvas/SafeArea/CardArea/Card/TemporaryBorder/" + borderNames[i];
+                GameObject borderObject = RequirePath(scene, borderPath, report);
+                borders[i] = borderObject != null
+                    ? RequireSingleComponent<Image>(borderObject, scene.path, report)
+                    : null;
+                if (borders[i] != null && borders[i].raycastTarget)
+                {
+                    AddInvalid(report, scene.path, borderPath,
+                        "Temporary card border must not block raycasts.");
+                }
             }
             if (card != null
-                && (GetObjectProperty(card, "cardRoot") != portraitSwipeRootObject?.transform
-                    || GetObjectProperty(card, "cardBackImage")
-                        != (cardBackArtObject != null ? cardBackArtObject.GetComponent<Image>() : null)))
+                && (!ObjectArrayMatches(card, "temporaryBorderImages", borders)
+                    || GetObjectProperty(card, "portraitFallbackView") != portraitFallback))
             {
                 AddInvalid(report, scene.path, "/UICanvas/SafeArea/CardArea/Card",
-                    "CardView must drag PortraitSwipeRoot, not the fixed Card shell, and must be "
-                    + "wired to CardBack.");
+                    "Card fallback border or portrait fallback references are incorrect.");
             }
-            // The old picture-frame shell, its temporary-border fallback, and the sharp-outline
-            // fallback it used are retired in favour of CardBack + a masked near-square portrait.
-            if (cardObject != null)
+            Outline cardOutline = cardObject != null ? cardObject.GetComponent<Outline>() : null;
+            if (cardOutline == null
+                || cardOutline.effectDistance != new Vector2(1.25f, -1.25f))
             {
+<<<<<<< Updated upstream
                 string[] retiredChildren =
                 {
                     "Frame", "TemporaryBorder", "CornerTopLeft", "CornerTopRight",
@@ -4006,14 +4135,23 @@ namespace RoyalDecisions.Editor
                     AddInvalid(report, scene.path, "/UICanvas/SafeArea/CardArea/Card",
                         "Retired temporary card outline must not remain on Card.");
                 }
+=======
+                AddInvalid(report, scene.path, "/UICanvas/SafeArea/CardArea/Card",
+                    "Temporary card outline must use the sharp 1.25-unit fallback.");
+>>>>>>> Stashed changes
             }
             ValidateTextColour(scene, "/UICanvas/SafeArea/CardArea/Card/Speaker",
                 SpeakerTextColour, report);
             RequirePath(scene, "/UICanvas/SafeArea/CardArea/Card/NameScrim", report);
-            if (cardObject != null && FindDirectChild(cardObject.transform, "Body", report) != null)
+            RequirePath(scene, "/UICanvas/SafeArea/CardArea/Card/BodyScrim", report);
+            ValidateTextColour(scene, "/UICanvas/SafeArea/CardArea/Card/Body",
+                BodyTextColour, report);
+            GameObject situationAreaObject = RequirePath(
+                scene, "/UICanvas/SafeArea/SituationArea", report);
+            if (situationAreaObject != null && situationAreaObject.activeSelf)
             {
-                AddInvalid(report, scene.path, "/UICanvas/SafeArea/CardArea/Card/Body",
-                    "The situation text moved to SituationArea; Card/Body must not remain.");
+                AddInvalid(report, scene.path, "/UICanvas/SafeArea/SituationArea",
+                    "The situation text moved onto Card/Body; SituationArea must stay hidden.");
             }
             ValidateTextColour(scene, "/UICanvas/SafeArea/SituationArea/SituationPanel/SituationText",
                 SituationTextColour, report);
@@ -4172,8 +4310,6 @@ namespace RoyalDecisions.Editor
                 "/GameSceneController", report);
             ValidateReference(controller, "swipeController", swipe, scene.path,
                 "/GameSceneController", report);
-            ValidateReference(controller, "cardFlipController", flip, scene.path,
-                "/GameSceneController", report);
             ValidateReference(controller, "tapChoiceButtonsView", tapChoices, scene.path,
                 "/GameSceneController", report);
             ValidateReference(controller, "audioService", audio, scene.path,
@@ -4326,7 +4462,7 @@ namespace RoyalDecisions.Editor
         private static void ValidatePreview(Scene scene, ChoiceSide side, SceneSetupReport report)
         {
             string name = side == ChoiceSide.Left ? "PreviewLeft" : "PreviewRight";
-            string path = "/UICanvas/SafeArea/CardArea/Card/PortraitSwipeRoot/" + name;
+            string path = "/UICanvas/SafeArea/CardArea/Card/" + name;
             GameObject previewObject = RequirePath(scene, path, report);
             GameObject labelObject = RequirePath(scene, path + "/Label", report);
             GameObject edgeObject = RequirePath(scene, path + "/EdgeHighlight", report);
@@ -4579,12 +4715,17 @@ namespace RoyalDecisions.Editor
             const string settingsScrollContent = "SafeArea/Content/ContentViewport/ScrollContent/";
             string[] settingsPaths =
             {
+                "Grain",
+                "SafeArea/Content/Header/Frame",
                 "SafeArea/Content/Header/Title",
                 "SafeArea/Content/TabBar/AudioTabButton", "SafeArea/Content/TabBar/GraphicsTabButton",
                 "SafeArea/Content/TabBar/ControlsTabButton", "SafeArea/Content/TabBar/GeneralTabButton",
                 settingsScrollContent + "AudioTab/VolumeGroup/MasterVolume",
+                settingsScrollContent + "AudioTab/VolumeGroup/MasterVolume/Icon",
                 settingsScrollContent + "AudioTab/VolumeGroup/MusicVolume",
+                settingsScrollContent + "AudioTab/VolumeGroup/MusicVolume/Icon",
                 settingsScrollContent + "AudioTab/VolumeGroup/SfxVolume",
+                settingsScrollContent + "AudioTab/VolumeGroup/SfxVolume/Icon",
                 settingsScrollContent + "AudioTab/MasterMute",
                 settingsScrollContent + "GraphicsTab/FrameRateGroup/FrameRate",
                 settingsScrollContent + "GraphicsTab/BatterySaver",
@@ -4714,12 +4855,10 @@ namespace RoyalDecisions.Editor
                 Undo.RecordObject(camera, "Configure camera");
                 camera.orthographic = true;
                 camera.clearFlags = CameraClearFlags.SolidColor;
-                // Was previously left at Unity's implicit default (the same colour numerically —
-                // see MainMenuBackgroundColour). Naming it explicitly gives MainMenu/Settings/
-                // About a single real source instead of each guessing at a matching tone. The
-                // Game scene's own opaque Background always covers this, so it has no visible
-                // effect there.
-                camera.backgroundColor = MainMenuBackgroundColour;
+                // The one real source of the menu ground for MainMenu/Settings/About, rather than
+                // each guessing at a matching tone. The Game scene's own opaque Background always
+                // covers this, so it has no visible effect there.
+                camera.backgroundColor = SettingsPanelTheme.ScreenBackgroundColour;
             }
             if (cameraObject != null)
             {
@@ -4955,6 +5094,114 @@ namespace RoyalDecisions.Editor
         }
 
         /// <summary>
+        /// Frames a tab pill. Kept as its own helper so the authored first paint and
+        /// <c>SettingsPanelView.TintTab</c>'s runtime swap stay described by the same two colours.
+        /// </summary>
+        private static void EnsureTabOutline(Button tab, bool active, SceneSetupReport report)
+        {
+            if (tab == null)
+            {
+                return;
+            }
+            Outline outline = EnsureSingleComponent<Outline>(tab.gameObject, report);
+            if (outline == null)
+            {
+                return;
+            }
+            Undo.RecordObject(outline, "Configure tab outline");
+            outline.effectColor = active
+                ? SettingsPanelTheme.AmberGlowColour
+                : SettingsPanelTheme.BorderGoldColour;
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            outline.useGraphicAlpha = false;
+        }
+
+        /// <summary>
+        /// The heading treatment used in place of a second typeface. The project ships exactly one
+        /// font asset (and no source .ttf to regenerate an atlas from), so the spec's "retro
+        /// serif/display" heading voice is carried by weight and letter-spacing on the existing
+        /// sans instead — which also keeps every Turkish glyph guaranteed present.
+        /// </summary>
+        private static void ConfigureDisplayText(TextMeshProUGUI text, float characterSpacing)
+        {
+            if (text == null)
+            {
+                return;
+            }
+            Undo.RecordObject(text, "Configure display text");
+            text.fontStyle = FontStyles.Bold;
+            text.characterSpacing = characterSpacing;
+        }
+
+        /// <summary>
+        /// Four mirrored bronze corner brackets stretched over <paramref name="parent"/> — the
+        /// ornamental frame the spec asks for around the Settings title.
+        /// </summary>
+        private static void EnsureCornerBracketFrame(
+            RectTransform parent, string name, Color colour, SceneSetupReport report)
+        {
+            RectTransform frame = EnsureUiChild(parent, name, report);
+            Stretch(frame);
+            EnsureCornerBracket(frame, "TopLeft", new Vector3(1f, 1f, 1f), colour, report);
+            EnsureCornerBracket(frame, "TopRight", new Vector3(-1f, 1f, 1f), colour, report);
+            EnsureCornerBracket(frame, "BottomLeft", new Vector3(1f, -1f, 1f), colour, report);
+            EnsureCornerBracket(frame, "BottomRight", new Vector3(-1f, -1f, 1f), colour, report);
+            RemoveUnexpectedChildren(
+                frame, report, "TopLeft", "TopRight", "BottomLeft", "BottomRight");
+        }
+
+        /// <summary>
+        /// One corner of <see cref="EnsureCornerBracketFrame"/>. The graphic only ever draws a
+        /// top-left L; the other three corners are the same mesh mirrored via localScale.
+        /// </summary>
+        private static void EnsureCornerBracket(
+            RectTransform frame, string name, Vector3 scale, Color colour, SceneSetupReport report)
+        {
+            RectTransform corner = EnsureUiChild(frame, name, report);
+            Stretch(corner);
+            // See EnsureGrainOverlay: the CanvasRenderer must exist before the Graphic is added.
+            EnsureSingleComponent<CanvasRenderer>(corner.gameObject, report);
+            ProceduralCornerBracketGraphic bracket =
+                EnsureSingleComponent<ProceduralCornerBracketGraphic>(corner.gameObject, report);
+            if (bracket != null)
+            {
+                Undo.RecordObject(bracket, "Configure corner bracket");
+                bracket.SetStyle(colour, 0.14f, 0.045f);
+            }
+            // Stretch() resets localScale to one, so the mirror has to be applied after it.
+            if (corner.localScale != scale)
+            {
+                Undo.RecordObject(corner, "Mirror corner bracket");
+                corner.localScale = scale;
+            }
+        }
+
+        /// <summary>
+        /// Full-bleed weathering layer for a menu screen's background: a non-interactive
+        /// <see cref="ProceduralGrainGraphic"/> stretched over the parent. Texture-free by
+        /// necessity — the project ships no image assets — and deterministic, so repeated authoring
+        /// passes produce identical scene YAML.
+        /// </summary>
+        private static RectTransform EnsureGrainOverlay(
+            RectTransform parent, SceneSetupReport report)
+        {
+            RectTransform grain = EnsureUiChild(parent, "Grain", report);
+            Stretch(grain);
+            // Graphic.OnEnable() runs inside AddComponent and needs a CanvasRenderer already
+            // present, otherwise a single-shot batch (-executeMethod -quit) run throws
+            // MissingComponentException — the same guard ConfigureRoundedFill applies.
+            EnsureSingleComponent<CanvasRenderer>(grain.gameObject, report);
+            ProceduralGrainGraphic graphic =
+                EnsureSingleComponent<ProceduralGrainGraphic>(grain.gameObject, report);
+            if (graphic != null)
+            {
+                Undo.RecordObject(graphic, "Configure background grain");
+                graphic.SetStyle(SettingsPanelTheme.BorderGoldColour, 0.32f, 0.05f);
+            }
+            return grain;
+        }
+
+        /// <summary>
         /// A bordered card that visually groups a cluster of rows into one section — e.g. wrapping
         /// all three volume sliders under "Ses ve Müzik" in a single frame, matching the reference
         /// layout's grouping. Auto-sizes to whatever rows are parented into it via the same
@@ -4965,7 +5212,7 @@ namespace RoyalDecisions.Editor
             RectTransform parent, string name, SceneSetupReport report, float rowSpacing = 0f)
         {
             RectTransform group = EnsureUiChild(parent, name, report);
-            ConfigureRoundedFill(group.gameObject, SettingsPanelTheme.InactiveTabColour, 28f, false,
+            ConfigureRoundedFill(group.gameObject, SettingsPanelTheme.PanelSurfaceColour, 28f, false,
                 report);
             Outline groupOutline = EnsureSingleComponent<Outline>(group.gameObject, report);
             if (groupOutline != null)
@@ -5031,6 +5278,9 @@ namespace RoyalDecisions.Editor
             ConfigureReadableText(titleText, font, 32f, 26f, 36f, true, false, 2f);
             titleText.alignment = TextAlignmentOptions.MidlineLeft;
             titleText.text = title;
+            // Same display voice as the panel title, one step down: section titles stay cream so
+            // the gold "AYARLAR" above them remains the top of the hierarchy.
+            ConfigureDisplayText(titleText, 6f);
             SetTextColour(titleText, MenuTitleTextColour);
             RemoveUnexpectedChildren(titleTransform, report, "Text");
 
@@ -5541,22 +5791,6 @@ namespace RoyalDecisions.Editor
             property.serializedObject.ApplyModifiedProperties();
         }
 
-        private static void SetAnimationCurveProperty(
-            Object target,
-            string propertyName,
-            AnimationCurve curve,
-            SceneSetupReport report)
-        {
-            SerializedProperty property = FindProperty(target, propertyName, report);
-            if (property == null)
-            {
-                return;
-            }
-            Undo.RecordObject(target, "Set " + propertyName);
-            property.animationCurveValue = curve;
-            property.serializedObject.ApplyModifiedProperties();
-        }
-
         private static void SetBoolProperty(
             Object target,
             string propertyName,
@@ -5714,6 +5948,30 @@ namespace RoyalDecisions.Editor
             return property != null && property.boolValue;
         }
 
+        private static bool ObjectArrayMatches<T>(
+            Object target,
+            string propertyName,
+            T[] expected) where T : Object
+        {
+            if (target == null)
+            {
+                return false;
+            }
+            SerializedProperty property = new SerializedObject(target).FindProperty(propertyName);
+            if (property == null || !property.isArray || property.arraySize != expected.Length)
+            {
+                return false;
+            }
+            for (int i = 0; i < expected.Length; i++)
+            {
+                if (property.GetArrayElementAtIndex(i).objectReferenceValue != expected[i])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         private static string GetStringProperty(Object target, string propertyName)
         {
             if (target == null)
@@ -5820,8 +6078,6 @@ namespace RoyalDecisions.Editor
             // Ornate/detailed hero art keeps full resolution up to 4096; small HUD icons are
             // capped lower since nothing renders them larger than a few dozen reference units.
             ConfigureArtTexture(BackgroundArtPath, 4096, report);
-            ConfigureArtTexture(Background2ArtPath, 4096, report);
-            ConfigureArtTexture(CardBackArtPath, 4096, report);
             ConfigureArtTexture(CardFrameArtPath, 4096, report);
             ConfigureArtTexture(SituationPanelArtPath, 4096, report);
             ConfigureArtTexture(LeftBannerArtPath, 4096, report);
@@ -5895,27 +6151,20 @@ namespace RoyalDecisions.Editor
                 return;
             }
 
-            // Final mobile Reigns-style presentation: no illustrated background behind the flat
-            // dark HUD / aged-beige ContentPanel composition — Card.png is the only supplied art
-            // still wired in, as the fixed card-back revealed behind the swipeable portrait. The
-            // old frame/parchment/swipe-banner art (KartÇerçevesi, Parşömen, sol/SağSwipeBanner)
-            // and both background paintings (Background, Background2) are left imported but
-            // deliberately not wired here — backgroundSprite stays null so BackgroundView falls
-            // back to its flat OverallBackgroundColour, which is itself only ever visible behind
-            // TopBar/HUD/ContentPanel's own opaque surfaces, i.e. never on screen. Source files
-            // are not deleted; only unused.
-            SetObjectProperty(theme, "backgroundSprite", null, report);
-            SetObjectProperty(theme, "cardBackSprite", LoadArtSprite(CardBackArtPath, report), report);
-            SetObjectProperty(theme, "cardFrameSprite", null, report);
-            SetObjectProperty(theme, "situationPanelSprite", null, report);
-            SetObjectProperty(theme, "leftEdgeSprite", null, report);
-            SetObjectProperty(theme, "rightEdgeSprite", null, report);
+            Sprite cardFrame = LoadArtSprite(CardFrameArtPath, report);
+            SetObjectProperty(theme, "backgroundSprite", LoadArtSprite(BackgroundArtPath, report), report);
+            SetObjectProperty(theme, "cardFrameSprite", cardFrame, report);
+            // The queued next-card peek shares the same frame shell; CardView dims it at runtime
+            // so it still reads as behind/less prominent than the active card.
+            SetObjectProperty(theme, "nextCardFrameSprite", cardFrame, report);
+            SetObjectProperty(
+                theme, "situationPanelSprite", LoadArtSprite(SituationPanelArtPath, report), report);
             SetObjectProperty(theme, "peopleIcon", LoadArtSprite(PeopleIconArtPath, report), report);
             SetObjectProperty(theme, "securityIcon", LoadArtSprite(SecurityIconArtPath, report), report);
             SetObjectProperty(theme, "authorityIcon", LoadArtSprite(AuthorityIconArtPath, report), report);
             SetObjectProperty(theme, "wealthIcon", LoadArtSprite(WealthIconArtPath, report), report);
-            SetColorProperty(theme, "leftChoice", ChoicePreviewLeftTint, report);
-            SetColorProperty(theme, "rightChoice", ChoicePreviewRightTint, report);
+            SetObjectProperty(theme, "leftEdgeSprite", LoadArtSprite(LeftBannerArtPath, report), report);
+            SetObjectProperty(theme, "rightEdgeSprite", LoadArtSprite(RightBannerArtPath, report), report);
         }
 
         /// <summary>
@@ -6438,18 +6687,15 @@ namespace RoyalDecisions.Editor
 
         private readonly struct CardParts
         {
-            public CardParts(
-                RectTransform area, CardView view, CardSwipeController swipe, CardFlipController flip)
+            public CardParts(RectTransform area, CardView view, CardSwipeController swipe)
             {
                 Area = area;
                 View = view;
                 Swipe = swipe;
-                Flip = flip;
             }
             public RectTransform Area { get; }
             public CardView View { get; }
             public CardSwipeController Swipe { get; }
-            public CardFlipController Flip { get; }
         }
 
         private readonly struct TapChoiceButtonsParts
